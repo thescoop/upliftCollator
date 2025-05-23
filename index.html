@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Woodruff Billing - Uplift Justification Collator</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- jsPDF for PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <!-- ────────── WELCOME SCREEN ────────── -->
+    <div id="welcomeScreen" class="welcome-screen">
+        <div class="welcome-content">
+            <img src="your-logo-transparent.png" alt="Woodruff Billing Logo" class="welcome-logo">
+            <h1 class="welcome-title">Woodruff Billing</h1>
+            <p class="welcome-subtitle">Uplift Justification Collator</p>
+            <div class="password-entry">
+                <input type="password" id="passwordInput" placeholder="Enter Password" class="form-control">
+                <button id="passwordSubmitButton" class="btn btn-primary-wb">Enter</button>
+            </div>
+            <p id="passwordError" class="password-error-message" style="display:none;">Incorrect password. Please try again.</p>
+        </div>
+    </div>
+
+    <!-- ────────── MAIN APP CONTAINER (Initially hidden) ────────── -->
+    <div id="appContainer" style="display:none;">
+        <!-- ────────── HEADER ────────── -->
+        <div class="wb-header">
+            <div class="wb-header-inner-constrained">
+                <div class="wb-header-logo-title">
+                    <img src="your-logo-transparent.png" alt="Woodruff Billing Logo" class="wb-logo">
+                    <div class="wb-titles">
+                        <span class="wb-main-title">Woodruff Billing</span>
+                        <span class="wb-sub-title">Uplift Justification Collator</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="wb-accent-bar"></div>
+
+        <!-- ────────── MAIN CONTAINER ────────── -->
+        <div class="wb-main-container">
+            <!-- ─── LEFT COLUMN ─── -->
+            <div class="wb-left-column">
+                <h2 class="wb-form-title" id="currentPageTitleH2">Uplift Justification Collator</h2>
+
+                <!-- PAGE 1 – Case Details & Panel -->
+                <div id="page1" class="page active-page">
+
+                    <div class="privacy-disclaimer-box">
+                        <h4>Claiming Enhancements</h4>
+                        <p>Please remember that LAA enhancements are intended for work that are <u>genuinely exceptional</u> in nature.</p>
+                        <ul>
+                            <li>They are not expected on every case, nor should they be claimed routinely.</li>
+                            <li>LAA claim success relies on robust, detailed explanations for each selected factor.</li>
+                        </ul>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Case Details</h3>
+                        <div class="case-details-form-grid">
+                            <div class="form-group">
+                                <label for="feeEarnerName">Fee Earner:</label>
+                                <input type="text" id="feeEarnerName" class="form-control needs-input-highlight"
+                                       placeholder="e.g., Chloe Justice"
+                                       oninput="updateSuggestedPercentage(); validateField(this,'text');">
+                            </div>
+                            <div class="form-group">
+                                <label for="caseMatterName">Case / Matter:</label>
+                                <input type="text" id="caseMatterName" class="form-control needs-input-highlight"
+                                       placeholder="e.g., Smith 29964"
+                                       oninput="validateField(this,'text');">
+                            </div>
+                            <div class="form-group">
+                                <label for="matterType">Matter Type:</label>
+                                <select id="matterType" class="form-control needs-input-highlight"
+                                        onchange="validateField(this,'select');">
+                                    <option value="">Select Case Type…</option>
+                                    <option value="Care & Supervision">Care & Supervision</option>
+                                    <option value="Care & Supervision - High Court">Care & Supervision – High Court</option>
+                                    <option value="Other Public Law">Other Public Law</option>
+                                    <option value="Private Law Family">Private Law Family</option>
+                                    <option value="Private Law Finance">Private Law Finance</option>
+                                    <option value="Domestic Abuse">Domestic Abuse</option>
+                                    <option value="Adoption / Placement (Post 01/10/07)">Adoption / Placement (Post 01/10/07)</option>
+                                    <option value="Other Public Law - High Court">Other Public Law – High Court</option>
+                                </select>
+                                <a href="#" class="contextual-help-link" data-helpkey="matterTypeHelp">Help about: Matter Type</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="panelMembershipContainer" class="form-section">
+                        <!-- Panel membership questions injected by JS -->
+                    </div>
+
+                </div>
+
+                <!-- PAGE 2 – Stage 1 -->
+                <div id="page2" class="page" style="display:none;">
+
+                <div id="preStageIntroText" class="intro-guidance-text">
+                    <!-- JS injects the "LAA Enhancement Process Overview" content here -->
+                    </div>
+
+                    <h2 class="page-section-title">Stage 1: LAA Threshold Test</h2>
+
+                    <div id="stage1Container">
+                        <!-- Stage 1 questions injected by JS -->
+                    </div>
+                    <div id="stage1Feedback" class="stage-feedback" style="display:none;">
+                        Threshold Test Met! You may now proceed to detail the level of enhancement factors.
+                    </div>
+                </div>
+
+                <!-- PAGE 3 – Stage 2 -->
+                <div id="page3" class="page" style="display:none;">
+                    <div id="stage2IntroNote" class="page-instruction">
+                        <!-- JS will inject content here -->
+                    </div>
+                    <div id="stage2Container">
+                        <!-- Stage 2 questions injected by JS -->
+                    </div>
+
+                </div>
+
+                <!-- PAGE 4 – Statement Review -->
+                <div id="page4Review" class="page" style="display:none;">
+                     <p class="page-instruction">
+                        Please carefully review all the information you have entered below. Ensure your explanations are clear, concise, and directly support the LAA criteria for enhancement. Strong, specific justifications are crucial for a successful uplift claim.
+                        <a href="#" class="contextual-help-link" data-helpkey="persuasiveArgumentsHelp" style="display: block; margin-top: 8px;">Help about: Crafting persuasive arguments</a>
+                    </p>
+                    <div id="reviewSummary" class="review-summary-area">
+                        <!-- Summary content injected by JS -->
+                    </div>
+                </div>
+
+                <!-- PAGE 5 – Finalise & Download -->
+                <div id="page5Finalise" class="page" style="display:none;">
+                    <div class="form-group final-uplift-group">
+                        <label for="finalProposedUpliftPercent">Proposed Uplift %:</label>
+                        <div class="input-with-guidance">
+                            <input type="number" id="finalProposedUpliftPercent"
+                                   class="form-control uplift-input needs-input-highlight"
+                                   placeholder="e.g., 25" min="0" max="100" step="1"
+                                   oninput="validateField(this,'number'); checkAllPlaceholdersAndExplanationsGlobally();">
+                            <span id="finalSuggestedPercentageDisplay" class="suggested-percentage">Suggested: 0%</span>
+                        </div>
+                        <small class="form-text-muted-newline">
+                            Max 50% generally, or 100% for HC/UT/CoA/SC.
+                            <a href="#" id="finalUpliftHelpLink">Help about: Proposed Uplift</a>
+                        </small>
+                    </div>
+
+                    <div class="page-instruction">
+                        <h4>Next Steps & PDF Summary</h4>
+                        <p>
+                            Once you are satisfied with your input, please generate the PDF summary and save it alongside your case files.
+                        </p>
+                        <p>
+                            <strong>Important Notes:</strong>
+                        </p>
+                        <ul>
+                            <li>Your "Proposed Uplift %" is a valuable indication for us. However, please remember that the Legal Aid Agency (LAA) makes the final determination as to the quantum of any enhancement that may be awarded.</li>
+                            <li>The PDF you submit will be carefully reviewed by Woodruff Billing. We will then use this information to construct a comprehensive and persuasive narrative designed to best support your claim for an uplift.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- NAV BUTTONS -->
+                <div class="form-navigation-buttons">
+                    <button id="backButton" class="btn btn-secondary-wb" style="display:none;">Back</button>
+                    <button id="nextButton" class="btn btn-primary-wb">Continue</button>
+                    <button id="generatePdfSummaryButton" class="btn btn-danger-wb"
+                            style="display:none;" disabled
+                            title="Complete all required fields and explanations to enable download.">
+                        Download PDF Summary
+                    </button>
+                </div>
+            </div>
+
+            <!-- ─── RIGHT COLUMN ─── -->
+            <div class="wb-right-column">
+                <h3 class="right-column-title">Filing of Evidence</h3>
+                <ul class="evidence-navigation">
+                    <li id="navStep1" class="nav-step active"><span>1.</span> Case Details & Panel</li>
+                    <li id="navStep2" class="nav-step"><span>2.</span> Stage 1 Thresholds</li>
+                    <li id="navStep3" class="nav-step"><span>3.</span> Stage 2 Level Factors</li>
+                    <li id="navStep4" class="nav-step"><span>4.</span> Statement Review</li>
+                    <li id="navStep5" class="nav-step"><span>5.</span> Finalise & Download</li>
+                </ul>
+
+                <div class="right-column-tools">
+                    <div class="right-column-links">
+                        <a href="#" id="viewLaaGuideLinkRightCol" class="right-column-link">View LAA Guide (pdf)</a>
+                        <a href="#" id="clearAllEntriesLinkRightCol" class="right-column-link">Clear All Page Entries</a>
+                    </div>
+                    <button id="mainHelpButtonLarge" class="btn-help-large">
+                        <img src="greenHelpButton.png" alt="HELP">
+                    </button>
+                </div>
+                <p id="laa-guide-version-info-sidebar" class="version-info-sidebar">
+                    <!-- Version info injected by JS or set here -->
+                </p>
+            </div>
+        </div>
+
+        <!-- ────────── FOOTER ────────── -->
+        <div class="wb-footer">
+            <div class="wb-footer-inner-constrained">
+                <p class="footer-left">
+                    This form is for the use of Woodruff Billing clients only. 
+                    Please refer to our <a href="#" id="termsLink">terms & conditions</a>.
+                </p>
+                <p class="footer-right">
+                    © <span id="currentYearFooter"></span> Woodruff Billing Ltd
+                </p>
+            </div>
+        </div>
+
+        <!-- ────────── MODALS (content injected by JS) ────────── -->
+        <div id="helpModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" id="closeHelpModal">×</span>
+                <div id="markdownMissingMsgMain" class="markdown-missing-msg" style="display:none;"></div>
+                <div id="helpContent" class="markdown-render-area"></div>
+            </div>
+        </div>
+
+        <div id="upliftGuidanceModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" id="closeUpliftGuidanceModal">×</span>
+                <div id="markdownMissingMsgUplift" class="markdown-missing-msg" style="display:none;"></div>
+                <div id="upliftGuidanceContent" class="markdown-render-area"></div>
+            </div>
+        </div>
+
+        <div id="contextualHelpModal" class="modal">
+            <div class="modal-content small-modal">
+                <span class="close-button" id="closeContextualHelpModal">×</span>
+                <h4 id="contextualHelpTitle"></h4>
+                <div id="contextualHelpContent" class="markdown-render-area"></div>
+            </div>
+        </div>
+
+        <!-- Terms & Conditions Modal -->
+        <div id="termsModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" id="closeTermsModal">×</span>
+                <h4 id="termsModalTitle" style="color: #0056b3;">Terms & Conditions</h4>
+                <div id="termsModalContent" class="markdown-render-area"></div>
+            </div>
+        </div>
+
+        <div style="display:none;">
+            <span id="laa-guide-version-info"></span>
+        </div>
+    </div> <!-- End of #appContainer -->
+
+    <script src="content-data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
