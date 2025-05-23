@@ -102,12 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function checkCriticalData() {
-        // Check for existence of LOGO_BASE64 for PDF generation if it's used there.
-        // For this welcome screen, we primarily need ACCEPTABLE_PASSWORDS_NORMALIZED.
         const isLogoBase64Defined = typeof LOGO_BASE64 !== 'undefined';
         if (!isLogoBase64Defined) {
             console.warn("LOGO_BASE64 is not defined in content-data.js. PDF logo might be affected.");
-            // You might decide to not make this a fatal error if PDF logo is optional.
         }
 
         if (
@@ -119,15 +116,14 @@ document.addEventListener('DOMContentLoaded', () => {
             typeof ACCEPTABLE_PASSWORDS_NORMALIZED === 'undefined'
         ) {
             const errorMsg = "CRITICAL ERROR: content-data.js is missing or essential data structures are not defined. Ensure content-data.js is loaded BEFORE script.js and contains all necessary data (LAA_GUIDE_URL, NARRATIVE_TEMPLATES, QUESTION_BLOCKS, MAIN_HELP_TEXT_MARKDOWN, UPLIFT_PERCENTAGE_GUIDANCE_TEXT, LAA_GUIDE_VERSION_INFO_CONST, LAA_PUBLICATIONS_PAGE_URL, CONTEXTUAL_HELP_TEXTS, TERMS_AND_CONDITIONS_MARKDOWN, ACCEPTABLE_PASSWORDS_NORMALIZED).";
-            // Attempt to display the error message somewhere visible
-            if (document.body) { // Check if body exists
+            if (document.body) {
                 const errorDisplayArea = document.getElementById('appContainer') || document.getElementById('welcomeScreen') || document.body;
                  if(errorDisplayArea) errorDisplayArea.innerHTML = `<p style='color:red; text-align:center; font-size:1.2em; padding:20px;'>${errorMsg}</p>`;
             }
             console.error(errorMsg);
-            return false; // Indicate failure
+            return false;
         }
-        return true; // Indicate success
+        return true;
     }
 
     function handlePasswordSubmit() {
@@ -141,21 +137,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (ACCEPTABLE_PASSWORDS_NORMALIZED.includes(normalizedPassword)) {
             welcomeScreen.style.display = 'none';
-            appContainer.style.display = 'block'; // Or 'flex' if your main container uses flex
+            appContainer.style.display = 'block';
             passwordError.style.display = 'none';
-            initializeMainAppDomElements(); // Initialize main app DOM elements now
-            initializeApp(); // Initialize the main application logic
+            initializeMainAppDomElements();
+            initializeApp();
         } else {
             passwordError.style.display = 'block';
-            passwordInput.value = ''; // Clear the input
+            passwordInput.value = '';
             passwordInput.focus();
         }
     }
 
     // --- Initial setup ---
     if (!checkCriticalData()) {
-        // If critical data check fails, stop further execution.
-        // The error message should already be displayed by checkCriticalData.
         return;
     }
 
@@ -165,75 +159,95 @@ document.addEventListener('DOMContentLoaded', () => {
     if (passwordInput) {
         passwordInput.addEventListener('keypress', function(event) {
             if (event.key === "Enter") {
-                event.preventDefault(); // Prevent default form submission behavior
+                event.preventDefault();
                 handlePasswordSubmit();
             }
         });
-        // Set focus to password input on load, only if welcome screen is visible
         if (welcomeScreen && welcomeScreen.style.display !== 'none') {
             passwordInput.focus();
         }
     }
 
-
     // ----- MAIN APPLICATION LOGIC (to be called after password success) -----
     _updateSuggestedPercentage = function() {
-        if (!feeEarnerNameEl) return; // Check if main app elements are initialized
-        let percentage = 0;
-        let panelAppliedThisTime = false;
+        if (!feeEarnerNameEl) return; // Ensure main app elements are initialized
+
+        let panelUplift = 0;
+        let generalFactorsUplift = 0;
+
+        // 1. Calculate Panel Uplift
         const panelBlock = QUESTION_BLOCKS.find(b => b.id === 'panel');
         const panelKeys = panelBlock ? panelBlock.checkboxes.map(cb => cb.key) : [];
+        let isPanelMember = false;
 
-        if (feeEarnerNameEl && feeEarnerNameEl.value.trim() !== "") {
+        if (feeEarnerNameEl.value.trim() !== "") { // Check if fee earner name is provided
             for (const key of panelKeys) {
                 if (formElements[key] && formElements[key].checkbox.checked) {
-                    percentage = 15; panelAppliedThisTime = true; break;
+                    isPanelMember = true;
+                    break;
                 }
             }
         }
-        let factorsCount = 0;
-        QUESTION_BLOCKS.forEach(block => {
-            const mainToggleIsActive = block.main_toggle_id ? (formElements[block.main_toggle_id] && formElements[block.main_toggle_id].checkbox.checked) : true;
+        if (isPanelMember) {
+            panelUplift = 15;
+        }
 
-            let blockIsRelevantForCounting = false;
-            if (block.page === 1 && block.id === 'panel') {
-                 blockIsRelevantForCounting = true;
-            } else if (block.page === 2 && mainToggleIsActive) {
-                 blockIsRelevantForCounting = true;
-            } else if (block.page === 3 && mainToggleIsActive && isAnyStage1ThresholdTrulyMet()) {
-                 blockIsRelevantForCounting = true;
-            } else if (block.page === 3 && !block.main_toggle_id && isAnyStage1ThresholdTrulyMet()){ // Stage 2 blocks without main toggle
-                 blockIsRelevantForCounting = true;
+        // 2. Calculate General Factors Uplift
+        let generalFactorsCount = 0;
+        QUESTION_BLOCKS.forEach(block => {
+            // Skip the panel block itself for general factor counting.
+            // Panel membership contribution is handled by panelUplift.
+            if (block.id === 'panel') {
+                return; // Skips to the next block in QUESTION_BLOCKS
             }
 
+            const mainToggleIsActive = block.main_toggle_id ? (formElements[block.main_toggle_id] && formElements[block.main_toggle_id].checkbox.checked) : true;
 
-            if (blockIsRelevantForCounting) {
-                 block.checkboxes.forEach(chkData => {
-                    if (panelKeys.includes(chkData.key) && panelAppliedThisTime && block.id ==='panel') return;
+            let blockIsEffectivelyVisibleForGeneralCounting = false;
+            if (block.page === 2 && mainToggleIsActive) { // Stage 1 factors
+                blockIsEffectivelyVisibleForGeneralCounting = true;
+            } else if (block.page === 3) { // Stage 2 factors
+                if (isAnyStage1ThresholdTrulyMet()) { // Only count Stage 2 if Stage 1 threshold is met
+                    if (mainToggleIsActive) { // If it has a main toggle (some Stage 2 blocks might not)
+                         blockIsEffectivelyVisibleForGeneralCounting = true;
+                    } else if (!block.main_toggle_id) { // If it's a direct Stage 2 factor block without a toggle
+                         blockIsEffectivelyVisibleForGeneralCounting = true;
+                    }
+                }
+            }
+            // Note: Page 1 general factors (if any, besides panel) are not explicitly handled here
+            // as current QUESTION_BLOCKS only has 'panel' on page 1.
+
+            if (blockIsEffectivelyVisibleForGeneralCounting) {
+                block.checkboxes.forEach(chkData => {
                     if (formElements[chkData.key] && formElements[chkData.key].checkbox.checked) {
                         if (chkData.explanation && formElements[chkData.key].explanationInput) {
-                            if (formElements[chkData.key].explanationInput.value.trim().split(/\s+/).filter(Boolean).length >= MIN_EXPLANATION_WORDS) factorsCount++;
+                            if (formElements[chkData.key].explanationInput.value.trim().split(/\s+/).filter(Boolean).length >= MIN_EXPLANATION_WORDS) {
+                                generalFactorsCount++;
+                            }
                         } else if (!chkData.explanation) { // Count items that don't require explanation if checked
-                            factorsCount++;
+                            generalFactorsCount++;
                         }
                     }
                 });
             }
         });
 
-        if (factorsCount > 0) {
-            if (panelAppliedThisTime) {
-                 percentage += (factorsCount * 5);
-            } else {
-                percentage = factorsCount * 5;
-            }
+        generalFactorsUplift = generalFactorsCount * 5;
+
+        // 3. Determine final suggested percentage
+        let suggestedPercentage = Math.max(panelUplift, generalFactorsUplift);
+
+        // 4. Apply overall cap (illustrative general cap for most cases)
+        if (suggestedPercentage > 50) {
+            suggestedPercentage = 50;
         }
 
-        if (panelAppliedThisTime && percentage < 15) percentage = 15;
-        if (percentage > 50) percentage = 50;
-
-        if (finalSuggestedPercentageDisplayEl) finalSuggestedPercentageDisplayEl.textContent = `Suggested: ${percentage}%`;
+        if (finalSuggestedPercentageDisplayEl) {
+            finalSuggestedPercentageDisplayEl.textContent = `Suggested: ${suggestedPercentage}%`;
+        }
     };
+
 
     _validateField = function(fieldElement, type = 'text') {
         if (!fieldElement) return;
@@ -779,8 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const defaultFontColor = [0,0,0]; // Black
 
                 // --- PDF Header ---
-                // Assuming LOGO_BASE64 is defined in content-data.js for PDF use
-                if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64) { // Check if LOGO_BASE64 is defined
+                if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64) {
                     const logoWidth = 50; const logoHeight = 50; const logoX = margin; const logoY = currentY;
                     try { pdf.addImage(LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight); }
                     catch (imgError) { console.error("Error adding logo to PDF:", imgError); }
@@ -788,10 +801,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     pdf.text("Woodruff Billing Ltd.", logoX + logoWidth + 10, logoY + (logoHeight / 2) + (pdf.getFontSize() / 3) );
                     currentY += logoHeight + 25;
                 } else {
-                    // Fallback if LOGO_BASE64 is not available
                     pdf.setFontSize(16); pdf.setFont("helvetica", "bold"); pdf.setTextColor(0, 86, 179);
                     pdf.text("Woodruff Billing Ltd.", margin, currentY + (pdf.getFontSize() / 2));
-                    currentY += 25 + pdf.getFontSize(); // Adjust Y position
+                    currentY += 25 + pdf.getFontSize();
                 }
 
 
@@ -813,7 +825,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (currentY + (textLines.length * textBlockLineHeight) > pageHeight - margin) {
                         pdf.addPage();
                         currentY = margin;
-                        if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64) { // Check again for new page
+                        if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64) {
                             const logoWidth = 50; const logoHeight = 50; const logoX = margin; const logoY = currentY;
                             try { pdf.addImage(LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight); } catch (e) { console.error(e); }
 
@@ -841,7 +853,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // --- Content Helper Functions (Explicitly passing options) ---
                 function addSectionTitle(title) { addTextToPdf(title, { bold: true, size: 14, spaceAfter: globalLineHeight * 0.8, color: defaultFontColor }); }
                 function addSubTitle(title) {
-                    currentY += globalLineHeight * 0.75; // Add space BEFORE subtitle
+                    currentY += globalLineHeight * 0.75;
                     addTextToPdf(title, { bold: true, size: 11, spaceAfter: globalLineHeight * 0.4, color: defaultFontColor });
                 }
                 function addDetail(label, value) { addTextToPdf(`${label}: ${value || "N/A"}`, {size: defaultFontSize, lineHeight: 10, spaceAfter: globalLineHeight*0.2, color: defaultFontColor}); }
@@ -849,7 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 function addCriterion(criterionLabel, explanation, categoryTitle = "") {
                     let fullLabel = "- " + criterionLabel;
                     if (categoryTitle) fullLabel += ` (${categoryTitle})`;
-                    currentY += globalLineHeight * 0.25; // Add a little space before each criterion line
+                    currentY += globalLineHeight * 0.25;
                     addTextToPdf(fullLabel, { bold: true, size: defaultFontSize, lineHeight: 10, spaceAfter: explanation ? 2 : 8, color: defaultFontColor });
 
                     if (explanation) {
@@ -919,7 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (currentY + disclaimerLineHeight > pageHeight - margin) {
                         pdf.addPage();
                         currentY = margin;
-                         if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64) { // Check again for new page
+                         if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64) {
                             const logoWidth = 50; const logoHeight = 50; const logoX = margin; const logoY = currentY;
                             try { pdf.addImage(LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight); } catch (e) { console.error(e); }
                             pdf.setFontSize(16); pdf.setFont("helvetica", "bold"); pdf.setTextColor(0, 86, 179);
