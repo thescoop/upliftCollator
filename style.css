@@ -544,6 +544,15 @@ textarea.explanation-input.needs-attention { border: 2px solid orange !important
     margin-bottom: 15px;
 }
 
+/* ADDED/MODIFIED STYLES FOR PRIVACY NOTE */
+.welcome-privacy-note {
+    font-size: 0.8em; /* Smaller font */
+    color: #555;      /* Slightly muted color */
+    margin-top: 10px; /* Space above this note */
+    margin-bottom: 15px; /* Space below, before the error message */
+    line-height: 1.3;
+}
+
 .password-entry input[type="password"] {
     flex-grow: 1;
     /* Uses .form-control styles already defined */
