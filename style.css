@@ -1,3 +1,7 @@
+html {
+    scroll-behavior: smooth;
+}
+
 /* --- Global Resets & Body --- */
 body {
     font-family: 'Aptos', Arial, sans-serif; /* Aptos preferred */
