@@ -181,16 +181,16 @@ This tool helps solicitors provide structured information for claiming an enhanc
 
 
 **Contents:**
-*   [How This Tool Works & Data Privacy](#how-this-tool-works-data-privacy)
-*   [When to Consider an Enhancement Claim](#when-to-consider-an-enhancement-claim)
-*   [The LAA's Two-Stage Process](#the-laas-two-stage-process-for-enhancements)
-    *   [Stage 1: Threshold Test](#stage-1-threshold-test-cag-section-124)
-    *   [Stage 2: Determining the Level](#stage-2-determining-the-level-of-enhancement-cag-section-125-129)
-*   [Maximum Enhancement Percentages](#maximum-enhancement-percentages-cag-section-122)
-*   [Family Panel Membership](#family-panel-membership-cag-section-1220-1223)
-*   [How the Percentage is Applied](#how-the-percentage-is-applied-by-the-laa)
-*   [Using this Tool](#using-this-tool)
-*   [Acronyms & Key Terms](#acronyms-key-terms)
+*   How This Tool Works & Data Privacy
+*   When to Consider an Enhancement Claim
+*   The LAA's Two-Stage Process for Enhancements
+    *   Stage 1: Threshold Test
+    *   Stage 2: Determining the Level of Enhancement
+*   Maximum Enhancement Percentages
+*   Family Panel Membership
+*   How the Percentage is Applied (by the LAA)
+*   Using this Tool
+*   Acronyms & Key Terms
 
 ## How This Tool Works & Data Privacy
 This tool is a client-side web application. All data entered by the User is processed locally within the User's web browser.
