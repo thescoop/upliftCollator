@@ -140,6 +140,24 @@ document.addEventListener('DOMContentLoaded', () => {
             appContainer.style.display = 'block';
             passwordError.style.display = 'none';
             initializeMainAppDomElements();
+
+    const aboutTermsLinkInline = document.getElementById('aboutTermsLinkInline');
+    const aboutHelpLinkInline = document.getElementById('aboutHelpLinkInline');
+
+    if (aboutTermsLinkInline && termsLinkFooter) {
+        aboutTermsLinkInline.addEventListener('click', (e) => {
+            e.preventDefault();
+            termsLinkFooter.click(); // Simulate footer terms modal opening
+        });
+    }
+
+    if (aboutHelpLinkInline && mainHelpButtonLarge) {
+        aboutHelpLinkInline.addEventListener('click', (e) => {
+            e.preventDefault();
+            mainHelpButtonLarge.click(); // Simulate help modal opening
+        });
+    }
+
             initializeApp();
         } else {
             passwordError.style.display = 'block';
