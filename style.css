@@ -572,3 +572,15 @@ textarea.explanation-input.needs-attention { border: 2px solid orange !important
     font-size: 0.9em;
     margin-top: 10px;
 }
+/* --- Version Badge Styles --- */
+.version-badge {
+    display: inline-block;
+    background-color: #0056b3;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: normal;
+    margin-left: 10px;
+    vertical-align: middle;
+}

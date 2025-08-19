@@ -1,6 +1,11 @@
 // --- content-data.js ---
 // This file stores the static data for the LAA Uplift Data Capture Web Application.
 
+// Version Information
+const APP_VERSION = "1.8";
+const APP_RELEASE_DATE = "31 May 2025";
+const APP_NAME = "Uplift Collator";
+
 const LAA_GUIDE_URL = "https://assets.publishing.service.gov.uk/media/66f13cfa76558d051527abb9/Costs_Assessment_Guidance_2024_SCC_-_Version_1a-_23_September_2024.pdf";
 const LAA_GUIDE_VERSION_INFO_CONST = "Based on LAA Costs Assessment Guidance (Version 1a, 23 September 2024)";
 const LAA_PUBLICATIONS_PAGE_URL = "https://www.gov.uk/government/collections/legal-aid-guidance-for-professionals";
