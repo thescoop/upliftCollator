@@ -1,0 +1,1 @@
+- When you make v1.9, just change APP_VERSION = "1.9" in content-data.js and it updates everywhere automatically!

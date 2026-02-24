@@ -1,0 +1,9 @@
+UPLIFT COLLATOR - LAA Enhancement Justification Tool
+=====================================================
+A browser-based tool for UK family law solicitors to build and export
+professional PDF documents justifying Legal Aid Agency (LAA) enhancement
+claims (the 15% uplift). Runs entirely in the browser — no server, no
+data leaves the machine.
+
+Open the latest version's index.html in Chrome. Currently v1.6 on GitHub,
+v1.8 available locally. Password-protected for client use "West Pier".

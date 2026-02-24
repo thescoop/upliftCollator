@@ -1,0 +1,84 @@
+LAA NARRATIVE GENERATOR - QUICK START GUIDE
+============================================
+
+WHAT IT DOES
+------------
+Converts solicitor PDFs → Professional LAA narratives
+
+
+THE WORKFLOW
+------------
+1. Solicitor fills Uplift Collator form online
+2. Solicitor generates PDF and emails to you
+3. You load PDF into Narrative Generator
+4. Tool creates professional narrative
+5. You save as Word document for LAA
+
+
+QUICK STEPS
+-----------
+1. Double-click "run.bat" to start
+2. Click "Browse PDF" - select solicitor's PDF
+3. Click "Generate Narrative" (green button)
+4. Review the narrative in the window
+5. Click "Save as Word Document"
+6. Open in Word to review/edit
+
+
+WHAT YOU GET
+------------
+✓ Professional narrative with LAA references
+✓ Solicitor's exact words (no changes)
+✓ Proper formatting (Arial Nova Cond Light 12pt)
+✓ Bold headings, left-aligned text
+✓ Ready for LAA submission
+
+
+KEY FEATURES
+------------
+• Automatic LAA section references (CAG 12.8.1, etc.)
+• Preserves solicitor's explanations exactly
+• States uplift as "considered and justifiable"
+• Professional Word document output
+
+
+BUTTONS EXPLAINED
+-----------------
+Browse PDF ............. Load solicitor's PDF
+Generate Narrative ..... Create the narrative
+Copy to Clipboard ...... Quick paste to Word
+Save as Text File ...... Plain text version
+Save as Word Document .. Professional output (recommended)
+Clear .................. Reset for next PDF
+
+
+TROUBLESHOOTING
+---------------
+Problem: PDF won't load
+→ Check it's from Uplift Collator
+→ Save to desktop and try again
+
+Problem: No narrative appears
+→ Click Clear and reload
+→ Check PDF has content
+
+Problem: Buttons greyed out
+→ Load a PDF first
+→ Wait for processing to finish
+
+
+TIPS
+----
+• Process PDFs one at a time
+• Always review before saving
+• Keep original PDFs with narratives
+• Check solicitor's explanations aren't generic
+
+
+SUPPORT
+-------
+For help: Contact IT support
+Version: 0.1.1 (December 2024)
+
+
+---End of Quick Start Guide---
