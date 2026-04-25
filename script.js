@@ -578,7 +578,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function createCheckboxItem(chkData, parentContainer, blockInfo) {
         const itemContainer = document.createElement('div');
         itemContainer.className = 'checkbox-item-container';
-        const labelContainer = document.createElement('div');
+        // Use <label> (not <div>) so clicking the text toggles the checkbox.
+        const labelContainer = document.createElement('label');
         labelContainer.className = 'checkbox-label-container';
         const input = document.createElement('input');
         input.type = 'checkbox';
@@ -806,186 +807,293 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         saveCurrentPageData();
 
-        if (typeof window.jspdf !== 'undefined' && typeof window.jspdf.jsPDF === 'function') {
-            try {
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-
-                const margin = 40;
-                const pageHeight = pdf.internal.pageSize.height;
-                const textDrawingAreaWidth = pdf.internal.pageSize.width - (2 * margin) - 10;
-                let currentY = margin;
-                const globalLineHeight = 12;
-                const defaultFontSize = 10;
-                const defaultFontColor = [0,0,0]; // Black
-
-                // --- PDF Header ---
-                if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64) {
-                    const logoWidth = 50; const logoHeight = 50; const logoX = margin; const logoY = currentY;
-                    try { pdf.addImage(LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight); }
-                    catch (imgError) { console.error("Error adding logo to PDF:", imgError); }
-                    pdf.setFontSize(16); pdf.setFont("helvetica", "bold"); pdf.setTextColor(0, 86, 179);
-                    pdf.text("Woodruff Billing Ltd.", logoX + logoWidth + 10, logoY + (logoHeight / 2) + (pdf.getFontSize() / 3) );
-                    currentY += logoHeight + 25;
-                } else {
-                    pdf.setFontSize(16); pdf.setFont("helvetica", "bold"); pdf.setTextColor(0, 86, 179);
-                    pdf.text("Woodruff Billing Ltd.", margin, currentY + (pdf.getFontSize() / 2));
-                    currentY += 25 + pdf.getFontSize();
-                }
-
-
-                function addTextToPdf(text, options = {}) {
-                    if (text === null || typeof text === 'undefined') return;
-                    const textToPrint = String(text);
-
-                    const intendedFontStyle = options.bold ? "bold" : (options.italic ? "italic" : "normal");
-                    const intendedFontSize = options.size || defaultFontSize;
-                    const intendedColorArray = options.color || defaultFontColor;
-
-                    pdf.setFont("helvetica", intendedFontStyle);
-                    pdf.setFontSize(intendedFontSize);
-                    pdf.setTextColor(intendedColorArray[0], intendedColorArray[1], intendedColorArray[2]);
-
-                    const textBlockLineHeight = options.lineHeight || globalLineHeight;
-                    const textLines = pdf.splitTextToSize(textToPrint, textDrawingAreaWidth - (options.indent || 0));
-
-                    if (currentY + (textLines.length * textBlockLineHeight) > pageHeight - margin) {
-                        pdf.addPage();
-                        currentY = margin;
-                        if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64) {
-                            const logoWidth = 50; const logoHeight = 50; const logoX = margin; const logoY = currentY;
-                            try { pdf.addImage(LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight); } catch (e) { console.error(e); }
-
-                            pdf.setFontSize(16);
-                            pdf.setFont("helvetica", "bold");
-                            pdf.setTextColor(0, 86, 179);
-                            pdf.text("Woodruff Billing Ltd.", logoX + logoWidth + 10, logoY + (logoHeight / 2) + (pdf.getFontSize() / 3) );
-                            currentY += logoHeight + 25;
-                        } else {
-                             pdf.setFontSize(16); pdf.setFont("helvetica", "bold"); pdf.setTextColor(0, 86, 179);
-                             pdf.text("Woodruff Billing Ltd.", margin, currentY + (pdf.getFontSize() / 2));
-                             currentY += 25 + pdf.getFontSize();
-                        }
-                        pdf.setFont("helvetica", intendedFontStyle);
-                        pdf.setFontSize(intendedFontSize);
-                        pdf.setTextColor(intendedColorArray[0], intendedColorArray[1], intendedColorArray[2]);
-                    }
-
-                    pdf.text(textLines, margin + (options.indent || 0), currentY);
-                    currentY += textLines.length * textBlockLineHeight;
-
-                    if(options.spaceAfter) currentY += options.spaceAfter;
-                }
-
-                // --- Content Helper Functions (Explicitly passing options) ---
-                function addSectionTitle(title) { addTextToPdf(title, { bold: true, size: 14, spaceAfter: globalLineHeight * 0.8, color: defaultFontColor }); }
-                function addSubTitle(title) {
-                    currentY += globalLineHeight * 0.75;
-                    addTextToPdf(title, { bold: true, size: 11, spaceAfter: globalLineHeight * 0.4, color: defaultFontColor });
-                }
-                function addDetail(label, value) { addTextToPdf(`${label}: ${value || "N/A"}`, {size: defaultFontSize, lineHeight: 10, spaceAfter: globalLineHeight*0.2, color: defaultFontColor}); }
-
-                function addCriterion(criterionLabel, explanation, categoryTitle = "") {
-                    let fullLabel = "- " + criterionLabel;
-                    if (categoryTitle) fullLabel += ` (${categoryTitle})`;
-                    currentY += globalLineHeight * 0.25;
-                    addTextToPdf(fullLabel, { bold: true, size: defaultFontSize, lineHeight: 10, spaceAfter: explanation ? 2 : 8, color: defaultFontColor });
-
-                    if (explanation) {
-                        const fullExplanationText = `  Explanation: ${explanation}`;
-                        addTextToPdf(fullExplanationText, { italic: true, indent: 15, size: defaultFontSize, lineHeight: 10, spaceAfter: 5, color: [0, 86, 179] });
-                    }
-                }
-
-                // --- PDF Content Generation ---
-                addSectionTitle("LAA Uplift Enhancement Data Summary");
-                const versionText = (typeof APP_VERSION !== 'undefined') ? ` v${APP_VERSION}` : '';
-                addTextToPdf(`Generated by: Woodruff Billing Ltd Uplift Tool${versionText} (${LAA_GUIDE_VERSION_INFO_CONST})`, {size:8, italic:true, color: defaultFontColor});
-                addTextToPdf(`Date Generated: ${new Date().toLocaleDateString()}`, {size:8, italic:true, spaceAfter: globalLineHeight, color: defaultFontColor});
-
-                addSubTitle("Case Details");
-                addDetail("Fee Earner", formData.caseDetails.feeEarnerName);
-                addDetail("Matter Type", formData.caseDetails.matterType);
-                addDetail("Case / Matter Name", formData.caseDetails.caseMatterName);
-
-                addSubTitle("Panel Membership");
-                let panelSelectedPDF = Object.values(formData.panelMembership).some(item => item.checked);
-                if (panelSelectedPDF) {
-                    for (const key in formData.panelMembership) {
-                        if (formData.panelMembership[key].checked) addCriterion(formData.panelMembership[key].label, null);
-                    }
-                } else { addTextToPdf("None selected.", {size: defaultFontSize, color: defaultFontColor, spaceAfter: globalLineHeight * 0.5}); }
-
-                addSubTitle("Stage 1: Threshold Test Selections");
-                let s1SelectedPDF = Object.values(formData.stage1).some(item => item.checked);
-                if (s1SelectedPDF) {
-                    for (const key in formData.stage1) {
-                        if (formData.stage1[key].checked) addCriterion(formData.stage1[key].label, formData.stage1[key].explanation, formData.stage1[key].categoryTitle);
-                    }
-                } else { addTextToPdf("No Stage 1 criteria met/selected with valid explanation.", {size:defaultFontSize, color: defaultFontColor, spaceAfter: globalLineHeight * 0.5});}
-
-                if (isAnyStage1ThresholdTrulyMet()) {
-                    addSubTitle("Stage 2: Level of Enhancement Factors");
-                    let s2SelectedPDF = Object.values(formData.stage2).some(item => item.checked);
-                    if (s2SelectedPDF) {
-                        for (const key in formData.stage2) {
-                            if (formData.stage2[key].checked) addCriterion(formData.stage2[key].label, formData.stage2[key].explanation, formData.stage2[key].categoryTitle);
-                        }
-                    } else { addTextToPdf("No Stage 2 factors selected.", {size:defaultFontSize, color: defaultFontColor, spaceAfter: globalLineHeight * 0.5}); }
-                }
-
-                addSubTitle("Solicitor's Proposed Uplift");
-                addDetail("Proposed Uplift Percentage", (formData.finalUpliftPercent || "Not Set") + "%");
-
-                addTextToPdf("--- End of Summary ---", {italic:true, size:9, spaceAfter: globalLineHeight, color: defaultFontColor});
-
-                // --- Disclaimer ---
-                const disclaimerTextArray = [];
-                 disclaimerTextArray.push(
-                    "CONFIDENTIALITY & DISCLAIMER:",
-                    "This document has been generated using the Woodruff Billing Ltd. Uplift Justification Collator.",
-                    "It is intended for use by the named Fee Earner and for submission to Woodruff Billing Ltd. only.",
-                    "The information contained herein is based on the inputs provided by the solicitor and is for the purpose of assisting Woodruff Billing Ltd. in preparing an LAA enhancement claim.",
-                    "The 'Suggested Uplift %' is illustrative and not an official LAA calculation. The final percentage claimed will be determined by Woodruff Billing Ltd. based on a full review.",
-                    "Woodruff Billing Ltd. is not responsible for the accuracy or completeness of the information entered by the solicitor. The solicitor remains responsible for the veracity of their justifications."
-                );
-                const disclaimerLineHeight = 8;
-
-                pdf.setFontSize(7);
-                pdf.setFont("helvetica", "normal");
-                pdf.setTextColor(100, 100, 100); // Grey for disclaimer
-
-                for (const line of disclaimerTextArray) {
-                    if (currentY + disclaimerLineHeight > pageHeight - margin) {
-                        pdf.addPage();
-                        currentY = margin;
-                         if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64) {
-                            const logoWidth = 50; const logoHeight = 50; const logoX = margin; const logoY = currentY;
-                            try { pdf.addImage(LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight); } catch (e) { console.error(e); }
-                            pdf.setFontSize(16); pdf.setFont("helvetica", "bold"); pdf.setTextColor(0, 86, 179);
-                            pdf.text("Woodruff Billing Ltd.", logoX + logoWidth + 10, logoY + (logoHeight / 2) + (pdf.getFontSize() / 3) );
-                            currentY += logoHeight + 25;
-                        } else {
-                             pdf.setFontSize(16); pdf.setFont("helvetica", "bold"); pdf.setTextColor(0, 86, 179);
-                             pdf.text("Woodruff Billing Ltd.", margin, currentY + (pdf.getFontSize() / 2));
-                             currentY += 25 + pdf.getFontSize();
-                        }
-                        pdf.setFontSize(7);
-                        pdf.setFont("helvetica", "normal");
-                        pdf.setTextColor(100, 100, 100);
-                    }
-                    pdf.text(line, margin, currentY);
-                    currentY += disclaimerLineHeight;
-                }
-
-                pdf.save("LAA_Uplift_Data_Summary.pdf");
-
-            } catch (e) {
-                alert("Error generating PDF: " + e.message + "\n" + (e.stack ? e.stack : '(No stack trace)'));
-                console.error("PDF generation error:", e);
-            }
-        } else {
+        if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF !== 'function') {
             alert("jsPDF library not loaded. Cannot download PDF...");
+            return;
+        }
+
+        try {
+            const { jsPDF } = window.jspdf;
+
+            // ── Page setup ─────────────────────────────────────────────────────
+            const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+            const pageW = pdf.internal.pageSize.width;   // 595pt
+            const pageH = pdf.internal.pageSize.height;  // 842pt
+            const margin = 50;                            // All four sides
+            const footerZone = 50;                        // Reserved for footer text
+            const contentW = pageW - (2 * margin);        // Usable text width
+            let currentY = margin;
+
+            // Text defaults
+            const bodySize = 10;
+            const lineH = 13;           // Standard line height for body text
+            const sectionGap = 20;      // Vertical space before a new section header
+            const black = [0, 0, 0];
+            const darkGrey = [60, 60, 60];      // Body text
+            const midGrey = [90, 90, 90];       // Metadata, categories
+            const blue = [0, 86, 179];          // Explanations (Woodruff blue)
+            const lightGrey = [100, 100, 100];  // Disclaimer, footer
+
+            // ── addHeader — "W" monogram + company name + separator line ─────
+            // Pure text header matching the website's serif "W" identity.
+            // Called at the top of each page. Sets currentY past the header.
+            function addHeader() {
+                const headerStartY = currentY;
+
+                // Bold serif "W" monogram (matches website login screen style)
+                pdf.setFont("times", "bold");
+                pdf.setFontSize(28);
+                pdf.setTextColor(black[0], black[1], black[2]);
+                pdf.text("W", margin, headerStartY + 22);
+
+                // Company name beside the "W"
+                const wWidth = pdf.getTextWidth("W") + 10; // gap after monogram
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(15);
+                pdf.setTextColor(black[0], black[1], black[2]);
+                pdf.text("Woodruff Billing Ltd.", margin + wWidth, headerStartY + 14);
+
+                // Subtitle line under company name
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(8);
+                pdf.setTextColor(midGrey[0], midGrey[1], midGrey[2]);
+                pdf.text("LAA Uplift Enhancement  |  Data Summary", margin + wWidth, headerStartY + 26);
+
+                currentY = headerStartY + 34;
+
+                // Thin separator line
+                pdf.setDrawColor(180, 180, 180);
+                pdf.setLineWidth(0.5);
+                pdf.line(margin, currentY, pageW - margin, currentY);
+                currentY += 16;  // Space below separator
+            }
+
+            // ── addFooter — stamped on every page after content is complete ─────
+            // Shows "CONFIDENTIAL — FOR LAA SUBMISSION" and "Page X of Y".
+            function addFooter(pageNum, totalPages) {
+                const footerY = pageH - 30;
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(7);
+                pdf.setTextColor(lightGrey[0], lightGrey[1], lightGrey[2]);
+                pdf.text("CONFIDENTIAL — FOR LAA SUBMISSION", margin, footerY);
+                pdf.text(
+                    "Page " + pageNum + " of " + totalPages,
+                    pageW / 2, footerY, { align: 'center' }
+                );
+                pdf.text("Woodruff Billing Ltd", pageW - margin, footerY, { align: 'right' });
+            }
+
+            // ── addText — core text helper with automatic page overflow ────────
+            // When text would overflow, creates a new page with header first.
+            function addText(text, options) {
+                options = options || {};
+                if (text === null || typeof text === 'undefined') return;
+
+                const style = options.bold ? "bold" : (options.italic ? "italic" : "normal");
+                const size = options.size || bodySize;
+                const color = options.color || darkGrey;
+                const lh = options.lineHeight || lineH;
+                const indent = options.indent || 0;
+
+                pdf.setFont("helvetica", style);
+                pdf.setFontSize(size);
+                pdf.setTextColor(color[0], color[1], color[2]);
+
+                // Word-wrap text to fit available width
+                const wrapped = pdf.splitTextToSize(String(text), contentW - indent);
+
+                // Check if it fits — if not, new page
+                if (currentY + (wrapped.length * lh) > pageH - footerZone - 10) {
+                    pdf.addPage();
+                    currentY = margin;
+                    addHeader();
+                    // Restore font after header
+                    pdf.setFont("helvetica", style);
+                    pdf.setFontSize(size);
+                    pdf.setTextColor(color[0], color[1], color[2]);
+                }
+
+                pdf.text(wrapped, margin + indent, currentY);
+                currentY += wrapped.length * lh;
+                if (options.spaceAfter) currentY += options.spaceAfter;
+            }
+
+            // ── Section header — bold UPPERCASE with generous spacing ──────────
+            function addSectionHeader(title) {
+                currentY += sectionGap;
+                addText(title.toUpperCase(), {
+                    bold: true, size: 11, color: black, spaceAfter: 8
+                });
+            }
+
+            // ── Detail line — "Label:  Value" on one line ──────────────────────
+            function addDetail(label, value) {
+                addText(label + ":  " + (value || "N/A"), {
+                    size: bodySize, lineHeight: 11, spaceAfter: 4
+                });
+            }
+
+            // ── Criterion — label, category, and explanation ───────────────────
+            function addCriterion(criterionLabel, explanation, categoryTitle) {
+                categoryTitle = categoryTitle || "";
+                currentY += 4;  // Small gap before each criterion
+
+                // Criterion label (bold, with bullet)
+                addText("•  " + criterionLabel, {
+                    bold: true, size: bodySize, lineHeight: 11,
+                    spaceAfter: (explanation || categoryTitle) ? 2 : 6
+                });
+
+                // Category on its own line in grey italic (if present)
+                if (categoryTitle) {
+                    addText(categoryTitle, {
+                        italic: true, size: 8, color: midGrey, indent: 14, spaceAfter: 2
+                    });
+                }
+
+                // Explanation in blue italic, indented
+                if (explanation) {
+                    addText("Explanation: " + explanation, {
+                        italic: true, size: 9, color: blue,
+                        indent: 14, lineHeight: 11, spaceAfter: 6
+                    });
+                }
+            }
+
+            // ════════════════════════════════════════════════════════════════════
+            //                      CONTENT RENDERING
+            // ════════════════════════════════════════════════════════════════════
+
+            // ── Page 1 header ──────────────────────────────────────────────────
+            addHeader();
+
+            // ── Document title (extra breathing room below header) ─────────────
+            currentY += 8;
+            addText("LAA Uplift Enhancement Data Summary", {
+                bold: true, size: 16, color: black, spaceAfter: 6
+            });
+
+            // Generation metadata — UK date format
+            const ukDate = new Date().toLocaleDateString('en-GB', {
+                day: 'numeric', month: 'long', year: 'numeric'
+            });
+            const versionText = (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '';
+            addText("Generated: " + ukDate + "  |  Uplift Tool v" + versionText + " (" + LAA_GUIDE_VERSION_INFO_CONST + ")", {
+                size: 8, italic: true, color: midGrey, spaceAfter: 10
+            });
+
+            // ── CASE DETAILS ───────────────────────────────────────────────────
+            addSectionHeader("Case Details");
+            addDetail("Fee Earner", formData.caseDetails.feeEarnerName);
+            addDetail("Matter Type", formData.caseDetails.matterType);
+            addDetail("Case / Matter Name", formData.caseDetails.caseMatterName);
+
+            // ── PANEL MEMBERSHIP ───────────────────────────────────────────────
+            addSectionHeader("Panel Membership");
+            const panelSelected = Object.values(formData.panelMembership).some(function(item) { return item.checked; });
+            if (panelSelected) {
+                for (const key in formData.panelMembership) {
+                    if (formData.panelMembership[key].checked) {
+                        addText("•  " + formData.panelMembership[key].label, {
+                            size: bodySize, spaceAfter: 4
+                        });
+                    }
+                }
+            } else {
+                addText("None selected.", {
+                    italic: true, size: bodySize, color: midGrey, spaceAfter: 6
+                });
+            }
+
+            // ── STAGE 1: THRESHOLD TEST ────────────────────────────────────────
+            addSectionHeader("Stage 1: Threshold Test Selections");
+            const s1Selected = Object.values(formData.stage1).some(function(item) { return item.checked; });
+            if (s1Selected) {
+                for (const key in formData.stage1) {
+                    if (formData.stage1[key].checked) {
+                        addCriterion(
+                            formData.stage1[key].label,
+                            formData.stage1[key].explanation,
+                            formData.stage1[key].categoryTitle
+                        );
+                    }
+                }
+            } else {
+                addText("No Stage 1 criteria met/selected with valid explanation.", {
+                    italic: true, size: bodySize, color: midGrey, spaceAfter: 6
+                });
+            }
+
+            // ── STAGE 2: LEVEL OF ENHANCEMENT (only if Stage 1 met) ───────────
+            if (isAnyStage1ThresholdTrulyMet()) {
+                addSectionHeader("Stage 2: Level of Enhancement Factors");
+                const s2Selected = Object.values(formData.stage2).some(function(item) { return item.checked; });
+                if (s2Selected) {
+                    for (const key in formData.stage2) {
+                        if (formData.stage2[key].checked) {
+                            addCriterion(
+                                formData.stage2[key].label,
+                                formData.stage2[key].explanation,
+                                formData.stage2[key].categoryTitle
+                            );
+                        }
+                    }
+                } else {
+                    addText("No Stage 2 factors selected.", {
+                        italic: true, size: bodySize, color: midGrey, spaceAfter: 6
+                    });
+                }
+            }
+
+            // ── PROPOSED UPLIFT ────────────────────────────────────────────────
+            addSectionHeader("Proposed Uplift");
+            addText("Proposed Uplift Percentage:  " + (formData.finalUpliftPercent || "Not Set") + "%", {
+                bold: true, size: 13, color: black, spaceAfter: 10
+            });
+
+            // ── DISCLAIMER ─────────────────────────────────────────────────────
+            currentY += sectionGap;
+
+            // Bold heading line
+            addText("DISCLAIMER", {
+                bold: true, size: 8, color: lightGrey, spaceAfter: 4
+            });
+
+            // Disclaimer body — each line word-wrapped
+            const disclaimerLines = [
+                "This document has been generated using the Woodruff Billing Ltd. Uplift Justification Collator.",
+                "It is intended for use by the named Fee Earner and for submission to Woodruff Billing Ltd. only.",
+                "The information contained herein is based on the inputs provided by the solicitor and is for the purpose of assisting Woodruff Billing Ltd. in preparing an LAA enhancement claim.",
+                "The 'Suggested Uplift %' is illustrative and not an official LAA calculation. The final percentage claimed will be determined by Woodruff Billing Ltd. based on a full review.",
+                "Woodruff Billing Ltd. is not responsible for the accuracy or completeness of the information entered by the solicitor. The solicitor remains responsible for the veracity of their justifications."
+            ];
+            for (const line of disclaimerLines) {
+                addText(line, {
+                    size: 7, color: lightGrey, lineHeight: 9, spaceAfter: 2
+                });
+            }
+
+            // ── Version info (end of document) ─────────────────────────────────
+            currentY += 10;
+            const appName = (typeof APP_NAME !== 'undefined') ? APP_NAME : 'Uplift Collator';
+            const appReleaseDate = (typeof APP_RELEASE_DATE !== 'undefined') ? APP_RELEASE_DATE : '';
+            addText(appName + " v" + versionText + (appReleaseDate ? " (" + appReleaseDate + ")" : ""), {
+                italic: true, size: 7, color: lightGrey
+            });
+
+            // ── Stamp footer on every page (now we know total page count) ──────
+            const totalPages = pdf.getNumberOfPages();
+            for (let p = 1; p <= totalPages; p++) {
+                pdf.setPage(p);
+                addFooter(p, totalPages);
+            }
+
+            // ── Save ───────────────────────────────────────────────────────────
+            pdf.save("LAA_Uplift_Data_Summary.pdf");
+
+        } catch (e) {
+            alert("Error generating PDF: " + e.message + "\n" + (e.stack ? e.stack : '(No stack trace)'));
+            console.error("PDF generation error:", e);
         }
     }
 
