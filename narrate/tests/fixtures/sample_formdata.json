@@ -1,0 +1,52 @@
+{
+  "caseDetails": {
+    "feeEarnerName": "Jane Doe",
+    "matterType": "Public Law Children",
+    "caseMatterName": "Re X (Local Authority care proceedings)"
+  },
+  "panelMembership": {
+    "panel_membership_resolution": {
+      "checked": true,
+      "label": "Fee earner is on Resolution Accredited Specialist Panel"
+    },
+    "panel_membership_children": {
+      "checked": true,
+      "label": "Fee earner is on Law Society Children Panel (and work relates to children)"
+    }
+  },
+  "stage1": {
+    "s1_cse_detailed_knowledge": {
+      "checked": true,
+      "label": "Unusually detailed knowledge demonstrated",
+      "explanation": "Required detailed knowledge of recent FPR amendments and the interaction with section 38(6) Children Act assessments. The local authority's interpretation conflicted with the line of authority from Re B-S (Children) [2013] EWCA Civ 1146, which I had to argue should govern.",
+      "categoryTitle": "LAA Threshold Test: Exceptional Competence, Skill, or Expertise"
+    },
+    "s1_cse_marshalling_evidence": {
+      "checked": true,
+      "label": "Unusual skill in marshalling evidence",
+      "explanation": "Reviewed and indexed approximately 1,400 pages of social services records spanning eight years across two local authority areas, distilling the chronology of safeguarding concerns into a 12-page Scott Schedule for the threshold hearing.",
+      "categoryTitle": "LAA Threshold Test: Exceptional Competence, Skill, or Expertise"
+    },
+    "s1_circ_expert_evidence": {
+      "checked": true,
+      "label": "Complex questions of expert evidence",
+      "explanation": "Three expert reports were obtained — paediatric, adult psychiatric, and ISW — with materially conflicting opinions on the mother's capacity to safely parent. The reports required cross-referencing and reconciliation before any meaningful negotiation could take place.",
+      "categoryTitle": "LAA Threshold Test: Exceptional Circumstances, Novelty, Weight, or Complexity"
+    }
+  },
+  "stage2": {
+    "s2_resp_no_counsel_drafting": {
+      "checked": true,
+      "label": "Complex drafting (without Counsel)",
+      "explanation": "Drafted the full position statement, the Scott Schedule, and the section 7 response without recourse to Counsel, all settled in advance of the case management hearing.",
+      "categoryTitle": "Determining Level of Enhancement: Degree of Responsibility"
+    },
+    "s2_cse_care_vulnerable_client": {
+      "checked": true,
+      "label": "Particular care with vulnerable client",
+      "explanation": "Client has diagnosed PTSD and a learning disability assessed at borderline range. Conducted instructions across six shorter attendances, used plain-language summaries, and brought an intermediary to the FHDRA.",
+      "categoryTitle": "Determining Level of Enhancement: Care, Speed & Economy"
+    }
+  },
+  "finalUpliftPercent": "75"
+}
