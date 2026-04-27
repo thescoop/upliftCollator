@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 .playwright-cli/
 output/
+tests/fixtures/sample-narrative/

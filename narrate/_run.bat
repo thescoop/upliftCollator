@@ -1,14 +1,16 @@
 @echo off
-REM Activate the conda env and run the narrator.
-REM Usage: _run.bat path\to\case.pdf [--out-dir DIR]
-
-setlocal
-set ENV_NAME=uplift-narrate
+REM _run.bat - Launch the Uplift Narrator GUI
+REM Usage: double-click, or _run.bat path\to\case.pdf to pre-load a PDF
+REM (you can still drag a PDF onto _run.bat — it will be pre-loaded)
 
 cd /d "%~dp0"
 
-call conda activate %ENV_NAME%
-if errorlevel 1 exit /b 1
+CALL conda activate uplift-narrate 2>nul
+IF ERRORLEVEL 1 (
+    echo Environment 'uplift-narrate' not found. Run _setup.bat first.
+    pause
+    exit /b 1
+)
 
-python narrate.py %*
-endlocal
+echo Launching Uplift Narrator GUI...
+python narrate_gui.py %*
