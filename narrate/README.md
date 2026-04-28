@@ -67,6 +67,14 @@ Twenty tests covering: parsing of `content-data.js`, label uniqueness, template-
 
 ## Troubleshooting
 
+**Empty narrative on a real PDF** — run the structure-only diagnostic first:
+
+```bash
+python narrate.py --debug "/path/to/case.pdf"
+```
+
+It prints page/char counts, per-section match flags, and bullet/explanation counts — but no client text — so the output is GDPR-safe to share when triaging. A `"matched": false` entry pinpoints which section regex needs widening; `header_matches: 0` or `footer_matches: 0` means the PDF was produced by an older app version with different boilerplate.
+
 **"narrate: unknown panel/criterion label"** — the PDF was generated against an older version of `content-data.js` whose labels have since changed. Either regenerate the PDF from the current web app, or restore the older `content-data.js` long enough to extract.
 
 **Section-header detection misses something** — only happens if the UPPERCASE titles in `script.js:generatePdfSummary` change. Update `SECTION_PATTERNS` in `extract.py` to match.

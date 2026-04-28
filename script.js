@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        generalFactorsUplift = generalFactorsCount * 5;
+        generalFactorsUplift = generalFactorsCount * 10;
 
         // 3. Determine final suggested percentage
         let suggestedPercentage = Math.max(panelUplift, generalFactorsUplift);

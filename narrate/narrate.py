@@ -20,7 +20,7 @@ import json
 import sys
 from pathlib import Path
 
-from extract import extract_formdata
+from extract import diagnose, extract_formdata
 from prompts import assemble_prompt
 from skeleton import build_skeleton
 
@@ -38,12 +38,22 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Output directory (default: <pdf-stem>-narrative/ next to the PDF)",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print structure-only diagnostics (no client text) and exit. "
+             "Safe to share when triaging extraction failures on real PDFs.",
+    )
     args = parser.parse_args(argv)
 
     pdf_path = Path(args.pdf).resolve()
     if not pdf_path.is_file():
         print(f"narrate: file not found: {pdf_path}", file=sys.stderr)
         return 2
+
+    if args.debug:
+        print(json.dumps(diagnose(pdf_path), indent=2, ensure_ascii=False))
+        return 0
 
     out_dir = (args.out_dir or _default_out_dir(pdf_path)).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)

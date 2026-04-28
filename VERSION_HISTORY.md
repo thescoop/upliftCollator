@@ -5,8 +5,25 @@ The Uplift Collator is a confidential web-based tool developed by Woodruff Billi
 
 ## Version History
 
-### Version 1.8 - May 31, 2025
+### Version 1.9 - April 28, 2026
 **Status:** Latest version (NOT on GitHub)
+**Key Changes:**
+- Recalibrated the on-screen "Suggested: X%" logic so it more honestly reflects realistic LAA enhancement claim norms.
+- Per-factor weighting increased from 5% to 10% for the suggestion display. Same case ticking 2 factors will now show "Suggested: 20%" instead of "Suggested: 10%".
+- Panel uplift (15%) and overall cap (50%) intentionally unchanged. The 50% cap matches the LAA's own Family/County Court ceiling cited in CAG 12.2.
+- Motivation: under the old 5%-per-factor logic, modest solicitors tended to accept the suggested figure verbatim, anchoring claims low. The 10%-per-factor calibration makes the suggestion a more honest starting point.
+
+**Technical Changes:**
+- `script.js:254`: `generalFactorsUplift = generalFactorsCount * 10` (was `* 5`).
+- `content-data.js`: `UPLIFT_PERCENTAGE_GUIDANCE_TEXT` updated to reference "10% per factor".
+- `content-data.js`: `APP_VERSION` bumped 1.8 → 1.9, `APP_RELEASE_DATE` to 28 April 2026.
+- Band examples in the guidance text (10–25 / 25–50 / 50%+) intentionally left intact — they remain consistent with the new weighting (1–2 factors maps to 10–25%, 3–5 factors to 25–50%).
+- The PDF output is unaffected because it only contains the user's chosen final percentage, never the suggestion. The narrator subproject's 20 unit tests continue to pass.
+
+---
+
+### Version 1.8 - May 31, 2025
+**Status:** Previous version (NOT on GitHub)
 **Key Changes:**
 - Added inline hyperlinks in the About section for easier access to Terms & Conditions
 - Added inline hyperlink to HELP in the About section  

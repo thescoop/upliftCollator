@@ -2,8 +2,8 @@
 // This file stores the static data for the LAA Uplift Data Capture Web Application.
 
 // Version Information
-const APP_VERSION = "1.8";
-const APP_RELEASE_DATE = "31 May 2025";
+const APP_VERSION = "1.9";
+const APP_RELEASE_DATE = "28 April 2026";
 const APP_NAME = "Uplift Collator";
 
 const LAA_GUIDE_URL = "https://assets.publishing.service.gov.uk/media/66f13cfa76558d051527abb9/Costs_Assessment_Guidance_2024_SCC_-_Version_1a-_23_September_2024.pdf";
@@ -298,7 +298,7 @@ const UPLIFT_PERCENTAGE_GUIDANCE_TEXT = `
 
 As the solicitor, you are best placed to assess the exceptionality of the work. The percentage you propose will be considered by Woodruff Billing Ltd when compiling the final claim.
 
-The "Suggested: X%" figure displayed on the final page is a **very rough illustration** based on a simple "5% per factor" rule of thumb some practitioners use for initial estimation. **It is NOT an official LAA calculation method.** Your professional judgment, based on the LAA's detailed criteria and the specifics of your case, is paramount.
+The "Suggested: X%" figure displayed on the final page is a **very rough illustration** based on a simple "10% per factor" rule of thumb some practitioners use for initial estimation. **It is NOT an official LAA calculation method.** Your professional judgment, based on the LAA's detailed criteria and the specifics of your case, is paramount.
 
 ### 1. First, ensure the Stage 1 Threshold is Met:
    *   The work must genuinely meet at least ONE of the three primary LAA threshold criteria (Exceptional competence/skill/expertise; Exceptional speed; OR Exceptional circumstances/novelty/weight/complexity) **and be properly explained**.

@@ -199,9 +199,62 @@ def extract_formdata(pdf_path: str | Path) -> dict:
     }
 
 
+def diagnose(pdf_path: str | Path) -> dict:
+    """Structural diagnostics for an extraction failure.
+
+    Returns *only* shape/structure information — no raw text, no
+    explanations, no field values — so the output is safe to share
+    even when the input PDF contains GDPR-sensitive client data.
+    """
+    pdf_path = Path(pdf_path)
+    with pdfplumber.open(pdf_path) as pdf:
+        n_pages = len(pdf.pages)
+        per_page_chars = [len(p.extract_text() or "") for p in pdf.pages]
+    raw = read_pdf_text(pdf_path)
+    text = normalise_text(raw)
+
+    # Per-section presence and shape
+    sections: dict[str, dict] = {}
+    for name in SECTION_PATTERNS:
+        m = SECTION_PATTERNS[name].search(text)
+        if not m:
+            sections[name] = {"matched": False}
+            continue
+        block = section_slice(text, name)
+        lines = block.splitlines()
+        bullet_lines = sum(1 for ln in lines if ln.lstrip().startswith("•"))
+        explanation_markers = sum(
+            1 for ln in lines if ln.lstrip().startswith("Explanation:")
+        )
+        sections[name] = {
+            "matched": True,
+            "start_offset": m.start(),
+            "block_chars": len(block),
+            "block_lines": len(lines),
+            "bullet_lines": bullet_lines,
+            "explanation_markers": explanation_markers,
+        }
+
+    return {
+        "pdf": pdf_path.name,
+        "pages": n_pages,
+        "per_page_chars": per_page_chars,
+        "raw_chars": len(raw),
+        "normalised_chars": len(text),
+        "header_matches": len(HEADER_PATTERN.findall(raw)),
+        "footer_matches": len(FOOTER_PATTERN.findall(raw)),
+        "sections": sections,
+    }
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <pdf_path>", file=sys.stderr)
+    if len(sys.argv) < 2 or len(sys.argv) > 3 or (
+        len(sys.argv) == 3 and sys.argv[1] != "--debug"
+    ):
+        print(f"Usage: {sys.argv[0]} [--debug] <pdf_path>", file=sys.stderr)
         sys.exit(1)
-    data = extract_formdata(sys.argv[1])
-    print(json.dumps(data, indent=2, ensure_ascii=False))
+    if len(sys.argv) == 3:
+        out = diagnose(sys.argv[2])
+    else:
+        out = extract_formdata(sys.argv[1])
+    print(json.dumps(out, indent=2, ensure_ascii=False))
