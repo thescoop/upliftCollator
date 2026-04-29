@@ -227,6 +227,9 @@ small.form-text-muted { display: block; margin-top: .25rem; font-size: 0.8em; co
 
 .page-instruction { font-size: 0.95em; font-style: normal; color: #333; margin-top: 0; margin-bottom: 25px; padding: 12px 15px; background-color: #eef7ff; border-left: 3px solid #0056b3; border-radius: 3px; line-height: 1.5; }
 .stage-feedback { text-align: center; font-weight: bold; color: #155724; padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 20px; font-size: 1.05em; }
+.stage2-disabled-banner { font-size: 0.95em; color: #6b4d10; background-color: #fff8e6; border-left: 3px solid #d49b1f; border-radius: 3px; padding: 12px 15px; margin-bottom: 20px; line-height: 1.5; }
+.stage2-disabled-banner strong { display: block; margin-bottom: 4px; color: #5b3f0a; }
+.s2-disabled { opacity: 0.5; pointer-events: none; user-select: none; }
 
 #panelMembershipContainer .form-section { margin-top: 0; }
 #pageContainer .form-section:first-child { margin-top: 0; }

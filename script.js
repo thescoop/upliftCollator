@@ -688,24 +688,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const isS1Met = isAnyStage1ThresholdTrulyMet();
         if(stage1FeedbackEl) stage1FeedbackEl.style.display = isS1Met ? 'block' : 'none';
 
+        // v1.10: Stage 2 selections are *preserved* (not silently cleared) when
+        // the Stage 1 threshold is not met. The blocks are kept visible but
+        // soft-disabled — ticks remain in place so the user does not lose work
+        // by, e.g., trimming a Stage 1 explanation below MIN_EXPLANATION_WORDS.
+        // Stage 2 ticks resume counting toward the suggestion as soon as Stage 1
+        // is adequately explained again. The forward-navigation gate in
+        // nextPage() still blocks submission while Stage 1 is unmet.
         QUESTION_BLOCKS.filter(b => b.page === 3).forEach(block => {
             const blockDiv = document.getElementById(`${block.id}-block`);
             if (blockDiv) {
-                blockDiv.style.display = isS1Met ? 'block' : 'none';
+                blockDiv.classList.toggle('s2-disabled', !isS1Met);
             }
         });
 
-        if (!isS1Met) {
-            formData.stage2 = {};
-            QUESTION_BLOCKS.filter(b => b.page === 3).forEach(block => {
-                block.checkboxes.forEach(chkData => {
-                    if (formElements[chkData.key] && formElements[chkData.key].checkbox) {
-                        formElements[chkData.key].checkbox.checked = false;
-                        toggleExplanationInput(chkData.key, false);
-                    }
-                });
-            });
-        }
+        const banner = document.getElementById('stage2DisabledBanner');
+        if (banner) banner.style.display = isS1Met ? 'none' : 'block';
+
         updateSuggestedPercentage();
         checkAllPlaceholdersAndExplanations();
     }

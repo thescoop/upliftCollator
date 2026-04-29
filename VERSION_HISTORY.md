@@ -5,8 +5,23 @@ The Uplift Collator is a confidential web-based tool developed by Woodruff Billi
 
 ## Version History
 
-### Version 1.9 - April 28, 2026
+### Version 1.10 - April 29, 2026
 **Status:** Latest version (NOT on GitHub)
+**Key Changes:**
+- Bug fix: Stage 2 selections are no longer silently cleared when the user edits Stage 1's explanation below the 10-word threshold. Previously, trimming a Stage 1 explanation (e.g. while refining wording) would silently wipe every Stage 2 tick — a subtle data-loss bug that punished careful editing.
+- New behaviour: when the Stage 1 threshold isn't met, Stage 2 is *soft-disabled* (greyed out, not interactive) and a banner explains why. All ticks remain in place. As soon as Stage 1 is adequately explained again, Stage 2 selections resume counting toward the suggested percentage.
+- The forward-navigation gate on the Stage 1 page (alert when threshold not met) is unchanged — users still cannot submit a claim without an adequate Stage 1 explanation. The fix only stops silent data loss while editing.
+
+**Technical Changes:**
+- `script.js:687-711`: rewrote `updateStage2Visibility()` to soft-disable rather than clear. Removed the `formData.stage2 = {}` reset and the loop that programmatically unchecked every Stage 2 box. Added class-based disable via `.s2-disabled` and a banner toggle.
+- `index.html:147-150`: added `<div id="stage2DisabledBanner">` inside page 3, hidden by default. Bumped four hardcoded v1.9 strings to v1.10.
+- `style.css:230-232`: added `.stage2-disabled-banner` and `.s2-disabled` rules. The disabled state uses `opacity: 0.5; pointer-events: none; user-select: none;` so users can see their preserved ticks but cannot interact until Stage 1 is fixed.
+- `content-data.js`: APP_VERSION 1.9 → 1.10, APP_RELEASE_DATE updated.
+
+---
+
+### Version 1.9 - April 28, 2026
+**Status:** Previous version (NOT on GitHub)
 **Key Changes:**
 - Recalibrated the on-screen "Suggested: X%" logic so it more honestly reflects realistic LAA enhancement claim norms.
 - Per-factor weighting increased from 5% to 10% for the suggestion display. Same case ticking 2 factors will now show "Suggested: 20%" instead of "Suggested: 10%".
