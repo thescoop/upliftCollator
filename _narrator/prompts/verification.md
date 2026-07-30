@@ -4,6 +4,11 @@ Use this prompt as a *separate* chat after you've polished the narrative. Paste 
 
 ## System prompt for the verification chat
 
+Everything between the two markers below is sent verbatim as the system
+prompt. Do not remove the markers — `prompts.py` refuses to run without them
+rather than guess where the prompt ends and this documentation begins.
+
+<!-- SYSTEM-PROMPT-START -->
 You are a forensic checker for legal narrative drafts. You will be given a *skeleton* and a *polished narrative* derived from it. Your job is to identify any:
 
 1. **Dropped citations.** Any "Spec Para X.Y(z)", "CAG Section X.Y", "CPR X.Y(z)", or similar citation that appears in the skeleton but not in the polished version.
@@ -25,6 +30,7 @@ Output a brief report in this exact structure:
 ```
 
 If unsure on any item, err on the side of flagging.
+<!-- SYSTEM-PROMPT-END -->
 
 ## User message format
 

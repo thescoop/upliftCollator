@@ -6,7 +6,9 @@ criteria, attaching the correct citation to each one, and polishing the result
 into flowing prose via a local LM Studio model.
 
 Everything happens on this machine. LM Studio is local, so privileged client
-material never leaves it.
+material never leaves it — and that is enforced in code, not merely intended:
+the narrator refuses any model address that is not loopback or the WSL host
+gateway unless `UPLIFT_LMSTUDIO_ALLOW_REMOTE=1` is set deliberately.
 
 Two front-ends:
 - **GUI** (`narrate_gui.py`) — drop a PDF on the window, click *Generate
@@ -22,7 +24,10 @@ to the PDF:
 - **`narrative-polished.md`** — the finished narrative. This is the one you read.
 - **`citation-check.txt`** — proof that nothing was lost in the polish step: a
   deterministic citation and placeholder check, plus a second-opinion review
-  from the model. Ends in `SAFE TO REVIEW` or `NEEDS REVISION`.
+  from the model. Ends in an overall verdict — `SAFE TO REVIEW` or `NEEDS
+  REVISION` — that reflects *both* checks. A discrepancy found by either one
+  fails the run, and the CLI exits non-zero so a batch loop cannot mistake a
+  flagged narrative for a clean one.
 - **`narrative.md`** — the fully-cited skeleton the polish step worked from.
   The audit trail, and the fallback if LM Studio is unavailable.
 - **`narrative-prompt.txt`** — the exact instruction sent to the model. Kept as
@@ -85,7 +90,10 @@ unloading whatever is there — which may belong to another application
   VRAM, so the default path cannot disturb anything.
 - **An explicit pick that differs from the loaded model asks first**, naming
   what would be unloaded and the context length it was loaded at. Cancel and
-  nothing is touched.
+  nothing is touched. Consent is recorded as *those specific model ids*, and
+  the state is re-read immediately before acting — so if a different model has
+  appeared in the meantime it is never evicted on that consent. The narrator
+  never runs `unload --all`.
 - **The CLI refuses by default** and exits 3, telling you to pass
   `--force-swap` or drop `--model`. Batch runs therefore stay safe and
   non-interactive.
@@ -134,11 +142,15 @@ check reads the skeleton, not the prompt. Delete "preserve every citation" from
 4. **Polish** (`polish.py` + `lmstudio.py`). Loads the chosen model and rewrites
    the skeleton as flowing prose, filling the bracketed placeholders from the
    explanations.
-5. **Check** (`checks.py`). Regexes every `Spec Para` / `CAG` / `CPR` citation
+5. **Completion check** (`lmstudio.py`). A generation that was cancelled,
+   truncated at the token limit, cut short, or missing frames is discarded
+   rather than saved. A narrative truncated after its headings and citations
+   would otherwise pass the next step and be filed as finished work.
+6. **Check** (`checks.py`). Regexes every `Spec Para` / `CAG` / `CPR` citation
    out of the skeleton and confirms each survived, flags any citation the model
    *added*, and flags any placeholder left unfilled. Deliberately not an LLM —
    this question has an exact answer.
-6. **Second opinion** (`prompts/verification.md`). A separate model call that
+7. **Second opinion** (`prompts/verification.md`). A separate model call that
    compares skeleton against polished output for facts quietly *altered* rather
    than deleted — the failure a regex cannot see. If it fails, the narrative is
    still kept.
@@ -174,8 +186,11 @@ conda activate uplift-narrate
 python -m unittest discover -s _narrator/tests -v
 ```
 
-Fifty-six tests. The suite never touches the network — it passes with LM Studio
-closed.
+109 tests. The suite never touches the network — it passes with LM Studio
+closed. The citation cases are generated from `content-data.js` rather than
+chosen by hand: an earlier suite passed 20 tests while the checker was silently
+fail-open on `CAG Section 12.5 & 12.9`, because no test used the citation forms
+that actually occur in the templates.
 
 ## Troubleshooting
 

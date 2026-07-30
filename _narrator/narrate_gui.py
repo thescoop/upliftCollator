@@ -41,12 +41,10 @@ from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent
 
 # ── Sibling modules from this folder ────────────────────────────────────────
-import checks
 import lmstudio
 import polish as polish_mod
 import prompts as prompts_mod
 from extract import extract_formdata
-from prompts import assemble_prompt
 from skeleton import build_skeleton
 
 
@@ -91,14 +89,16 @@ class NarrateWorker(QThread):
     success = pyqtSignal(dict)
 
     def __init__(self, pdf_path: str, out_dir: str, model_hint: str = "",
-                 allow_swap: bool = False, parent=None):
+                 consented: list[str] | None = None, parent=None):
         super().__init__(parent)
         self._pdf_path = pdf_path
         self._out_dir = out_dir
         self._model_hint = model_hint
-        # Confirmed on the UI thread before the worker starts — a background
-        # thread must never raise a dialog.
-        self._allow_swap = allow_swap
+        # The exact model ids the user agreed to unload, confirmed on the UI
+        # thread before this worker starts — a background thread must never
+        # raise a dialog. Naming them (rather than a bare "yes") means a model
+        # that appears in the meantime cannot be evicted on that consent.
+        self._consented = consented or []
 
     def run(self):
         try:
@@ -127,11 +127,17 @@ class NarrateWorker(QThread):
             case_meta = (formdata.get("caseDetails") or {}) | {
                 "finalUpliftPercent": formdata.get("finalUpliftPercent", "")
             }
-            prompt = assemble_prompt(skeleton, case_meta)
+            # Freeze the templates for this run so the audit record matches
+            # what is actually sent, even if a prompt is edited mid-run.
+            snap = prompts_mod.snapshot()
+            prompt = snap.assemble(skeleton, case_meta)
 
             # ── Write files to disk ──────────────────────────────────────
             out_dir = Path(self._out_dir)
             out_dir.mkdir(parents=True, exist_ok=True)
+
+            for stale in ("narrative-polished.md", "citation-check.txt"):
+                (out_dir / stale).unlink(missing_ok=True)
 
             (out_dir / "narrative.md").write_text(skeleton + "\n", encoding="utf-8")
             (out_dir / "narrative-prompt.txt").write_text(prompt, encoding="utf-8")
@@ -148,30 +154,26 @@ class NarrateWorker(QThread):
                     skeleton,
                     case_meta,
                     model_hint=self._model_hint,
-                    allow_swap=self._allow_swap,
+                    consented=self._consented,
+                    prompt_snapshot=snap,
                     on_status=lambda msg: self.log_line.emit(
                         f'<span style="color:#88aaff;">{msg}</span>'
                     ),
                 )
                 polished = result.polished
-                report = checks.format_report(result.check)
-                if result.llm_verification:
-                    report += ("\n\n---\n\n## LLM second opinion\n\n"
-                               + result.llm_verification + "\n")
-                elif result.verification_error:
-                    report += ("\n\n---\n\n## LLM second opinion\n\n"
-                               f"Did not run: {result.verification_error}\n")
+                report = polish_mod.format_full_report(result)
 
                 (out_dir / "narrative-polished.md").write_text(
                     polished + "\n", encoding="utf-8")
                 (out_dir / "citation-check.txt").write_text(report, encoding="utf-8")
 
-                colour = "#a6e3a1" if result.check.ok else "#f9e2af"
+                # Verdict reflects BOTH checks: a semantic finding from the
+                # LLM review must not be shown green because the citation
+                # count happened to balance.
+                colour = "#a6e3a1" if result.ok else "#f9e2af"
                 self.log_line.emit(
-                    f'<span style="color:{colour};">{result.check.verdict} — '
-                    f'{len(result.check.skeleton_citations)} citations, '
-                    f'{len(result.check.dropped_citations)} dropped, '
-                    f'{len(result.check.placeholders)} placeholders left.</span>'
+                    f'<span style="color:{colour};">{result.verdict} — '
+                    f'{result.verdict_detail}.</span>'
                 )
             except lmstudio.LMStudioError as exc:
                 # A failed polish must never lose the skeleton, which is the
@@ -597,8 +599,8 @@ class NarrateCard(QFrame):
 
         # Ask before evicting a model another application may be using. Done
         # here, on the UI thread, because a QThread cannot raise a dialog.
-        allow_swap = self._confirm_model_swap()
-        if allow_swap is None:
+        consented = self._confirm_model_swap()
+        if consented is None:
             return
 
         self._log.clear()
@@ -611,7 +613,7 @@ class NarrateCard(QFrame):
 
         self._worker = NarrateWorker(
             self._pdf_path, self._out_dir, self._selected_model(),
-            allow_swap, parent=self,
+            consented, parent=self,
         )
         self._worker.log_line.connect(self._append_log)
         self._worker.success.connect(self._on_success)
@@ -636,23 +638,28 @@ class NarrateCard(QFrame):
         self._tabs.setCurrentIndex(0 if payload.get("polished") else 2)
 
     def _confirm_model_swap(self):
-        """Return True/False to proceed, or None if the user cancelled.
+        """Return the model ids the user consented to unload, or None if cancelled.
+
+        An empty list means "nothing needs unloading" — the normal case. The
+        ids are carried into the worker rather than a bare yes/no, so a model
+        that appears between this dialog and the actual unload cannot be
+        evicted on this consent.
 
         Auto never swaps — the pipeline stays on whatever is loaded — so this
         only ever fires on an explicit pick that differs from the loaded model.
         """
         model = self._selected_model()
         if not model:
-            return False
+            return []
 
         try:
             host = lmstudio.resolve_host()
             evicted = lmstudio.swap_needed(host, model)
         except lmstudio.LMStudioError:
-            return False  # unreachable: let the worker report it properly
+            return []  # unreachable: let the worker report it properly
 
         if not evicted:
-            return False
+            return []
 
         detail = ""
         for other in evicted:
@@ -677,7 +684,7 @@ class NarrateCard(QFrame):
                 'Choose Auto to use the model that is already loaded.</span>'
             )
             return None
-        return True
+        return evicted
 
     # ── Model list ───────────────────────────────────────────────────────
 

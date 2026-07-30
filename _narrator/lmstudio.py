@@ -37,6 +37,7 @@ import socket
 import struct
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Callable, Iterator
 
@@ -107,14 +108,39 @@ def _reachable(host: str) -> bool:
         return False
 
 
+def _is_local(url: str, gateway: str | None) -> bool:
+    """True only for this machine's loopback or the WSL2 host gateway."""
+    host = urllib.parse.urlparse(url).hostname or ""
+    local = {"localhost", "127.0.0.1", "::1"}
+    if gateway:
+        local.add(gateway)
+    return host in local
+
+
 def resolve_host() -> str:
     """Find a live LM Studio server, or explain why there isn't one.
 
     Returns the host root (no /v1 suffix) so both the OpenAI-compatible and
     the native /api/v0 endpoints can be reached from it.
+
+    The narrator's confidentiality guarantee is that privileged client material
+    never leaves this machine, so a non-local address is refused rather than
+    quietly honoured. UPLIFT_LMSTUDIO_ALLOW_REMOTE=1 overrides that, and exists
+    only so the refusal can be escaped deliberately rather than by accident.
     """
+    gateway = _wsl_gateway_ip()
     override = os.environ.get("UPLIFT_LMSTUDIO_URL", "").strip().rstrip("/")
     if override:
+        allow_remote = os.environ.get("UPLIFT_LMSTUDIO_ALLOW_REMOTE", "") == "1"
+        if not _is_local(override, gateway) and not allow_remote:
+            raise LMStudioError(
+                f"UPLIFT_LMSTUDIO_URL points at {override}, which is not this "
+                "machine.\n\nThe narrator sends privileged client material to "
+                "the model, so it only talks to a local server (loopback or the "
+                "WSL host gateway). Point it at a local address, or set "
+                "UPLIFT_LMSTUDIO_ALLOW_REMOTE=1 if you genuinely intend to send "
+                "client data off this machine."
+            )
         if _reachable(override):
             return override
         raise LMStudioError(
@@ -123,7 +149,6 @@ def resolve_host() -> str:
         )
 
     candidates = [f"http://127.0.0.1:{DEFAULT_PORT}"]
-    gateway = _wsl_gateway_ip()
     if gateway:  # WSL → Windows-hosted LM Studio
         candidates.append(f"http://{gateway}:{DEFAULT_PORT}")
 
@@ -289,27 +314,38 @@ def ensure_model_loaded(
     model_id: str,
     context_size: int = DEFAULT_CONTEXT_SIZE,
     *,
-    allow_swap: bool = False,
+    consented: list[str] | None = None,
 ) -> str:
     """Make model_id the loaded model. Returns an error message, or "".
 
-    Unloads whatever holds the VRAM first — on a 16GB card two models of this
-    size cannot coexist. That eviction can belong to another application, so it
-    requires ``allow_swap``; otherwise ModelSwapRequired is raised for the
-    caller to confirm with the user. When /api/v0 is unavailable the state is
-    unknown, so do nothing and rely on LM Studio's just-in-time loading.
+    Loading evicts whatever holds the VRAM — on a 16GB card two models of this
+    size cannot coexist — and that model may belong to another application. So
+    the caller must pass ``consented``: the exact model ids the user agreed to
+    unload. Anything else currently loaded raises ModelSwapRequired.
+
+    State is re-read here rather than trusted from the caller's earlier check,
+    because time passes between asking the user and acting: the GUI extracts a
+    PDF and writes files in between. Only the consented ids are unloaded — never
+    ``--all``, which would evict a model that appeared in the meantime and was
+    never named to the user.
+
+    When /api/v0 is unavailable the state is unknown, so do nothing and rely on
+    LM Studio's just-in-time loading.
     """
     state = model_state(host, model_id)
     if state == "loaded" or not state:
         return ""
 
+    # Re-read immediately before acting; the caller's snapshot may be stale.
     evicted = swap_needed(host, model_id)
-    if evicted and not allow_swap:
+    approved = set(consented or ())
+    if evicted and not set(evicted).issubset(approved):
         raise ModelSwapRequired(model_id, evicted)
 
-    error = run_lms(["unload", "--all"], timeout=120)
-    if error:
-        return error
+    for other in evicted:
+        error = run_lms(["unload", other], timeout=120)
+        if error:
+            return error
     return run_lms(["load", model_id, "--context-length", str(int(context_size)), "-y"], timeout=600)
 
 
@@ -323,8 +359,17 @@ def forces_thinking_off(model: str) -> bool:
 def _stream_deltas(resp) -> Iterator[tuple[str, str]]:
     """Yield (kind, text) pairs from an OpenAI-style SSE stream.
 
-    kind is "content" or "reasoning" — reasoning is surfaced separately so an
-    otherwise baffling empty reply can be explained in the log.
+    kind is one of:
+      "content"   — narrative text
+      "reasoning" — hidden thinking, surfaced separately so an otherwise
+                    baffling empty reply can be explained
+      "finish"    — the server's finish_reason for a choice
+      "done"      — the terminating [DONE] sentinel actually arrived
+      "malformed" — an undecodable data frame; content may be missing
+
+    The last two exist because a stream that simply stops looks identical to a
+    finished one. Treating a truncated generation as a complete narrative is
+    the failure this guards against.
     """
     for raw in resp:
         line = raw.decode("utf-8", errors="replace").strip()
@@ -332,10 +377,12 @@ def _stream_deltas(resp) -> Iterator[tuple[str, str]]:
             continue
         body = line[len("data:"):].strip()
         if body == "[DONE]":
+            yield "done", ""
             return
         try:
             chunk = json.loads(body)
         except json.JSONDecodeError:
+            yield "malformed", body[:120]
             continue
         for choice in chunk.get("choices", []):
             delta = choice.get("delta", {})
@@ -344,6 +391,8 @@ def _stream_deltas(resp) -> Iterator[tuple[str, str]]:
             reasoning = delta.get("reasoning") or delta.get("reasoning_content")
             if reasoning:
                 yield "reasoning", reasoning
+            if choice.get("finish_reason"):
+                yield "finish", str(choice["finish_reason"])
 
 
 def chat(
@@ -379,6 +428,11 @@ def chat(
 
     content: list[str] = []
     reasoning: list[str] = []
+    finish_reasons: list[str] = []
+    malformed = 0
+    completed = False
+    cancelled = False
+
     try:
         with urllib.request.urlopen(req, timeout=READ_TIMEOUT) as resp:
             for kind, piece in _stream_deltas(resp):
@@ -386,12 +440,20 @@ def chat(
                     content.append(piece)
                     if on_token:
                         on_token(piece)
-                else:
+                elif kind == "reasoning":
                     reasoning.append(piece)
+                elif kind == "finish":
+                    finish_reasons.append(piece)
+                elif kind == "malformed":
+                    malformed += 1
+                elif kind == "done":
+                    completed = True
                 if should_stop and should_stop():
+                    cancelled = True
                     break
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:400]
+        with exc:  # the error response is a live connection; close it
+            detail = exc.read().decode("utf-8", errors="replace")[:400]
         raise LMStudioError(
             f"LM Studio rejected the request ({exc.code}). "
             f"Is the model {model!r} loaded?\n\n{detail}"
@@ -401,6 +463,38 @@ def chat(
             f"Lost contact with LM Studio at {host}: {exc}\n"
             "The server may have stopped, or the model may have been unloaded."
         ) from exc
+
+    # Anything short of a clean, complete generation is discarded rather than
+    # returned. A narrative truncated after its headings and citations would
+    # otherwise pass the citation check and be filed as finished work.
+    if cancelled:
+        raise LMStudioError("Generation was cancelled — the partial narrative was discarded.")
+
+    if malformed:
+        raise LMStudioError(
+            f"{malformed} malformed response chunk(s) from LM Studio; the narrative "
+            "may be missing text, so it was discarded. Try again."
+        )
+
+    bad_finish = [r for r in finish_reasons if r not in ("stop", "")]
+    if bad_finish:
+        if "length" in bad_finish:
+            raise LMStudioError(
+                f"{model} hit its output limit and the narrative was cut off "
+                f"(finish_reason={bad_finish[0]!r}); it was discarded rather than "
+                "filed as complete. Load the model with a larger context length, "
+                "or use a case with fewer criteria."
+            )
+        raise LMStudioError(
+            f"{model} stopped early (finish_reason={bad_finish[0]!r}); the partial "
+            "narrative was discarded."
+        )
+
+    if not completed:
+        raise LMStudioError(
+            "The response from LM Studio ended without completing. The partial "
+            "narrative was discarded — the server or the model may have stopped."
+        )
 
     text = "".join(content).strip()
     if not text:

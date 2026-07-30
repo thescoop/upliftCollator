@@ -70,7 +70,7 @@ class TestStreamParsing(unittest.TestCase):
         )
         self.assertEqual(
             list(lmstudio._stream_deltas(stream)),
-            [("content", "Hello "), ("content", "world")],
+            [("content", "Hello "), ("content", "world"), ("done", "")],
         )
 
     def test_reasoning_is_separated_from_content(self):
@@ -81,10 +81,10 @@ class TestStreamParsing(unittest.TestCase):
         )
         self.assertEqual(
             list(lmstudio._stream_deltas(stream)),
-            [("reasoning", "thinking..."), ("content", "answer")],
+            [("reasoning", "thinking..."), ("content", "answer"), ("done", "")],
         )
 
-    def test_keepalives_and_malformed_lines_are_skipped(self):
+    def test_keepalives_are_skipped_and_malformed_frames_are_reported(self):
         stream = self._lines(
             "\n",
             ": keepalive\n",
@@ -92,7 +92,11 @@ class TestStreamParsing(unittest.TestCase):
             'data: {"choices":[{"delta":{"content":"ok"}}]}\n',
             "data: [DONE]\n",
         )
-        self.assertEqual(list(lmstudio._stream_deltas(stream)), [("content", "ok")])
+        # A malformed frame is surfaced, not silently dropped: content may be
+        # missing from it, which would truncate the narrative invisibly.
+        events = list(lmstudio._stream_deltas(stream))
+        self.assertIn("malformed", [kind for kind, _ in events])
+        self.assertIn(("content", "ok"), events)
 
     def test_stops_at_done(self):
         stream = self._lines(
@@ -100,7 +104,10 @@ class TestStreamParsing(unittest.TestCase):
             "data: [DONE]\n",
             'data: {"choices":[{"delta":{"content":"never"}}]}\n',
         )
-        self.assertEqual(list(lmstudio._stream_deltas(stream)), [("content", "a")])
+        self.assertEqual(
+            list(lmstudio._stream_deltas(stream)),
+            [("content", "a"), ("done", "")],
+        )
 
 
 if __name__ == "__main__":
@@ -152,12 +159,25 @@ class TestSwapGuard(unittest.TestCase):
         self.assertEqual(ctx.exception.loaded, ["b"])
         self.assertEqual(self._ran, [], "must not run any lms command when refusing")
 
-    def test_ensure_evicts_when_permission_is_given(self):
+    def test_ensure_evicts_only_the_consented_model(self):
         lmstudio.model_state = lambda host, model: "not-loaded"
         self._fake_catalog(["b"])
-        self.assertEqual(lmstudio.ensure_model_loaded("h", "a", allow_swap=True), "")
-        self.assertEqual(self._ran[0], ["unload", "--all"])
+        self.assertEqual(lmstudio.ensure_model_loaded("h", "a", consented=["b"]), "")
+        # Never "unload --all": that would evict a model that appeared after
+        # the user consented and was never named to them.
+        self.assertEqual(self._ran[0], ["unload", "b"])
         self.assertEqual(self._ran[1][:2], ["load", "a"])
+        self.assertNotIn(["unload", "--all"], self._ran)
+
+    def test_consent_for_one_model_does_not_authorise_another(self):
+        # The TOCTOU case: the user approved unloading "b", but by the time the
+        # worker acts, "c" is loaded instead.
+        lmstudio.model_state = lambda host, model: "not-loaded"
+        self._fake_catalog(["c"])
+        with self.assertRaises(lmstudio.ModelSwapRequired) as ctx:
+            lmstudio.ensure_model_loaded("h", "a", consented=["b"])
+        self.assertEqual(ctx.exception.loaded, ["c"])
+        self.assertEqual(self._ran, [])
 
     def test_already_loaded_model_is_never_reloaded(self):
         lmstudio.model_state = lambda host, model: "loaded"

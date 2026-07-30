@@ -120,3 +120,76 @@ class TestAssembly(PromptOverrideTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVerificationPromptExtraction(PromptOverrideTestCase):
+    """The parser must never guess where the prompt ends.
+
+    An earlier version split on a markdown heading and took everything after
+    it, so the surrounding documentation and a worked example were sent to the
+    model as its system prompt — and renaming the heading would have sent the
+    entire file.
+    """
+
+    def test_documentation_before_the_prompt_is_excluded(self):
+        system = prompts.verification_system_prompt()
+        self.assertNotIn("Use this prompt as a *separate* chat", system)
+
+    def test_documentation_after_the_prompt_is_excluded(self):
+        system = prompts.verification_system_prompt()
+        self.assertNotIn("## User message format", system)
+        self.assertNotIn("[paste narrative.md here]", system)
+
+    def test_the_actual_instructions_are_included(self):
+        system = prompts.verification_system_prompt()
+        self.assertIn("forensic checker", system.lower())
+        self.assertIn("Dropped citations", system)
+
+    def test_missing_markers_raise_rather_than_sending_the_whole_document(self):
+        original = (prompts.PROMPTS_DIR / "verification.md").read_text(encoding="utf-8")
+        try:
+            (prompts.PROMPTS_DIR / "verification.md").write_text(
+                original.replace("<!-- SYSTEM-PROMPT-END -->", ""), encoding="utf-8"
+            )
+            with self.assertRaises(ValueError):
+                prompts.verification_system_prompt()
+        finally:
+            (prompts.PROMPTS_DIR / "verification.md").write_text(original, encoding="utf-8")
+
+    def test_a_stray_custom_verification_file_cannot_win_silently(self):
+        # It would be invisible to is_customised() and untouchable by
+        # restore_defaults() — a customisation with no way to see or undo it.
+        prompts.CUSTOM_DIR.mkdir(parents=True, exist_ok=True)
+        (prompts.CUSTOM_DIR / "verification.md").write_text("HIJACKED", encoding="utf-8")
+
+        self.assertEqual(prompts.template_path("verification.md").parent, prompts.PROMPTS_DIR)
+        self.assertNotIn("HIJACKED", prompts.verification_system_prompt())
+
+
+class TestPromptSnapshot(PromptOverrideTestCase):
+    """What gets recorded must be what gets sent."""
+
+    CASE = {"feeEarnerName": "Jane Doe", "finalUpliftPercent": "75"}
+
+    def test_a_snapshot_survives_a_later_edit(self):
+        snap = prompts.snapshot()
+        prompts.enable_customisation()
+        (prompts.CUSTOM_DIR / "system.md").write_text("EDITED MID-RUN", encoding="utf-8")
+
+        # The frozen snapshot still holds what the run started with, so the
+        # audit record and the request cannot diverge.
+        self.assertNotIn("EDITED MID-RUN", snap.system)
+        self.assertNotIn("EDITED MID-RUN", snap.assemble("BODY", self.CASE))
+
+    def test_a_snapshot_reflects_an_override_taken_before_the_run(self):
+        prompts.enable_customisation()
+        (prompts.CUSTOM_DIR / "system.md").write_text("MY RULES", encoding="utf-8")
+        snap = prompts.snapshot()
+        self.assertEqual(snap.system, "MY RULES")
+        self.assertTrue(snap.customised)
+        self.assertIn("MY RULES", snap.assemble("BODY", self.CASE))
+
+    def test_missing_case_fields_degrade_to_visible_labels(self):
+        # These lowercase fallbacks are what checks.py now looks for.
+        message = prompts.snapshot().user_message("BODY", {})
+        self.assertIn("[fee earner]", message)

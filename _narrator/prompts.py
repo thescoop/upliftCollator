@@ -14,7 +14,7 @@ caught.
 
 from __future__ import annotations
 
-import re
+from dataclasses import dataclass
 from pathlib import Path
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
@@ -24,7 +24,8 @@ CUSTOM_DIR = PROMPTS_DIR / "custom"
 # real system prompt embedded, so it is parsed rather than edited directly.
 EDITABLE_TEMPLATES = ("system.md", "user-template.md")
 
-_VERIFICATION_HEADING = "## System prompt for the verification chat"
+_VERIFICATION_START = "<!-- SYSTEM-PROMPT-START -->"
+_VERIFICATION_END = "<!-- SYSTEM-PROMPT-END -->"
 
 
 def _substitute(template: str, mapping: dict[str, str]) -> str:
@@ -37,9 +38,18 @@ def _substitute(template: str, mapping: dict[str, str]) -> str:
 # ── Template resolution ─────────────────────────────────────────────────────
 
 def template_path(name: str) -> Path:
-    """Custom override if it exists, otherwise the shipped default."""
-    custom = CUSTOM_DIR / name
-    return custom if custom.is_file() else PROMPTS_DIR / name
+    """Custom override if it exists, otherwise the shipped default.
+
+    Only the declared editable templates can be overridden. Without that
+    restriction a stray ``custom/verification.md`` would silently win while
+    being invisible to ``is_customised()`` and untouchable by
+    ``restore_defaults()`` — a customisation with no way to see or undo it.
+    """
+    if name in EDITABLE_TEMPLATES:
+        custom = CUSTOM_DIR / name
+        if custom.is_file():
+            return custom
+    return PROMPTS_DIR / name
 
 
 def read_template(name: str) -> str:
@@ -102,14 +112,37 @@ def user_message(skeleton: str, case_meta: dict) -> str:
 def verification_system_prompt() -> str:
     """The forensic-checker system prompt, parsed out of verification.md.
 
-    verification.md is written as human documentation with the prompt embedded
-    under a heading, so there is one file to read rather than two that drift.
+    verification.md is human documentation with the prompt embedded in it, so
+    there is one file to read rather than two that drift. The prompt is bounded
+    by explicit markers and this refuses to guess: an earlier version split on
+    a markdown heading and took everything after it, which silently sent the
+    surrounding documentation and a worked example to the model as its system
+    prompt — and would have sent the entire file had the heading been renamed.
     """
     text = read_template("verification.md")
-    _, _, after = text.partition(_VERIFICATION_HEADING)
-    body = (after or text).strip()
-    # Trim a trailing fenced example block if the doc ends with one.
-    return body.strip()
+    before, start_marker, rest = text.partition(_VERIFICATION_START)
+    body, end_marker, _ = rest.partition(_VERIFICATION_END)
+
+    if not start_marker or not end_marker:
+        raise ValueError(
+            f"{template_path('verification.md')} is missing the "
+            f"{_VERIFICATION_START} / {_VERIFICATION_END} markers that delimit "
+            "the system prompt. Restore them rather than letting documentation "
+            "be sent to the model as instructions."
+        )
+    if _VERIFICATION_START in rest or _VERIFICATION_END in before:
+        raise ValueError(
+            f"{template_path('verification.md')} has duplicated or out-of-order "
+            "system-prompt markers; the intended prompt is ambiguous."
+        )
+
+    body = body.strip()
+    if not body:
+        raise ValueError(
+            f"{template_path('verification.md')} has an empty system prompt "
+            "between its markers."
+        )
+    return body
 
 
 def verification_user_message(skeleton: str, polished: str) -> str:
@@ -120,6 +153,54 @@ def verification_user_message(skeleton: str, polished: str) -> str:
         "---POLISHED NARRATIVE---\n\n"
         f"{polished.strip()}\n\n"
         "---END POLISHED NARRATIVE---\n"
+    )
+
+
+@dataclass(frozen=True)
+class PromptSnapshot:
+    """The resolved templates for one run, read once and then frozen.
+
+    The audit file (narrative-prompt.txt) is written before the model is
+    called, and prompt editing stays available while a run is in flight — an
+    external editor can change a template between the two. Without a snapshot,
+    version A gets recorded as the audit record while version B is what was
+    actually sent, which defeats the point of keeping the record at all.
+    """
+
+    system: str
+    user_template: str
+    customised: bool
+
+    def user_message(self, skeleton: str, case_meta: dict) -> str:
+        return _substitute(
+            self.user_template,
+            {
+                "FEE_EARNER_NAME": case_meta.get("feeEarnerName", "").strip() or "[fee earner]",
+                "MATTER_TYPE": case_meta.get("matterType", "").strip() or "[matter type]",
+                "CASE_MATTER_NAME": case_meta.get("caseMatterName", "").strip() or "[case]",
+                "UPLIFT_PERCENT": case_meta.get("finalUpliftPercent", "").strip() or "[uplift %]",
+                "SKELETON": skeleton.strip(),
+            },
+        ).strip()
+
+    def assemble(self, skeleton: str, case_meta: dict) -> str:
+        """The two-block paste-ready text, and the audit record of this run."""
+        return (
+            "--- SYSTEM PROMPT ---\n"
+            "(Paste this into LM Studio's 'System Message' field.)\n\n"
+            f"{self.system}\n\n"
+            "--- USER MESSAGE ---\n"
+            "(Send this as the first user message in a new chat.)\n\n"
+            f"{self.user_message(skeleton, case_meta)}\n"
+        )
+
+
+def snapshot() -> PromptSnapshot:
+    """Resolve and freeze the editable templates for a single run."""
+    return PromptSnapshot(
+        system=system_prompt(),
+        user_template=read_template("user-template.md"),
+        customised=is_customised(),
     )
 
 

@@ -25,16 +25,28 @@ import json
 import sys
 from pathlib import Path
 
-import checks
 import lmstudio
 import polish as polish_mod
 from extract import diagnose, extract_formdata
-from prompts import assemble_prompt
+import prompts as prompts_mod
 from skeleton import build_skeleton
 
 
 def _default_out_dir(pdf_path: Path) -> Path:
     return pdf_path.parent / f"{pdf_path.stem}-narrative"
+
+
+# Outputs derived from the skeleton. They stop being true the moment a new run
+# overwrites the skeleton, so they are cleared before one starts.
+DERIVED_FILES = ("narrative-polished.md", "citation-check.txt")
+
+
+def _clear_derived(out_dir: Path) -> None:
+    for name in DERIVED_FILES:
+        (out_dir / name).unlink(missing_ok=True)
+
+
+
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -102,9 +114,19 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     skeleton_md = build_skeleton(formdata)
-    prompt_text = assemble_prompt(skeleton_md, formdata.get("caseDetails", {}) | {
+    case_meta = formdata.get("caseDetails", {}) | {
         "finalUpliftPercent": formdata.get("finalUpliftPercent", "")
-    })
+    }
+
+    # Freeze the templates for this run so the audit record below is exactly
+    # what gets sent, even if someone edits a prompt while this is running.
+    snap = prompts_mod.snapshot()
+    prompt_text = snap.assemble(skeleton_md, case_meta)
+
+    # Derived artifacts from a previous run describe a different input once the
+    # skeleton is overwritten. Removing them first stops a stale polished
+    # narrative sitting beside a fresh skeleton and looking current.
+    _clear_derived(out_dir)
 
     (out_dir / "narrative.md").write_text(skeleton_md + "\n", encoding="utf-8")
     (out_dir / "narrative-prompt.txt").write_text(prompt_text, encoding="utf-8")
@@ -118,12 +140,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = polish_mod.run(
                 skeleton_md,
-                formdata.get("caseDetails", {}) | {
-                    "finalUpliftPercent": formdata.get("finalUpliftPercent", "")
-                },
+                case_meta,
                 model_hint=args.model,
                 verify=not args.no_verify,
-                allow_swap=args.force_swap,
+                force_swap=args.force_swap,
+                prompt_snapshot=snap,
                 on_status=lambda msg: print(f"narrate: {msg}", file=sys.stderr),
             )
         except lmstudio.ModelSwapRequired as exc:
@@ -141,13 +162,7 @@ def main(argv: list[str] | None = None) -> int:
         (out_dir / "narrative-polished.md").write_text(result.polished + "\n", encoding="utf-8")
         written.append("narrative-polished.md")
 
-        report = checks.format_report(result.check)
-        if result.llm_verification:
-            report += "\n\n---\n\n## LLM second opinion\n\n" + result.llm_verification + "\n"
-        elif result.verification_error:
-            report += ("\n\n---\n\n## LLM second opinion\n\n"
-                       f"Did not run: {result.verification_error}\n")
-        (out_dir / "citation-check.txt").write_text(report, encoding="utf-8")
+        (out_dir / "citation-check.txt").write_text(polish_mod.format_full_report(result), encoding="utf-8")
         written.append("citation-check.txt")
 
     print(f"narrate: wrote {out_dir}", file=sys.stderr)
@@ -155,13 +170,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  - {name:<24}({(out_dir / name).stat().st_size} bytes)", file=sys.stderr)
 
     if args.polish or args.model:
-        verdict = result.check.verdict
-        print(f"narrate: {verdict} — {len(result.check.skeleton_citations)} citations, "
-              f"{len(result.check.dropped_citations)} dropped, "
-              f"{len(result.check.placeholders)} placeholders left.", file=sys.stderr)
-        if not result.check.ok:
+        print(f"narrate: {result.verdict} — {result.verdict_detail}.", file=sys.stderr)
+        if not result.ok:
             print("narrate: read citation-check.txt before submitting.", file=sys.stderr)
-        return 0 if result.check.ok else 1
+        # Non-zero on either check failing, so a batch loop cannot mistake a
+        # flagged narrative for a clean one.
+        return 0 if result.ok else 1
 
     print("narrate: paste narrative-prompt.txt into LM Studio, or re-run with "
           "--polish to do it automatically.", file=sys.stderr)

@@ -27,15 +27,73 @@ class PolishResult:
     verification_error: str = ""
 
     @property
-    def ok(self) -> bool:
+    def deterministic_ok(self) -> bool:
+        """Did the exact citation/placeholder check pass?"""
         return bool(self.polished) and bool(self.check) and self.check.ok
+
+    @property
+    def semantic_ok(self) -> bool:
+        """Did the LLM second opinion find nothing?
+
+        True when it did not run — an absent opinion is not a finding. False
+        only when it ran and reported a problem.
+        """
+        if not self.llm_verification:
+            return True
+        return "NEEDS REVISION" not in self.llm_verification.upper()
+
+    @property
+    def ok(self) -> bool:
+        """Both checks. A semantic finding must not be outvoted by a clean
+        citation count — the earlier version showed green SAFE TO REVIEW while
+        the report underneath said NEEDS REVISION."""
+        return self.deterministic_ok and self.semantic_ok
+
+    @property
+    def verdict(self) -> str:
+        return "SAFE TO REVIEW" if self.ok else "NEEDS REVISION"
+
+    @property
+    def verdict_detail(self) -> str:
+        """One line explaining the verdict, for the log and the CLI."""
+        if not self.check:
+            return "no check was run"
+        parts = [
+            f"{len(self.check.skeleton_citations)} citations",
+            f"{len(self.check.dropped_citations)} dropped",
+            f"{len(self.check.added_citations)} added",
+            f"{len(self.check.placeholders)} placeholders left",
+        ]
+        if not self.semantic_ok:
+            parts.append("LLM review flagged a discrepancy")
+        if self.verification_error:
+            parts.append("LLM review did not run")
+        return ", ".join(parts)
+
+
+def format_full_report(result: PolishResult) -> str:
+    """The citation-check file: exact check, LLM second opinion, verdict.
+
+    Shared by the CLI and the GUI so the two can never disagree, and so the
+    overall verdict always appears last — an LLM "NEEDS REVISION" higher up the
+    file must not be contradicted by a green summary elsewhere.
+    """
+    report = checks.format_report(result.check)
+    if result.llm_verification:
+        report += "\n\n---\n\n## LLM second opinion\n\n" + result.llm_verification + "\n"
+    elif result.verification_error:
+        report += ("\n\n---\n\n## LLM second opinion\n\n"
+                   f"Did not run: {result.verification_error}\n")
+    report += f"\n\n---\n\n## Overall verdict\n\n{result.verdict} — {result.verdict_detail}\n"
+    return report
 
 
 def prepare(
     model_hint: str = "",
     context_size: int = lmstudio.DEFAULT_CONTEXT_SIZE,
     *,
-    allow_swap: bool = False,
+    consented: list[str] | None = None,
+    force_swap: bool = False,
 ) -> tuple[str, str]:
     """Resolve the server and make sure a usable model is loaded.
 
@@ -58,7 +116,13 @@ def prepare(
     if not model_hint and loaded:
         model = lmstudio.choose_model(loaded, "")
 
-    error = lmstudio.ensure_model_loaded(host, model, context_size, allow_swap=allow_swap)
+    approved = consented
+    if force_swap:
+        # An explicit --force-swap means "evict whatever is there". Read the
+        # set at the moment of acting so the consent is at least accurate.
+        approved = lmstudio.swap_needed(host, model)
+
+    error = lmstudio.ensure_model_loaded(host, model, context_size, consented=approved)
     if error:
         raise lmstudio.LMStudioError(
             f"Could not load {model!r} in LM Studio.\n\n{error}"
@@ -72,13 +136,19 @@ def polish(
     model: str,
     host: str,
     *,
+    prompt_snapshot: prompts.PromptSnapshot | None = None,
     on_token: Callable[[str], None] | None = None,
     should_stop: Callable[[], bool] | None = None,
 ) -> str:
-    """Rewrite the skeleton as flowing prose. Returns the polished narrative."""
+    """Rewrite the skeleton as flowing prose. Returns the polished narrative.
+
+    Uses the caller's frozen snapshot so what is sent matches what was recorded
+    in narrative-prompt.txt, even if a template is edited mid-run.
+    """
+    snap = prompt_snapshot or prompts.snapshot()
     return lmstudio.chat(
-        prompts.system_prompt(),
-        prompts.user_message(skeleton, case_meta),
+        snap.system,
+        snap.user_message(skeleton, case_meta),
         model,
         host,
         on_token=on_token,
@@ -106,7 +176,9 @@ def run(
     *,
     model_hint: str = "",
     verify: bool = True,
-    allow_swap: bool = False,
+    consented: list[str] | None = None,
+    force_swap: bool = False,
+    prompt_snapshot: prompts.PromptSnapshot | None = None,
     on_token: Callable[[str], None] | None = None,
     on_status: Callable[[str], None] | None = None,
     should_stop: Callable[[], bool] | None = None,
@@ -118,11 +190,12 @@ def run(
             on_status(message)
 
     status("Connecting to LM Studio…")
-    host, model = prepare(model_hint, allow_swap=allow_swap)
+    host, model = prepare(model_hint, consented=consented, force_swap=force_swap)
     status(f"Polishing with {model}…")
 
     polished = polish(
         skeleton, case_meta, model, host,
+        prompt_snapshot=prompt_snapshot,
         on_token=on_token, should_stop=should_stop,
     )
     result = PolishResult(polished=polished, model=model)
@@ -134,8 +207,11 @@ def run(
         status("Running LLM verification…")
         try:
             result.llm_verification = verify_with_llm(skeleton, polished, model, host)
-        except lmstudio.LMStudioError as exc:
-            # A failed second opinion must never discard a good narrative.
-            result.verification_error = str(exc)
+        except Exception as exc:  # noqa: BLE001 — see below
+            # A failed second opinion must never discard a good narrative, and
+            # "failed" means any exception: a malformed verification.md raises
+            # ValueError, not LMStudioError, and catching only the latter threw
+            # away a perfectly good polished narrative before it reached disk.
+            result.verification_error = f"{type(exc).__name__}: {exc}"
 
     return result
