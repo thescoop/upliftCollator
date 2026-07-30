@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Create or update the conda environment for the uplift narrator.
-# Run from the narrate/ folder.
+# Run from the _narrator/ folder.
 set -euo pipefail
 
 ENV_NAME="uplift-narrate"
@@ -24,4 +24,4 @@ pip install -r requirements.txt
 
 echo
 echo "Done. Activate with:  conda activate $ENV_NAME"
-echo "Or use ./_run.sh which activates automatically."
+echo "Or use ./_narrator.sh which activates automatically."

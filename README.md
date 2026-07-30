@@ -19,9 +19,25 @@ See `VERSION_HISTORY.md` for the full change log.
 ## Repository layout
 
 - `index.html`, `script.js`, `style.css`, `content-data.js` — the app
+- `_narrator/` — the **Uplift Narrator**, the back-office tool (see below)
 - `Costs_Assessment_Guidance_2024_SCC_-_Version_1a-_23_September_2024.pdf` — bundled LAA reference
 - `VERSION_HISTORY.md` — change log
 - `LICENSE` — proprietary
+
+## Back-office tool: the Uplift Narrator
+
+Once a solicitor has produced a PDF from the web app, `_narrator/` turns it into a
+finished LAA enhancement narrative — pulling out the ticked criteria, attaching
+the correct CAG/Spec/CPR citation to each, polishing the result into flowing
+prose with a local LM Studio model, and checking that no citation was lost on
+the way.
+
+Drag a PDF onto `_narrator/_Generate_Uplift_Narrative.bat` (Windows) or run `_narrator/_narrator.sh` (WSL).
+Full documentation in [`_narrator/README.md`](_narrator/README.md).
+
+It is a Python + PyQt6 tool with its own conda environment (`uplift-narrate`),
+entirely separate from the browser app above — nothing in the web tool depends
+on it.
 
 An earlier parallel branch (older version folders `upliftCollator v1`–`v1.8` plus a Python narrative-generator side project) is preserved at the git tag `archive/master-snapshot` if anything from it ever needs to be recovered.
 

@@ -1,6 +1,6 @@
 @echo off
 REM _setup.bat - First-time environment setup for the uplift narrator
-REM Run this once before using _run.bat
+REM Run this once before using _Generate_Uplift_Narrative.bat
 
 cd /d "%~dp0"
 
@@ -26,7 +26,7 @@ IF ERRORLEVEL 1 (
 echo.
 echo Setup complete!
 echo.
-echo Next: drag a PDF onto _run.bat, or run from cmd:
-echo   _run.bat path\to\case.pdf
+echo Next: drag a PDF onto _Generate_Uplift_Narrative.bat, or run from cmd:
+echo   _Generate_Uplift_Narrative.bat path\to\case.pdf
 echo.
 pause

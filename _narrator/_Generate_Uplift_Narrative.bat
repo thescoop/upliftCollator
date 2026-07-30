@@ -1,7 +1,7 @@
 @echo off
-REM _run.bat - Launch the Uplift Narrator GUI
-REM Usage: double-click, or _run.bat path\to\case.pdf to pre-load a PDF
-REM (you can also drag a PDF onto _run.bat in Explorer)
+REM _Generate_Uplift_Narrative.bat - Launch the Uplift Narrator GUI
+REM Usage: double-click, or _Generate_Uplift_Narrative.bat path\to\case.pdf to pre-load a PDF
+REM (you can also drag a PDF onto _Generate_Uplift_Narrative.bat in Explorer)
 
 cd /d "%~dp0"
 

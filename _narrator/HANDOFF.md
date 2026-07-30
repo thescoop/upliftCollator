@@ -7,7 +7,7 @@ Concise context for picking up work in a fresh session.
 Two cooperating tools for **Woodruff Billing Ltd** (UK Family Law solicitors funded by the Legal Aid Agency):
 
 1. **Uplift Collator** (the existing web app — `index.html` + `script.js` + `content-data.js` + `style.css`). A 100% client-side, password-gated form that walks a solicitor through the LAA enhancement uplift questionnaire (Costs Assessment Guidance §12). Outputs a PDF summary.
-2. **Uplift Narrator** (`narrate/`). A new internal back-office tool that takes the Collator's PDF and produces:
+2. **Uplift Narrator** (`_narrator/`). A new internal back-office tool that takes the Collator's PDF and produces:
    - A structured Markdown narrative (deterministic, every CAG/Spec citation in place, solicitor's verbatim explanations preserved).
    - A paste-ready prompt for **LM Studio** (local 27B model) that polishes the narrative into flowing prose. The polished output goes to a human reviewer before submission to the LAA.
 
@@ -26,7 +26,7 @@ upliftCollator/
 ├── README.md, VERSION_HISTORY.md, LICENSE
 ├── Costs_Assessment_Guidance_2024_SCC_…pdf   # Bundled LAA reference
 │
-└── narrate/                             # The Python narrator
+└── _narrator/                             # The Python narrator
     ├── narrate_gui.py                   # PyQt6 GUI (dark theme, myToolbox pattern)
     ├── narrate.py                       # CLI orchestrator
     ├── extract.py                       # PDF → formData via pdfplumber + regex
@@ -40,7 +40,7 @@ upliftCollator/
     │   ├── user-template.md             # User-message template ({{SKELETON}} placeholder)
     │   └── verification.md              # Optional second prompt for citation/fact check
     ├── _setup.bat / _setup.sh           # Create conda env 'uplift-narrate'
-    ├── _run.bat / _run.sh               # Launch the GUI
+    ├── _Generate_Uplift_Narrative.bat / _narrator.sh               # Launch the GUI
     ├── requirements.txt                 # pdfplumber, json5, PyQt6
     ├── README.md                        # User-facing quick-start + troubleshooting
     └── tests/
@@ -95,12 +95,12 @@ skeleton.py — substitutes {UPLIFT_PERCENT}, {ITEM_OF_WORK}, {FEE_EARNER_NAME},
 ### GUI (primary path)
 
 ```
-cd narrate
+cd _narrator
 ./_setup.sh          # one-time
-./_run.sh            # launches GUI; drag PDF or click Browse
+./_narrator.sh            # launches GUI; drag PDF or click Browse
 ```
 
-Windows: `_setup.bat` then `_run.bat` (or drag a PDF onto `_run.bat`).
+Windows: `_setup.bat` then `_Generate_Uplift_Narrative.bat` (or drag a PDF onto `_Generate_Uplift_Narrative.bat`).
 
 ### CLI
 
@@ -113,7 +113,7 @@ python narrate.py path/to/case.pdf [--out-dir DIR]
 
 ```
 conda activate uplift-narrate
-python -m unittest discover -s narrate/tests -v
+python -m unittest discover -s _narrator/tests -v
 ```
 
 ## Active issue (the reason this doc exists)
@@ -149,9 +149,9 @@ python -c "import pdfplumber; print(pdfplumber.open('PATH.pdf').pages[0].extract
 - **App version is 1.9** in `content-data.js`. To bump, change `APP_VERSION` only — propagates everywhere.
 - **v1.9 (2026-04-28)** recalibrated the on-screen "Suggested: X%" from 5% per factor to 10% per factor. Narrator is unaffected — the PDF only contains the user's chosen final percentage, not the suggestion. All 20 narrator unit tests still pass against pre- and post-recalibration PDFs.
 - **Recent significant commits:**
-  - `35c362b` — first narrate/ commit (CLI + tests)
+  - `35c362b` — first commit of this tool (CLI + tests), when the folder was still called `narrate/`
   - `7ff3c1f` — added GUI front-end (PyQt6, myToolbox pattern)
-- **HANDOFF location**: `narrate/HANDOFF.md` (this file). The matching pattern is myToolbox's `HANDOFF.md` — concise, structured for a fresh-session pick-up.
+- **HANDOFF location**: `_narrator/HANDOFF.md` (this file). The matching pattern is myToolbox's `HANDOFF.md` — concise, structured for a fresh-session pick-up.
 
 ## Conventions
 
