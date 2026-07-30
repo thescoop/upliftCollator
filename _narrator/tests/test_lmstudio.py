@@ -105,3 +105,62 @@ class TestStreamParsing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSwapGuard(unittest.TestCase):
+    """The eviction guard: never unload another application's model silently."""
+
+    def setUp(self):
+        self._real_catalog = lmstudio.model_catalog
+        self._real_state = lmstudio.model_state
+        self._ran = []
+        self._real_run = lmstudio.run_lms
+        lmstudio.run_lms = lambda args, timeout: self._ran.append(args) or ""
+
+    def tearDown(self):
+        lmstudio.model_catalog = self._real_catalog
+        lmstudio.model_state = self._real_state
+        lmstudio.run_lms = self._real_run
+
+    def _fake_catalog(self, loaded):
+        lmstudio.model_catalog = lambda host: (["a", "b"], loaded)
+
+    def test_no_swap_when_nothing_is_loaded(self):
+        self._fake_catalog([])
+        self.assertEqual(lmstudio.swap_needed("h", "a"), [])
+
+    def test_no_swap_when_the_wanted_model_is_already_loaded(self):
+        self._fake_catalog(["a"])
+        self.assertEqual(lmstudio.swap_needed("h", "a"), [])
+
+    def test_swap_reports_what_would_be_evicted(self):
+        self._fake_catalog(["b"])
+        self.assertEqual(lmstudio.swap_needed("h", "a"), ["b"])
+
+    def test_unknown_state_is_treated_as_no_swap(self):
+        def boom(host):
+            raise lmstudio.LMStudioError("no /api/v0")
+        lmstudio.model_catalog = boom
+        self.assertEqual(lmstudio.swap_needed("h", "a"), [])
+
+    def test_ensure_refuses_to_evict_without_permission(self):
+        lmstudio.model_state = lambda host, model: "not-loaded"
+        self._fake_catalog(["b"])
+        with self.assertRaises(lmstudio.ModelSwapRequired) as ctx:
+            lmstudio.ensure_model_loaded("h", "a")
+        self.assertEqual(ctx.exception.wanted, "a")
+        self.assertEqual(ctx.exception.loaded, ["b"])
+        self.assertEqual(self._ran, [], "must not run any lms command when refusing")
+
+    def test_ensure_evicts_when_permission_is_given(self):
+        lmstudio.model_state = lambda host, model: "not-loaded"
+        self._fake_catalog(["b"])
+        self.assertEqual(lmstudio.ensure_model_loaded("h", "a", allow_swap=True), "")
+        self.assertEqual(self._ran[0], ["unload", "--all"])
+        self.assertEqual(self._ran[1][:2], ["load", "a"])
+
+    def test_already_loaded_model_is_never_reloaded(self):
+        lmstudio.model_state = lambda host, model: "loaded"
+        self._fake_catalog(["a"])
+        self.assertEqual(lmstudio.ensure_model_loaded("h", "a"), "")
+        self.assertEqual(self._ran, [])

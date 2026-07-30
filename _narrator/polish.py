@@ -31,11 +31,19 @@ class PolishResult:
         return bool(self.polished) and bool(self.check) and self.check.ok
 
 
-def prepare(model_hint: str = "", context_size: int = lmstudio.DEFAULT_CONTEXT_SIZE) -> tuple[str, str]:
+def prepare(
+    model_hint: str = "",
+    context_size: int = lmstudio.DEFAULT_CONTEXT_SIZE,
+    *,
+    allow_swap: bool = False,
+) -> tuple[str, str]:
     """Resolve the server and make sure a usable model is loaded.
 
     Returns (host, model). Raises LMStudioError with an actionable message if
-    the server is unreachable or no model can be loaded.
+    the server is unreachable or no model can be loaded, or ModelSwapRequired
+    if satisfying the request would evict a model another application may be
+    using. With no explicit model_hint this stays on whatever is already
+    loaded, so the default path never triggers a swap.
     """
     host = lmstudio.resolve_host()
     downloaded, loaded = lmstudio.model_catalog(host)
@@ -50,7 +58,7 @@ def prepare(model_hint: str = "", context_size: int = lmstudio.DEFAULT_CONTEXT_S
     if not model_hint and loaded:
         model = lmstudio.choose_model(loaded, "")
 
-    error = lmstudio.ensure_model_loaded(host, model, context_size)
+    error = lmstudio.ensure_model_loaded(host, model, context_size, allow_swap=allow_swap)
     if error:
         raise lmstudio.LMStudioError(
             f"Could not load {model!r} in LM Studio.\n\n{error}"
@@ -98,6 +106,7 @@ def run(
     *,
     model_hint: str = "",
     verify: bool = True,
+    allow_swap: bool = False,
     on_token: Callable[[str], None] | None = None,
     on_status: Callable[[str], None] | None = None,
     should_stop: Callable[[], bool] | None = None,
@@ -109,7 +118,7 @@ def run(
             on_status(message)
 
     status("Connecting to LM Studio…")
-    host, model = prepare(model_hint)
+    host, model = prepare(model_hint, allow_swap=allow_swap)
     status(f"Polishing with {model}…")
 
     polished = polish(

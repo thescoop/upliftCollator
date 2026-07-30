@@ -75,8 +75,28 @@ that had not happened and never duplicated a quantity. On an LAA submission,
 plausible-but-wrong is the worst failure class — the same reason it leads here.
 The QAT build is pinned ahead of the plain one, which spills VRAM on a 16GB card.
 
-Switching models unloads the current one first; two models this size cannot
-share a 16GB card.
+### Sharing LM Studio with another application
+
+Two models this size cannot share a 16GB card, so switching model means
+unloading whatever is there — which may belong to another application
+(LeapForward, say) that is mid-run. The narrator never does that silently:
+
+- **Auto never swaps.** It deliberately stays on whatever already occupies
+  VRAM, so the default path cannot disturb anything.
+- **An explicit pick that differs from the loaded model asks first**, naming
+  what would be unloaded and the context length it was loaded at. Cancel and
+  nothing is touched.
+- **The CLI refuses by default** and exits 3, telling you to pass
+  `--force-swap` or drop `--model`. Batch runs therefore stay safe and
+  non-interactive.
+
+Sharing the *same* model is fine — LM Studio queues requests, so a run behind
+someone else's simply waits its turn.
+
+If another application loaded the model at a smaller context length than the
+narrator would have chosen, the narrator inherits it rather than reloading. A
+long narrative can then overflow; the confirm dialog shows the loaded context
+so this is visible before it bites.
 
 ## Editing the prompts
 

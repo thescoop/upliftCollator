@@ -90,11 +90,15 @@ class NarrateWorker(QThread):
     log_line = pyqtSignal(str)
     success = pyqtSignal(dict)
 
-    def __init__(self, pdf_path: str, out_dir: str, model_hint: str = "", parent=None):
+    def __init__(self, pdf_path: str, out_dir: str, model_hint: str = "",
+                 allow_swap: bool = False, parent=None):
         super().__init__(parent)
         self._pdf_path = pdf_path
         self._out_dir = out_dir
         self._model_hint = model_hint
+        # Confirmed on the UI thread before the worker starts — a background
+        # thread must never raise a dialog.
+        self._allow_swap = allow_swap
 
     def run(self):
         try:
@@ -144,6 +148,7 @@ class NarrateWorker(QThread):
                     skeleton,
                     case_meta,
                     model_hint=self._model_hint,
+                    allow_swap=self._allow_swap,
                     on_status=lambda msg: self.log_line.emit(
                         f'<span style="color:#88aaff;">{msg}</span>'
                     ),
@@ -590,6 +595,12 @@ class NarrateCard(QFrame):
             )
             return
 
+        # Ask before evicting a model another application may be using. Done
+        # here, on the UI thread, because a QThread cannot raise a dialog.
+        allow_swap = self._confirm_model_swap()
+        if allow_swap is None:
+            return
+
         self._log.clear()
         self._narrative_view.clear()
         self._polished_view.clear()
@@ -599,7 +610,8 @@ class NarrateCard(QFrame):
         self._generate_btn.setEnabled(False)
 
         self._worker = NarrateWorker(
-            self._pdf_path, self._out_dir, self._selected_model(), parent=self
+            self._pdf_path, self._out_dir, self._selected_model(),
+            allow_swap, parent=self,
         )
         self._worker.log_line.connect(self._append_log)
         self._worker.success.connect(self._on_success)
@@ -622,6 +634,50 @@ class NarrateCard(QFrame):
         # Land on whatever is actually useful: the finished narrative if the
         # polish succeeded, otherwise the skeleton to work from by hand.
         self._tabs.setCurrentIndex(0 if payload.get("polished") else 2)
+
+    def _confirm_model_swap(self):
+        """Return True/False to proceed, or None if the user cancelled.
+
+        Auto never swaps — the pipeline stays on whatever is loaded — so this
+        only ever fires on an explicit pick that differs from the loaded model.
+        """
+        model = self._selected_model()
+        if not model:
+            return False
+
+        try:
+            host = lmstudio.resolve_host()
+            evicted = lmstudio.swap_needed(host, model)
+        except lmstudio.LMStudioError:
+            return False  # unreachable: let the worker report it properly
+
+        if not evicted:
+            return False
+
+        detail = ""
+        for other in evicted:
+            context = lmstudio.loaded_context(host, other)
+            if context:
+                detail += f"\n  • {other} (loaded at {context:,} context)"
+            else:
+                detail += f"\n  • {other}"
+
+        answer = QMessageBox.question(
+            self, "Unload the model in use?",
+            f"Loading {model} will first unload:{detail}\n\n"
+            "Another application may be using it — LeapForward, for example — "
+            "and unloading will interrupt whatever it is doing.\n\n"
+            "Unload it anyway?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            self._append_log(
+                '<span style="color:#f9e2af;">Cancelled — nothing was unloaded. '
+                'Choose Auto to use the model that is already loaded.</span>'
+            )
+            return None
+        return True
 
     # ── Model list ───────────────────────────────────────────────────────
 

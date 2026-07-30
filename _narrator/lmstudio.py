@@ -66,6 +66,23 @@ class LMStudioError(RuntimeError):
     """Raised with a message that tells the user what to actually do."""
 
 
+class ModelSwapRequired(LMStudioError):
+    """Loading the requested model would unload one already in use.
+
+    On a 16GB card two models of this size cannot coexist, so switching means
+    evicting whatever is there — which may belong to another application
+    (LeapForward, say) that is mid-run. Never done silently.
+    """
+
+    def __init__(self, wanted: str, loaded: list[str]):
+        self.wanted = wanted
+        self.loaded = loaded
+        super().__init__(
+            f"{', '.join(loaded)} is currently loaded in LM Studio and may be in "
+            f"use by another application. Loading {wanted} would unload it."
+        )
+
+
 # ── Server discovery ────────────────────────────────────────────────────────
 
 def _wsl_gateway_ip() -> str | None:
@@ -234,16 +251,62 @@ def run_lms(args: list[str], timeout: int) -> str:
     return "LM Studio CLI (lms) not found — load the model in LM Studio manually."
 
 
-def ensure_model_loaded(host: str, model_id: str, context_size: int = DEFAULT_CONTEXT_SIZE) -> str:
+def loaded_context(host: str, model_id: str) -> int:
+    """Context length a loaded model was loaded with, or 0 if unknown.
+
+    Read-only insight: the OpenAI-compatible endpoint cannot report or change
+    this. Matters when another application loaded the model at a smaller
+    context than the narrator would have chosen — a long narrative can then
+    overflow, and the resulting error otherwise points at the wrong cause.
+    """
+    try:
+        payload = _get_json(f"{host}/api/v0/models")
+    except (urllib.error.URLError, OSError, json.JSONDecodeError):
+        return 0
+    for item in payload.get("data", []):
+        if item.get("id") == model_id:
+            return int(item.get("loaded_context_length") or 0)
+    return 0
+
+
+def swap_needed(host: str, model_id: str) -> list[str]:
+    """Models that would be unloaded to make room for model_id.
+
+    Empty when the model is already loaded, when nothing is loaded, or when
+    /api/v0 is unavailable and the state is therefore unknown.
+    """
+    try:
+        _, loaded = model_catalog(host)
+    except LMStudioError:
+        return []
+    if not loaded or model_id in loaded:
+        return []
+    return loaded
+
+
+def ensure_model_loaded(
+    host: str,
+    model_id: str,
+    context_size: int = DEFAULT_CONTEXT_SIZE,
+    *,
+    allow_swap: bool = False,
+) -> str:
     """Make model_id the loaded model. Returns an error message, or "".
 
     Unloads whatever holds the VRAM first — on a 16GB card two models of this
-    size cannot coexist. When /api/v0 is unavailable the state is unknown, so
-    do nothing and rely on LM Studio's just-in-time loading.
+    size cannot coexist. That eviction can belong to another application, so it
+    requires ``allow_swap``; otherwise ModelSwapRequired is raised for the
+    caller to confirm with the user. When /api/v0 is unavailable the state is
+    unknown, so do nothing and rely on LM Studio's just-in-time loading.
     """
     state = model_state(host, model_id)
     if state == "loaded" or not state:
         return ""
+
+    evicted = swap_needed(host, model_id)
+    if evicted and not allow_swap:
+        raise ModelSwapRequired(model_id, evicted)
+
     error = run_lms(["unload", "--all"], timeout=120)
     if error:
         return error

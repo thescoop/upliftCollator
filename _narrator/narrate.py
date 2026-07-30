@@ -58,6 +58,12 @@ def main(argv: list[str] | None = None) -> int:
              "preferred Gemma build). Implies --polish.",
     )
     parser.add_argument(
+        "--force-swap",
+        action="store_true",
+        help="Allow unloading a model another application may be using. "
+             "Without this the run stops rather than evicting it.",
+    )
+    parser.add_argument(
         "--no-verify",
         action="store_true",
         help="Skip the second LLM verification pass (the deterministic "
@@ -117,8 +123,15 @@ def main(argv: list[str] | None = None) -> int:
                 },
                 model_hint=args.model,
                 verify=not args.no_verify,
+                allow_swap=args.force_swap,
                 on_status=lambda msg: print(f"narrate: {msg}", file=sys.stderr),
             )
+        except lmstudio.ModelSwapRequired as exc:
+            print(f"\nnarrate: {exc}\n", file=sys.stderr)
+            print("narrate: re-run with --force-swap to unload it anyway, or "
+                  "omit --model to use whatever is already loaded.", file=sys.stderr)
+            print("narrate: the skeleton was still written.", file=sys.stderr)
+            return 3
         except lmstudio.LMStudioError as exc:
             print(f"\nnarrate: polish step failed.\n{exc}\n", file=sys.stderr)
             print("narrate: the skeleton was still written — paste "
