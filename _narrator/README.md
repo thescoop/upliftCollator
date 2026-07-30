@@ -101,6 +101,15 @@ unloading whatever is there — which may belong to another application
 Sharing the *same* model is fine — LM Studio queues requests, so a run behind
 someone else's simply waits its turn.
 
+**Two gaps remain, and are accepted rather than fixed.** A model that appears
+in the last fraction of a second — between the final state check and the
+`lms` command — can still be evicted; closing that properly needs a lock
+between the two applications, which LM Studio does not offer. And when
+LM Studio's `/api/v0` endpoint is unavailable the loaded state is unknown, so
+the narrator makes the request and lets LM Studio's own just-in-time loading
+decide, which may evict something. Both are narrow; neither is silent about
+what it did.
+
 If another application loaded the model at a smaller context length than the
 narrator would have chosen, the narrator inherits it rather than reloading. A
 long narrative can then overflow; the confirm dialog shows the loaded context

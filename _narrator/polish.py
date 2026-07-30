@@ -8,6 +8,7 @@ never discards a good narrative.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Callable
 
@@ -25,6 +26,10 @@ class PolishResult:
     check: checks.CheckResult | None = None
     llm_verification: str = ""
     verification_error: str = ""
+    # Whether a second opinion was asked for. A verification that was requested
+    # and failed must not read as "no findings" — preserving the narrative and
+    # passing it are separate decisions.
+    verification_was_requested: bool = False
 
     @property
     def deterministic_ok(self) -> bool:
@@ -35,12 +40,34 @@ class PolishResult:
     def semantic_ok(self) -> bool:
         """Did the LLM second opinion find nothing?
 
-        True when it did not run — an absent opinion is not a finding. False
-        only when it ran and reported a problem.
+        Fails closed. An earlier version searched the whole report for the
+        substring "NEEDS REVISION", which accepted a report listing changed
+        facts and then saying SAFE TO REVIEW, accepted alternative wording like
+        "Revision needed", and rejected a clean report that merely discussed
+        the phrase. It also treated a verification that *errored* as a pass,
+        so a malformed prompt produced a green verdict.
+
+        Now: the verdict is read from the report's own Verdict section, and
+        anything that cannot be read as an explicit pass counts as a failure.
         """
+        if self.verification_was_requested and not self.llm_verification:
+            return False  # asked for a second opinion and did not get one
         if not self.llm_verification:
-            return True
-        return "NEEDS REVISION" not in self.llm_verification.upper()
+            return True  # verification was skipped deliberately
+        return self._parsed_llm_verdict() == "SAFE TO REVIEW"
+
+    def _parsed_llm_verdict(self) -> str:
+        """The verdict from the report's Verdict heading, or "" if unreadable."""
+        match = re.search(
+            r"^#{1,6}\s*Verdict\s*$(.*?)(?=^#{1,6}\s|\Z)",
+            self.llm_verification,
+            re.MULTILINE | re.DOTALL | re.IGNORECASE,
+        )
+        section = match.group(1) if match else ""
+        found = re.findall(r"SAFE TO REVIEW|NEEDS REVISION", section, re.IGNORECASE)
+        if len(set(f.upper() for f in found)) != 1:
+            return ""  # absent, or self-contradictory
+        return found[0].upper()
 
     @property
     def ok(self) -> bool:
@@ -64,10 +91,14 @@ class PolishResult:
             f"{len(self.check.added_citations)} added",
             f"{len(self.check.placeholders)} placeholders left",
         ]
-        if not self.semantic_ok:
-            parts.append("LLM review flagged a discrepancy")
         if self.verification_error:
-            parts.append("LLM review did not run")
+            parts.append("LLM review FAILED to run — narrative unverified")
+        elif self.llm_verification and not self.semantic_ok:
+            verdict = self._parsed_llm_verdict()
+            parts.append(
+                "LLM review flagged a discrepancy" if verdict == "NEEDS REVISION"
+                else "LLM review verdict could not be read"
+            )
         return ", ".join(parts)
 
 
@@ -198,7 +229,8 @@ def run(
         prompt_snapshot=prompt_snapshot,
         on_token=on_token, should_stop=should_stop,
     )
-    result = PolishResult(polished=polished, model=model)
+    result = PolishResult(polished=polished, model=model,
+                          verification_was_requested=verify)
 
     status("Checking citations…")
     result.check = checks.check(skeleton, polished)

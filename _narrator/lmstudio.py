@@ -63,6 +63,18 @@ PREFERRED_MODEL_HINTS = ("gemma-4-26b-a4b-qat", "gemma-4-26b-a4b", "gemma-4", "g
 THINKING_OFF_PATTERNS = ("qwen3", "qwen-3", "gemma-4", "gemma4")
 
 
+# urllib honours http_proxy/https_proxy from the environment. A proxy set for
+# unrelated reasons would receive the narrative even when the address is
+# loopback — the confidentiality guarantee has to survive that, so every
+# request in this module goes through an opener with proxies disabled.
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def _urlopen(req, timeout=None):
+    """urlopen with proxies disabled. Patchable by tests."""
+    return _OPENER.open(req, timeout=timeout)
+
+
 class LMStudioError(RuntimeError):
     """Raised with a message that tells the user what to actually do."""
 
@@ -86,8 +98,25 @@ class ModelSwapRequired(LMStudioError):
 
 # ── Server discovery ────────────────────────────────────────────────────────
 
+def _under_wsl() -> bool:
+    """True only on WSL, where the Windows host is the default gateway.
+
+    On native Linux the default gateway is a router or another machine, so
+    treating it as "local" would let client material leave the machine.
+    """
+    if os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"):
+        return True
+    try:
+        with open("/proc/version", encoding="utf-8") as fh:
+            return "microsoft" in fh.read().lower()
+    except OSError:
+        return False
+
+
 def _wsl_gateway_ip() -> str | None:
-    """Default-route gateway from /proc/net/route (Linux/WSL only)."""
+    """Default-route gateway from /proc/net/route — WSL only, by design."""
+    if not _under_wsl():
+        return None
     try:
         with open("/proc/net/route", encoding="utf-8") as fh:
             next(fh)  # header
@@ -102,7 +131,7 @@ def _wsl_gateway_ip() -> str | None:
 
 def _reachable(host: str) -> bool:
     try:
-        with urllib.request.urlopen(f"{host}/v1/models", timeout=CONNECT_TIMEOUT):
+        with _urlopen(f"{host}/v1/models", timeout=CONNECT_TIMEOUT):
             return True
     except (urllib.error.URLError, OSError):
         return False
@@ -164,7 +193,7 @@ def resolve_host() -> str:
 
 
 def _get_json(url: str, timeout: int = CONNECT_TIMEOUT) -> dict:
-    with urllib.request.urlopen(url, timeout=timeout) as resp:
+    with _urlopen(url, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -373,7 +402,14 @@ def _stream_deltas(resp) -> Iterator[tuple[str, str]]:
     """
     for raw in resp:
         line = raw.decode("utf-8", errors="replace").strip()
+        if not line:
+            continue
+        if line.startswith(":"):  # SSE comment / keep-alive
+            continue
         if not line.startswith("data:"):
+            # A protocol-invalid line means the stream is not what we think it
+            # is; content may have been lost inside it.
+            yield "malformed", line[:120]
             continue
         body = line[len("data:"):].strip()
         if body == "[DONE]":
@@ -384,7 +420,13 @@ def _stream_deltas(resp) -> Iterator[tuple[str, str]]:
         except json.JSONDecodeError:
             yield "malformed", body[:120]
             continue
-        for choice in chunk.get("choices", []):
+        choices = chunk.get("choices")
+        if not choices:
+            # A frame carrying no choices is not something this client
+            # understands; treat it as lost content rather than ignore it.
+            yield "malformed", body[:120]
+            continue
+        for choice in choices:
             delta = choice.get("delta", {})
             if delta.get("content"):
                 yield "content", delta["content"]
@@ -434,7 +476,7 @@ def chat(
     cancelled = False
 
     try:
-        with urllib.request.urlopen(req, timeout=READ_TIMEOUT) as resp:
+        with _urlopen(req, timeout=READ_TIMEOUT) as resp:
             for kind, piece in _stream_deltas(resp):
                 if kind == "content":
                     content.append(piece)
@@ -494,6 +536,15 @@ def chat(
         raise LMStudioError(
             "The response from LM Studio ended without completing. The partial "
             "narrative was discarded — the server or the model may have stopped."
+        )
+
+    if not finish_reasons:
+        # A compliant OpenAI-style stream always states why it stopped. Without
+        # one there is no evidence the generation actually finished, so the
+        # result is not trusted as a complete narrative.
+        raise LMStudioError(
+            "LM Studio ended the stream without saying why it stopped, so the "
+            "narrative cannot be confirmed complete. It was discarded."
         )
 
     text = "".join(content).strip()

@@ -156,6 +156,7 @@ class NarrateWorker(QThread):
                     model_hint=self._model_hint,
                     consented=self._consented,
                     prompt_snapshot=snap,
+                    should_stop=self.isInterruptionRequested,
                     on_status=lambda msg: self.log_line.emit(
                         f'<span style="color:#88aaff;">{msg}</span>'
                     ),
@@ -618,6 +619,9 @@ class NarrateCard(QFrame):
         self._worker.log_line.connect(self._append_log)
         self._worker.success.connect(self._on_success)
         self._worker.finished.connect(self._on_finished)
+        # Without this, every completed worker stays alive as a child of the
+        # card and they accumulate for the life of the window.
+        self._worker.finished.connect(self._worker.deleteLater)
         self._worker.start()
 
     def _append_log(self, html_line: str):
@@ -778,6 +782,19 @@ class NarrateCard(QFrame):
             f'<span style="color:#a6e3a1;">Restored defaults ({", ".join(removed)}).</span>'
         )
 
+    def shutdown(self) -> None:
+        """Stop a running worker before the window is destroyed.
+
+        Destroying a live QThread takes the process down with it, so the window
+        asks the card to wind down first. Qt's own wording for this is blunt:
+        "QThread: Destroyed while thread is still running".
+        """
+        worker = self._worker
+        if worker is not None and worker.isRunning():
+            worker.requestInterruption()
+            worker.quit()
+            worker.wait(5000)
+
     def _on_finished(self):
         self._generate_btn.setEnabled(True)
 
@@ -850,6 +867,16 @@ class NarrateWindow(QMainWindow):
 
         if initial_pdf:
             self._card.load_pdf(initial_pdf)
+
+    def closeEvent(self, event):
+        """Wind down a running generation before the window goes away.
+
+        A polish run can take minutes, so closing mid-run is a realistic thing
+        to do. Without this the live QThread is destroyed with the window and
+        takes the process down with it.
+        """
+        self._card.shutdown()
+        super().closeEvent(event)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

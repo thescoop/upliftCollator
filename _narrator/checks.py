@@ -108,10 +108,31 @@ def known_placeholders() -> set[str]:
     return cues
 
 
-def find_placeholders(text: str) -> list[str]:
-    """Unfilled template cues and extraction fallbacks remaining in `text`."""
+# An all-caps bracketed token of two or more characters. Used to pick up cues
+# that came from an *edited* user template, which the shipped-template
+# inventory cannot know about. Two characters minimum so anonymised parties —
+# "[A]", "[X]" — in a solicitor's own prose are never mistaken for a cue.
+_CUE_SHAPE = re.compile(r"\[[A-Z][A-Z0-9 ()/,'&.\-]{1,79}\]")
+
+
+def find_placeholders(text: str, skeleton: str = "") -> list[str]:
+    """Unfilled cues remaining in `text`.
+
+    Three sources, because no single one is complete:
+      * the shipped narrative templates,
+      * the lowercase fallbacks substituted when a case field is missing,
+      * any cue-shaped token present in this run's skeleton — which covers a
+        cue introduced by an edited template, invisible to the inventory.
+
+    Matching is case-insensitive: a model that rewrites "[SPECIFY EVIDENCE]"
+    as "[Specify Evidence]" has still left the cue unfilled.
+    """
     candidates = sorted(known_placeholders()) + list(RUNTIME_FALLBACKS)
-    return [cue for cue in candidates if cue in text]
+    if skeleton:
+        candidates += sorted(set(_CUE_SHAPE.findall(skeleton)) - set(candidates))
+
+    lowered = text.lower()
+    return [cue for cue in candidates if cue.lower() in lowered]
 
 
 @dataclass
@@ -160,7 +181,7 @@ def check(skeleton: str, polished: str) -> CheckResult:
         skeleton_citations=skeleton_citations,
         dropped_citations=_expand(skeleton_counts - polished_counts, skeleton_citations),
         added_citations=_expand(polished_counts - skeleton_counts, polished_citations),
-        placeholders=find_placeholders(polished),
+        placeholders=find_placeholders(polished, skeleton),
     )
 
 
