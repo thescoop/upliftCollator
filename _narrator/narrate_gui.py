@@ -42,6 +42,7 @@ from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent
 
 # ── Sibling modules from this folder ────────────────────────────────────────
+import docx_writer
 import lmstudio
 import polish as polish_mod
 import prompts as prompts_mod
@@ -190,7 +191,8 @@ class NarrateWorker(QThread):
             out_dir = Path(self._out_dir)
             out_dir.mkdir(parents=True, exist_ok=True)
 
-            for stale in ("narrative-polished.md", "citation-check.txt"):
+            for stale in ("narrative-polished.docx", "narrative-polished.md",
+                          "citation-check.txt"):
                 (out_dir / stale).unlink(missing_ok=True)
 
             (out_dir / "narrative.md").write_text(skeleton + "\n", encoding="utf-8")
@@ -221,6 +223,25 @@ class NarrateWorker(QThread):
                 (out_dir / "narrative-polished.md").write_text(
                     polished + "\n", encoding="utf-8")
                 (out_dir / "citation-check.txt").write_text(report, encoding="utf-8")
+
+                # The Word file is what actually gets sent, so a conversion
+                # that lost a citation is reported in the same red the pipeline
+                # uses for a real failure — never left as a plausible .docx
+                # sitting beside a check that certified the Markdown.
+                try:
+                    outcome = docx_writer.write_docx(
+                        polished, out_dir / "narrative-polished.docx"
+                    )
+                    self.log_line.emit(
+                        f'<span style="color:#a6e3a1;">Word document written — '
+                        f'{len(outcome.citations)} citations carried over.</span>'
+                    )
+                except docx_writer.NarrativeConversionError as exc:
+                    for line in str(exc).splitlines():
+                        self.log_line.emit(
+                            f'<span style="color:#ff6b6b;">'
+                            f'{html.escape(line) or "&nbsp;"}</span>'
+                        )
 
                 # Verdict reflects BOTH checks: a semantic finding from the
                 # LLM review must not be shown green because the citation

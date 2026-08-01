@@ -14,7 +14,10 @@ Always produces:
   narrative-input.json   — recovered formData for debugging or re-runs
 
 With ``--polish`` it also calls the local LM Studio server and adds:
-  narrative-polished.md  — the finished, flowing narrative
+  narrative-polished.docx — the finished narrative as Word. This is the one you
+                            send: it pastes into the bill narrative as its final
+                            section.
+  narrative-polished.md  — the same narrative as plain text (audit copy)
   citation-check.txt     — deterministic citation/placeholder check + LLM review
 
 Exit codes::
@@ -33,6 +36,7 @@ import json
 import sys
 from pathlib import Path
 
+import docx_writer
 import lmstudio
 import polish as polish_mod
 from extract import (
@@ -51,7 +55,11 @@ def _default_out_dir(pdf_path: Path) -> Path:
 
 # Outputs derived from the skeleton. They stop being true the moment a new run
 # overwrites the skeleton, so they are cleared before one starts.
-DERIVED_FILES = ("narrative-polished.md", "citation-check.txt")
+DERIVED_FILES = (
+    "narrative-polished.docx",
+    "narrative-polished.md",
+    "citation-check.txt",
+)
 
 
 def _clear_derived(out_dir: Path) -> None:
@@ -191,6 +199,25 @@ def main(argv: list[str] | None = None) -> int:
         (out_dir / "narrative-polished.md").write_text(result.polished + "\n", encoding="utf-8")
         written.append("narrative-polished.md")
 
+        # The Word file is the deliverable, so a conversion that lost a
+        # citation must be loud rather than leaving a plausible-looking .docx
+        # next to a citation check that certified the Markdown.
+        docx_ok = True
+        try:
+            outcome = docx_writer.write_docx(
+                result.polished, out_dir / "narrative-polished.docx"
+            )
+            written.append("narrative-polished.docx")
+            print(
+                f"narrate: Word document written — {len(outcome.citations)} "
+                "citations carried over.",
+                file=sys.stderr,
+            )
+        except docx_writer.NarrativeConversionError as exc:
+            docx_ok = False
+            print(f"\nnarrate: the Word document was NOT written.\n{exc}\n",
+                  file=sys.stderr)
+
         (out_dir / "citation-check.txt").write_text(polish_mod.format_full_report(result), encoding="utf-8")
         written.append("citation-check.txt")
 
@@ -202,8 +229,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"narrate: {result.verdict} — {result.verdict_detail}.", file=sys.stderr)
         print(f"narrate: {result.next_step}", file=sys.stderr)
         # Non-zero on either check failing, so a batch loop cannot mistake a
-        # flagged narrative for a clean one.
-        return 0 if result.ok else 1
+        # flagged narrative for a clean one. A failed Word conversion counts:
+        # the file the user actually sends is the one that is missing.
+        return 0 if (result.ok and docx_ok) else 1
 
     print("narrate: paste narrative-prompt.txt into LM Studio, or re-run with "
           "--polish to do it automatically.", file=sys.stderr)

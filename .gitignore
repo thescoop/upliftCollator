@@ -1,3 +1,16 @@
 
 # Playwright CLI session debris
 .playwright-cli/
+
+# Narrator run output, wherever a PDF is dropped. These folders hold the
+# recovered form data and the finished narrative for a real case, so nothing
+# matching this pattern may ever be staged.
+*-narrative/
+
+# Simon's working bill-narrative template and hand-formatted samples. They
+# carry real fee-earner names and residue from real cases — see
+# ~/coding/LLM-benchmarking/docs/real-format-notes.md §B7, which records the
+# sanitised anatomy precisely so the file itself never needs committing.
+CCMS_BN*.docx
+enhancementText.docx
+_FORMAT-OPTIONS.docx

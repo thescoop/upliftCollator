@@ -66,8 +66,25 @@ re-enter the answers in the web app and generate a fresh PDF.
 For an input `case.pdf`, both front-ends write a folder `case-narrative/` next
 to the PDF:
 
-- **`narrative-polished.md`** — the finished narrative. **This is the one you
-  send.** In the GUI it is the *Polished Narrative* tab.
+- **`narrative-polished.docx`** — the finished narrative as a Word document.
+  **This is the one you send.** It is a *fragment*, not a standalone document:
+  it is written to be pasted straight into the CCMS bill narrative as its final
+  section, "Claim For Additional General Enhancement". It therefore has no title
+  block, no page numbers and no footer — all of which would be wrong inside a
+  longer document — and it uses the bill narrative's own typography (Arial Nova
+  Cond Light 12pt, single spaced, A4, 0.5in margins) so the join is invisible.
+
+  The layout: bold section heading, bold category sub-headings, and one bullet
+  per criterion with the criterion name bolded as a run-in lead and the
+  solicitor's evidence following on the same line. The criteria are bulleted
+  because an assessor works down them one at a time and strikes any that are
+  disallowed. Headings are bold only — underline conventionally signals a
+  citation in legal drafting, so using it for headings competes with the
+  authorities that are the point of this section.
+- **`narrative-polished.md`** — the same narrative as plain text. The audit and
+  diff copy, and what the GUI's *Polished Narrative* tab shows. Identical in
+  substance to the .docx; the conversion refuses to write a Word file that does
+  not carry exactly the same citations, in the same counts (see below).
 - **`citation-check.txt`** — proof that nothing was lost in the polish step: a
   deterministic citation and placeholder check, plus a second-opinion review
   from the model. Ends in an overall verdict — `SAFE TO REVIEW` or `NEEDS
@@ -80,6 +97,25 @@ to the PDF:
   an audit record if an assessment is ever challenged, and still paste-ready.
 - **`narrative-input.json`** — the recovered form data, in the same shape as the
   in-app `formData`. Useful for debugging extraction or re-running the skeleton.
+
+### Why the Word file is checked separately
+
+`citation-check.txt` certifies the *Markdown*. The Word file is what actually
+gets sent, so if the conversion lost a citation the audit record would attest to
+a document nobody sent.
+
+That is not hypothetical. The model puts citations *in its headings* — `##
+Threshold Test (Qualifying for Enhancement - Spec Para 6.13 / CAG Section 12.4)`
+— so deleting those headings to make the section read well inside the bill
+narrative, which is the obvious thing to do by hand, silently takes two
+certified authorities with it. The converter therefore **demotes** headings to
+bold sub-headings rather than deleting them, and drops only headings that both
+are pure scaffolding (`Introduction`, `Conclusion`) *and* contain no citation.
+
+After building the document it re-runs the citation extractor over the finished
+Word file and refuses to save it unless the citations match the Markdown
+exactly, in the same counts. If that ever fails, the run says so and exits
+non-zero; `narrative-polished.md` is unaffected and can be used instead.
 
 **The polished narrative still needs a human review pass before it goes to the
 LAA.** The checks tell you nothing was dropped; they cannot tell you the
@@ -230,9 +266,27 @@ Dependencies (installed by `_setup.sh` / `_setup.bat`):
 - `pdfplumber` — PDF text extraction
 - `json5` — parses the JS-style content-data.js cleanly
 - `PyQt6` — GUI front-end
+- `python-docx` — writes the Word narrative
 
 The LM Studio client is stdlib-only (`urllib`), so adding it required no new
 dependency and no re-run of `_setup`.
+
+**If you already have the `uplift-narrate` env from before 1 August 2026**, it
+predates `python-docx`. Either re-run `_setup`, or just
+`conda activate uplift-narrate && pip install python-docx`.
+
+## House style
+
+The narrative this tool produces is the last section of the firm's CCMS bill
+narrative. The style authority for that document is **not** this repository —
+it is `~/coding/LLM-benchmarking/docs/real-format-notes.md`, which is the master
+record for the LAA bill narrative wherever it is produced. §B7 item 6 places
+this tool's output as section 6, "Claim For Additional General Enhancement", and
+that is where the Word file's heading, typography and layout come from.
+
+Any deliberate divergence from that document belongs here, in writing, with the
+reason. There is currently one thing to reconcile: §B7 names this project's
+source folder as `narrative`, which is now `_narrator`.
 
 ## Tests
 
@@ -241,7 +295,7 @@ conda activate uplift-narrate
 python -m unittest discover -s _narrator/tests -v
 ```
 
-147 tests. The suite never touches the network — it passes with LM Studio
+178 tests. The suite never touches the network — it passes with LM Studio
 closed. The citation cases are generated from `content-data.js` rather than
 chosen by hand: an earlier suite passed 20 tests while the checker was silently
 fail-open on `CAG Section 12.5 & 12.9`, because no test used the citation forms
