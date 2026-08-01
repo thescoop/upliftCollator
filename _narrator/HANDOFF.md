@@ -29,8 +29,11 @@ picking the work up needs.
 
 ## Current state
 
-App version **1.10** (29 April 2026) in `content-data.js`.
-**147 tests**, all passing, none touching the network:
+App version **1.10** (29 April 2026) in `content-data.js`. Simon confirmed on
+1 August 2026 that narrator-only template additions do **not** bump it.
+
+**215 tests**, all passing, none touching the network. Verified on 1 August 2026
+under both WSL *and* Windows Python, with a clean working tree after either:
 
 ```bash
 conda activate uplift-narrate
@@ -39,8 +42,36 @@ python -m unittest discover -s _narrator/tests
 
 The pipeline is complete and works end to end: extract → skeleton → prompt →
 polish via LM Studio → deterministic citation check → LLM second opinion →
-verdict. Both the GUI and the CLI run the identical pipeline through
+verdict → Word. Both the GUI and the CLI run the identical pipeline through
 `polish.run()`, so the two can never disagree.
+
+**The deliverable is `narrative-polished.docx`** — a fragment written to paste
+into the CCMS bill narrative as its final section. `narrative-polished.md`
+remains as the audit copy. See the README for the layout and for why the .docx
+carries its own citation check.
+
+Three conventions worth not rediscovering:
+
+- **Windows and WSL conda environments are separate installations sharing the
+  name `uplift-narrate`.** Installing a package on one does nothing for the
+  other. Both `_setup` scripts update an existing env in place — re-run the one
+  matching the launcher you actually use.
+- **A test that edits a shipped file must restore it as bytes**, not via
+  `read_text`/`write_text`. The round trip translates newlines, so on Windows a
+  clean test run used to leave `prompts/verification.md` rewritten as CRLF.
+- **Pushing narrator work no longer redeploys the solicitors' web tool.**
+  `vercel.json` runs `_vercel-should-build.sh`, which cancels the Vercel build
+  unless a file the live site actually serves has changed. If you add a file to
+  the web app, add it to that script's `SHIPPED` list or its changes will not go
+  live. The script errs towards building whenever it cannot be certain, because
+  a needless redeploy of identical static files costs nothing while a skipped
+  one leaves a fix believed shipped but absent.
+
+The two tools share this repository **on purpose**: `templates.py` reads
+`../content-data.js` as the single source of truth, so the narrative wording can
+never drift from the form the solicitor filled in. Separating them would trade a
+loud, cheap problem for a silent, expensive one. Decouple the deployment, not the
+repository.
 
 ## Where the bodies are buried
 
@@ -155,6 +186,9 @@ Per the user's global `~/.claude/CLAUDE.md`:
 - **Synthetic fixtures only.** Never read a real client PDF, even when it is the
   most direct reproducer — `narrate.py --debug` exists precisely so extraction
   failures can be triaged on real files without exposing client text. Only
-  `producer` and `creator` metadata are read; Title, Author, Subject and
-  Keywords can carry a client name and are never touched.
+  `producer`, `creator`, `CreationDate` and `ModDate` are read: software names
+  and timestamps describe the file, not the case. Title, Author, Subject and
+  Keywords can carry a client name and are never touched. The allow-list in
+  `tests/test_empty_extraction.py` enforces this and will fail on any new key,
+  which is the point — widen it deliberately, never loosen it.
 - Direct push to `main` is allowed (`.claude/settings.local.json`).
