@@ -146,15 +146,28 @@ class TestVerificationPromptExtraction(PromptOverrideTestCase):
         self.assertIn("Dropped citations", system)
 
     def test_missing_markers_raise_rather_than_sending_the_whole_document(self):
-        original = (prompts.PROMPTS_DIR / "verification.md").read_text(encoding="utf-8")
+        # Backed up and restored as *bytes*. read_text/write_text round-trip
+        # through newline translation, so on Windows the restore rewrote this
+        # shipped file with CRLF and left the working tree dirty after a clean
+        # test run — 49 lines changed, none of them in content.
+        path = prompts.PROMPTS_DIR / "verification.md"
+        original = path.read_bytes()
         try:
-            (prompts.PROMPTS_DIR / "verification.md").write_text(
-                original.replace("<!-- SYSTEM-PROMPT-END -->", ""), encoding="utf-8"
-            )
+            path.write_bytes(original.replace(b"<!-- SYSTEM-PROMPT-END -->", b""))
             with self.assertRaises(ValueError):
                 prompts.verification_system_prompt()
         finally:
-            (prompts.PROMPTS_DIR / "verification.md").write_text(original, encoding="utf-8")
+            path.write_bytes(original)
+
+    def test_the_suite_leaves_the_shipped_prompts_byte_identical(self):
+        """Guards the restore above: a test that edits a shipped file must put
+        it back exactly, or the next `git status` blames whoever ran it."""
+        before = {p.name: p.read_bytes()
+                  for p in prompts.PROMPTS_DIR.glob("*.md")}
+        self.test_missing_markers_raise_rather_than_sending_the_whole_document()
+        after = {p.name: p.read_bytes()
+                 for p in prompts.PROMPTS_DIR.glob("*.md")}
+        self.assertEqual(before, after)
 
     def test_a_stray_custom_verification_file_cannot_win_silently(self):
         # It would be invisible to is_customised() and untouchable by
