@@ -184,6 +184,52 @@ def extract_uplift_percent(text: str) -> str:
     return m.group(1) if m else ""
 
 
+# Below this, whatever pdfplumber recovered is noise — a stray glyph, a
+# whitespace artefact — not a text layer. Judging on ``== 0`` was too strict:
+# the real case that prompted this returned exactly 1 character, so the
+# no-text branch never fired and the reader got a message about missing
+# section headings in a file that had no text to put headings in.
+MIN_TEXT_CHARS = 100
+
+# Enough vector objects to *be* the page rather than decorate it. A Collator
+# PDF draws a handful of separator lines; text converted to outlines produces
+# roughly one path per glyph, so thousands.
+OUTLINE_VECTOR_THRESHOLD = 500
+
+# What a given producer tells you about how the file travelled. The producer
+# names the software, but the useful question for the person holding the PDF
+# is what to ask the sender — so each note says who would have been driving.
+PRODUCER_NOTES = (
+    (re.compile(r"Aspose", re.IGNORECASE),
+     "Aspose is a document-processing library that runs *inside* other\n"
+     "software — a case- or document-management system, a portal upload, an\n"
+     "e-bundling tool, or a mail gateway. Nobody opens it and uses it by\n"
+     "hand, so a system did this automatically while the file was in transit.\n"
+     "Worth finding out which one: it will do the same to every future case."),
+    (re.compile(r"Microsoft.*Print\s*To\s*PDF", re.IGNORECASE),
+     "That is Windows' own \"Microsoft Print to PDF\" printer, so the file was\n"
+     "re-printed rather than sent as it was saved."),
+    (re.compile(r"Acrobat|Distiller", re.IGNORECASE),
+     "Adobe Acrobat re-saved this file. Its Advanced print settings hold a\n"
+     "sticky \"Print as image\" checkbox that rasterises everything until it\n"
+     "is turned off again."),
+    (re.compile(r"Ghostscript", re.IGNORECASE),
+     "Ghostscript re-writes PDFs inside many server-side tools and mail\n"
+     "gateways, so this was almost certainly automatic rather than deliberate."),
+    (re.compile(r"Word|Office", re.IGNORECASE),
+     "This went through Microsoft Word or Office. The Collator has no Word\n"
+     "export at all, so the PDF was opened in Word and re-saved."),
+)
+
+
+def _producer_note(producer: str) -> str:
+    """Plain-English note about a known PDF producer, or "" if unrecognised."""
+    for pattern, note in PRODUCER_NOTES:
+        if pattern.search(producer):
+            return note
+    return ""
+
+
 class NoDataExtracted(Exception):
     """The PDF yielded nothing worth narrating.
 
@@ -219,51 +265,68 @@ def explain_empty_extraction(pdf_path: str | Path) -> str:
         if n in ("stage1", "stage2")
     )
 
-    if d["raw_chars"] == 0:
-        made_by = d.get("producer") or d.get("creator") or ""
-        flattened = d.get("largest_image_page_coverage", 0) >= 0.5
+    made_by = d.get("producer") or d.get("creator") or ""
+    if d["raw_chars"] < MIN_TEXT_CHARS:
+        # How the text was destroyed, which is not the same question as who
+        # did it. Rasterised: the page became a picture. Outlined: each letter
+        # became a drawing of its own shape — sharp at any zoom, and just as
+        # unreadable. The two look identical on screen and need different
+        # explanations, so the counts have to decide it, not a guess.
+        rasterised = d.get("largest_image_page_coverage", 0) >= 0.5
+        outlined = (
+            not rasterised
+            and d.get("images", 0) == 0
+            and d.get("vector_objects", 0) >= OUTLINE_VECTOR_THRESHOLD
+        )
 
         head = (
-            "This PDF has no text layer — every page is a picture of the page\n"
-            "rather than text. Nothing can be read out of it.\n"
+            "This PDF has no text in it — nothing can be read out of it.\n"
             "(That is also why you cannot select any text in it yourself.)\n"
         )
-        if made_by:
-            head += f"\nThe file says it was last written by: {made_by}\n"
 
-        if flattened:
+        if outlined:
             head += (
-                "\nThe page content is one large image, so this is a *flattened*\n"
-                "copy of a real document rather than a scan of paper.\n"
+                f"\nThe pages are drawn as {d['vector_objects']} vector shapes with no\n"
+                "text and no images. That means the text was converted to\n"
+                "outlines: every letter turned into a drawing of its own shape.\n"
+                "It still looks crisp at any zoom — which is why it does not\n"
+                "look like a scan — but to software it is line art, not words.\n"
+            )
+        elif rasterised:
+            head += (
+                "\nThe page content is one large image, so this is a flattened\n"
+                "copy — a picture of the page — rather than a scan of paper.\n"
             )
 
+        if made_by:
+            head += f"\nThe file says it was last written by: {made_by}\n"
+            note = _producer_note(made_by)
+            if note:
+                head += f"\n{note}\n"
+
         return head + (
-            "\nThe Collator's own PDF always has selectable text, so the\n"
-            "flattening happened after the app produced the file. The usual\n"
-            "culprits, in order of likelihood:\n"
-            "  - Acrobat's 'Print as image' option, which is a sticky checkbox\n"
-            "    under Advanced print settings and rasterises everything.\n"
-            "  - A case-management or document-management system that flattens\n"
-            "    PDFs when a file is filed into it or exported from it.\n"
-            "  - Secure-email attachment sanitising, which rebuilds an incoming\n"
-            "    PDF as images to strip anything active from it.\n"
-            "  - The document being printed on paper and scanned back in.\n\n"
-            "Fix: ask for the file the app actually saved —\n"
+            "\nThe Collator's own PDF always has selectable text, so this\n"
+            "happened to the file *after* the app saved it — it is not\n"
+            "something the solicitor did wrong in the app.\n\n"
+            "Fix: ask for the file exactly as the app saved it —\n"
             "LAA_Uplift_Data_Summary.pdf, straight from the browser's Downloads\n"
-            "folder, before it went anywhere else. Do not re-key or OCR it: on\n"
-            "an audited claim a mis-read page count or percentage is worse than\n"
-            "no narrative at all."
+            "folder, before it was filed, uploaded or forwarded anywhere.\n\n"
+            "Do not re-key or OCR this copy: on an audited claim a mis-read page\n"
+            "count or percentage is worse than no narrative at all. If the\n"
+            "original is truly gone, re-enter the answers in the web app from\n"
+            "this one and generate a fresh PDF."
         )
 
-    if not d.get("made_by_the_app", True) and (d.get("producer") or d.get("creator")):
-        producer = d.get("producer") or d.get("creator")
+    if not d.get("made_by_the_app", True) and made_by:
+        note = _producer_note(made_by)
         return (
             "This PDF has text, but none of the Collator's section headings —\n"
             "CASE DETAILS, PANEL MEMBERSHIP, STAGE 1, STAGE 2, PROPOSED UPLIFT.\n\n"
-            f"It also says it was written by: {producer}\n"
+            f"It says it was written by: {made_by}\n"
             "The Collator writes its PDFs with jsPDF, so this file was made or\n"
-            "rebuilt by something else.\n\n"
-            "Fix: ask for the file the app itself saved —\n"
+            "rebuilt by something else.\n"
+            + (f"\n{note}\n" if note else "")
+            + "\nFix: ask for the file the app itself saved —\n"
             "LAA_Uplift_Data_Summary.pdf, straight from the Downloads folder."
         )
 

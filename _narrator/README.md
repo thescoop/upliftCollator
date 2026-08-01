@@ -31,30 +31,35 @@ report it as a citation failure, which is what it used to do.
 ### The file must still have its text layer
 
 A correctly-generated Collator PDF can still arrive unreadable if something
-**flattened** it — rebuilt every page as a picture of itself — after the app
-saved it. The give-away is that you cannot select any text in it. Seen in
-practice on 1 August 2026: a correct v1.10 PDF with its text layer gone.
+stripped its text **after** the app saved it. The give-away is that you cannot
+select any text in it. This is not a mistake anyone made in the app.
 
-Common causes, none of them the solicitor's mistake:
+There are two ways it happens, they look identical on screen, and they need
+different explanations:
 
-- Acrobat's **Print as image** option — a sticky checkbox under Advanced print
-  settings that rasterises everything until it is turned off again.
-- A case- or document-management system flattening PDFs on filing or export.
-- Secure-email attachment sanitising (CDR), which rebuilds an incoming PDF as
-  images to strip anything active from it.
-- Printed on paper and scanned back in.
+| | What happened | Fingerprint |
+|---|---|---|
+| **Rasterised** | The page became a picture of itself | no text, one full-page image |
+| **Outlined** | Each letter became a drawing of its own shape — still crisp at any zoom | no text, **no** images, thousands of vector objects |
 
-`--debug` tells them apart. It reports the PDF's own `producer` metadata — the
-app's PDFs always say **jsPDF** — plus the image count and how much of the page
-the largest image covers. No text, one full-page image, and a producer that is
-not jsPDF is a flattened file; the app's own output has text, no images, and
-says jsPDF.
+`--debug` tells them apart, and names the culprit from the PDF's own
+`producer` metadata. **The app's own PDFs always say `jsPDF`**, carry text, and
+contain no images at all — so anything else is something that touched the file
+later. `PRODUCER_NOTES` in `extract.py` turns the common ones into plain
+English; add to it when a new one turns up.
+
+Seen in practice on 1 August 2026 — a correct v1.10 PDF, `raw_chars: 1`,
+`images: 0`, `vector_objects: 6099`, producer **`Aspose.Pdf for .NET 11.7.0`**.
+Aspose is a library that runs inside other software (case-management systems,
+portal uploads, e-bundling tools, mail gateways), so a system did this in
+transit — meaning it will do it to every future case until it is found.
 
 **The fix is always to get the original file**, straight from the browser's
-Downloads folder before it went anywhere else. The narrator deliberately does
-not OCR: on an audited claim a mis-read page count or percentage is a worse
-outcome than no narrative at all, and the same reasoning picked the default
-model (see *Choosing a model*).
+Downloads folder before it was filed, uploaded or forwarded. The narrator
+deliberately does **not** OCR: on an audited claim a mis-read page count or
+percentage is worse than no narrative at all — the same reasoning that picked
+the default model (see *Choosing a model*). If the original is genuinely gone,
+re-enter the answers in the web app and generate a fresh PDF.
 
 ## What it produces
 
@@ -236,7 +241,7 @@ conda activate uplift-narrate
 python -m unittest discover -s _narrator/tests -v
 ```
 
-142 tests. The suite never touches the network — it passes with LM Studio
+147 tests. The suite never touches the network — it passes with LM Studio
 closed. The citation cases are generated from `content-data.js` rather than
 chosen by hand: an earlier suite passed 20 tests while the checker was silently
 fail-open on `CAG Section 12.5 & 12.9`, because no test used the citation forms

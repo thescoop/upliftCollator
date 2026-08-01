@@ -36,6 +36,23 @@ def _sections(**matched):
     return out
 
 
+# The real thing, verbatim from `narrate.py --debug` on the PDF that arrived
+# on 1 August 2026. Kept exactly as reported so a future change to the
+# branching has to face the case that produced it rather than a tidied-up
+# version of it. No client text — diagnose() returns structure only.
+REAL_ASPOSE_CASE = {
+    "pdf": "case.pdf", "pages": 2, "per_page_chars": [0, 0],
+    "raw_chars": 1, "normalised_chars": 1,
+    "header_matches": 0, "footer_matches": 0,
+    "producer": "Aspose.Pdf for .NET 11.7.0", "creator": "Aspose Ltd.",
+    "made_by_the_app": False,
+    "images": 0, "largest_image_page_coverage": 0.0, "vector_objects": 6099,
+    "sections": {n: {"matched": False} for n in (
+        "case_details", "panel_membership", "stage1", "stage2",
+        "proposed_uplift", "disclaimer")},
+}
+
+
 def _diag(raw_chars=2000, pages=2, producer="jsPDF 2.5.1", creator="",
           images=0, coverage=0.0, vectors=0, **matched):
     return {
@@ -85,7 +102,7 @@ class TestExplanation(unittest.TestCase):
 
     def test_no_text_layer_explains_why_text_cannot_be_selected(self):
         text = self._explain(_diag(raw_chars=0, producer="", images=1, coverage=1.0))
-        self.assertIn("no text layer", text)
+        self.assertIn("no text in it", text)
         self.assertIn("cannot select any text", text)
 
     def test_a_flattened_page_is_distinguished_from_a_paper_scan(self):
@@ -117,6 +134,57 @@ class TestExplanation(unittest.TestCase):
         text = self._explain(_diag(raw_chars=0, producer="", images=1, coverage=1.0))
         self.assertNotIn("Generate PDF Summary", text)
         self.assertIn("straight from the browser's Downloads", text)
+
+    def test_outlined_text_is_not_called_an_image(self):
+        """Thousands of vectors, no images: the glyphs became line art.
+
+        Rasterised and outlined files both defeat extraction and look
+        identical on screen, but only one of them is "a picture of the page".
+        Calling the wrong one that sends the reader looking for a scanner.
+        """
+        text = self._explain(_diag(raw_chars=0, producer="", images=0, vectors=6099))
+        self.assertIn("converted to", text)
+        self.assertIn("outlines", text)
+        self.assertNotIn("picture of the page", text)
+
+    def test_a_few_stray_characters_still_count_as_no_text(self):
+        """The real case returned exactly 1 character.
+
+        Testing ``raw_chars == 0`` let it fall through to the branch about
+        missing section headings — in a file that had no text to put headings
+        in. Anything under a header, footer and disclaimer is not a text layer.
+        """
+        text = self._explain(_diag(raw_chars=1, producer="", images=0, vectors=6099))
+        self.assertIn("no text in it", text)
+        self.assertNotIn("section headings", text)
+
+    def test_the_real_august_case_is_diagnosed_correctly(self):
+        text = self._explain(dict(REAL_ASPOSE_CASE))
+        self.assertIn("outlines", text)                  # how
+        self.assertIn("Aspose.Pdf for .NET 11.7.0", text)  # who
+        self.assertIn("in transit", text)                # when
+        self.assertIn("not\nsomething the solicitor did wrong", text)
+        self.assertIn("Downloads", text)                 # what to do
+        self.assertNotIn("picture of the page", text)
+
+    def test_a_known_producer_gets_its_own_note(self):
+        for producer, expected in (
+            ("Aspose.Pdf for .NET 11.7.0", "inside"),
+            ("Microsoft: Print To PDF", "re-printed"),
+            ("Adobe Acrobat Pro 23.0", "Print as image"),
+            ("GPL Ghostscript 10.02", "mail\ngateways"),
+        ):
+            with self.subTest(producer=producer):
+                text = self._explain(
+                    _diag(raw_chars=0, producer=producer, images=0, vectors=6099)
+                )
+                self.assertIn(expected, text)
+
+    def test_an_unknown_producer_is_still_named(self):
+        text = self._explain(
+            _diag(raw_chars=0, producer="SomeVendor PDF Kit 4.1", images=1, coverage=1.0)
+        )
+        self.assertIn("SomeVendor PDF Kit 4.1", text)
 
     def test_ocr_is_advised_against_rather_than_offered(self):
         """Plausible-but-wrong is the worst failure class on an audited claim."""
