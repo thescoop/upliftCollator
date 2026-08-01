@@ -1,172 +1,160 @@
 # Uplift Collator + Narrator — Project Handoff
 
 Concise context for picking up work in a fresh session.
+**Last updated 1 August 2026.**
 
 ## What this project does
 
-Two cooperating tools for **Woodruff Billing Ltd** (UK Family Law solicitors funded by the Legal Aid Agency):
+Two cooperating tools for **Woodruff Billing Ltd** (UK Family Law solicitors
+funded by the Legal Aid Agency):
 
-1. **Uplift Collator** (the existing web app — `index.html` + `script.js` + `content-data.js` + `style.css`). A 100% client-side, password-gated form that walks a solicitor through the LAA enhancement uplift questionnaire (Costs Assessment Guidance §12). Outputs a PDF summary.
-2. **Uplift Narrator** (`_narrator/`). A new internal back-office tool that takes the Collator's PDF and produces:
-   - A structured Markdown narrative (deterministic, every CAG/Spec citation in place, solicitor's verbatim explanations preserved).
-   - A paste-ready prompt for **LM Studio** (local 27B model) that polishes the narrative into flowing prose. The polished output goes to a human reviewer before submission to the LAA.
+1. **Uplift Collator** — the client-side web app (`index.html`, `script.js`,
+   `content-data.js`, `style.css`). Password-gated, walks a solicitor through
+   the LAA enhancement uplift questionnaire (Costs Assessment Guidance §12),
+   and saves a PDF summary. **Its only output path is
+   `pdf.save("LAA_Uplift_Data_Summary.pdf")` at `script.js:1091`** — there is no
+   Word export, no `window.print()`, no print stylesheet.
+2. **Uplift Narrator** (`_narrator/`) — the back-office tool that turns that PDF
+   into the finished LAA enhancement narrative. It drives a local LM Studio
+   model directly and verifies the result.
 
-GDPR-sensitive throughout — no cloud LLMs, all processing local.
+GDPR-sensitive throughout. Nothing leaves the machine, and that is enforced in
+code — see `lmstudio.py`, which refuses any endpoint that is not loopback or
+the WSL host gateway unless `UPLIFT_LMSTUDIO_ALLOW_REMOTE=1` is set.
 
-## Repository layout
+`_narrator/README.md` is the user-facing document and is current. **Read it
+before this file** — it covers what the tool produces, how to choose a model,
+prompt editing, and troubleshooting. This file covers only what a *developer*
+picking the work up needs.
 
-```
-upliftCollator/
-├── index.html, script.js, style.css     # The web app (deployed on GitHub Pages)
-├── content-data.js                      # SINGLE SOURCE OF TRUTH for:
-│                                        #   - QUESTION_BLOCKS (the questionnaire)
-│                                        #   - NARRATIVE_TEMPLATES (per-criterion snippets
-│                                        #     with CAG citations baked in)
-│                                        #   - APP_VERSION
-├── README.md, VERSION_HISTORY.md, LICENSE
-├── Costs_Assessment_Guidance_2024_SCC_…pdf   # Bundled LAA reference
-│
-└── _narrator/                             # The Python narrator
-    ├── narrate_gui.py                   # PyQt6 GUI (dark theme, myToolbox pattern)
-    ├── narrate.py                       # CLI orchestrator
-    ├── extract.py                       # PDF → formData via pdfplumber + regex
-    ├── templates.py                     # Parses NARRATIVE_TEMPLATES + QUESTION_BLOCKS
-    │                                    #   from ../content-data.js (json5)
-    ├── skeleton.py                      # formData + templates → Markdown skeleton
-    ├── prompts.py                       # Assembles paste-ready LM Studio prompt
-    ├── render.py                        # (unused stub for future DOCX export)
-    ├── prompts/
-    │   ├── system.md                    # System prompt — legal-safety guardrails
-    │   ├── user-template.md             # User-message template ({{SKELETON}} placeholder)
-    │   └── verification.md              # Optional second prompt for citation/fact check
-    ├── _setup.bat / _setup.sh           # Create conda env 'uplift-narrate'
-    ├── _Generate_Uplift_Narrative.bat / _narrator.sh               # Launch the GUI
-    ├── requirements.txt                 # pdfplumber, json5, PyQt6
-    ├── README.md                        # User-facing quick-start + troubleshooting
-    └── tests/
-        ├── fixtures/sample.pdf          # Synthetic test PDF (Jane Doe / Re X — fictional)
-        ├── fixtures/sample_formdata.json
-        ├── test_templates.py
-        ├── test_extract.py
-        ├── test_skeleton.py
-        └── test_prompts.py              # 20 tests, all passing
-```
+## Current state
 
-The `archive/master-snapshot` git tag preserves an earlier disjoint history with old version folders and a Python prototype — kept for reference, not active code.
-
-## Data flow
-
-```
-solicitor uses web app
-   ↓
-PDF saved (Uplift Collator's generatePdfSummary in script.js:803)
-   ↓
-─ NARRATOR PIPELINE ─────────────────────────────────────────────
-   ↓
-extract.py — pdfplumber + regex against the predictable structure
-            (UPPERCASE section headers, "•  Label" criteria, "Explanation: …" lines)
-   ↓
-formData dict (same shape as the in-app object)
-   ↓
-templates.py — pulls NARRATIVE_TEMPLATES from ../content-data.js
-   ↓
-skeleton.py — substitutes {UPLIFT_PERCENT}, {ITEM_OF_WORK}, {FEE_EARNER_NAME},
-              {PANEL_NAME}, {USER_EXPLANATION}; preserves bracketed [SPECIFY …]
-              placeholders for the LLM/human reviewer
-   ↓
-─ OUTPUTS ───────────────────────────────────────────────────────
-   • narrative.md          (deterministic skeleton, usable as-is)
-   • narrative-prompt.txt  (paste-ready for LM Studio)
-   • narrative-input.json  (recovered formData, debugging aid)
-─ LLM POLISH (manual step, outside this app) ────────────────────
-   user pastes prompt into LM Studio → polished prose → human review → LAA
-```
-
-## Architecture choices (and the why)
-
-- **No QR code, no embedded metadata.** Earlier plans considered embedding the JSON formData in the PDF for lossless round-trip. We dropped that: the PDF text is already structured enough to regex out, and constraining the solicitor's input to fit a QR code was unacceptable.
-- **No LLM integration code in the narrator.** Per user direction: the narrator outputs a paste-ready prompt; the user runs the polish step manually in LM Studio. Benefits — no `openai` dependency, no model coupling, the system prompt is a reviewable artefact under version control.
-- **NARRATIVE_TEMPLATES stays in `content-data.js`** as the single source of truth. Python parses it at runtime via `json5`. A unit test catches drift.
-- **GUI follows the `~/coding/myToolbox` Manager/Window/Card/Worker pattern** with the same dark palette, so `narrate_gui.py` can drop into myToolbox later with minimal changes (`NarrateManager.open_window()` is the integration entry point).
-- **`QPlainTextEdit`** for the output panes (not `QTextEdit`) — guarantees `\n` line endings on copy, no Unicode paragraph-separator (U+2029) surprises in LM Studio.
-
-## How to run
-
-### GUI (primary path)
-
-```
-cd _narrator
-./_setup.sh          # one-time
-./_narrator.sh            # launches GUI; drag PDF or click Browse
-```
-
-Windows: `_setup.bat` then `_Generate_Uplift_Narrative.bat` (or drag a PDF onto `_Generate_Uplift_Narrative.bat`).
-
-### CLI
-
-```
-conda activate uplift-narrate
-python narrate.py path/to/case.pdf [--out-dir DIR]
-```
-
-### Tests
-
-```
-conda activate uplift-narrate
-python -m unittest discover -s _narrator/tests -v
-```
-
-## Active issue (the reason this doc exists)
-
-**Bug — empty narrative output.** When run against a real solicitor-generated PDF (not the test fixture), the narrator produces only the intro and conclusion paragraphs with placeholders unfilled:
-
-```
-An enhancement of [uplift %]% is claimed on the [case] work due to …
-These factors, individually and/or cumulatively, rendered the work …
-```
-
-That output indicates `extract.py` returned an empty `formData` — every section regex failed to match. The fixture PDF (`tests/fixtures/sample.pdf`) extracts correctly, so the failure is specific to whatever the user's actual PDF differs in.
-
-Likely causes (ranked by probability):
-1. Pdfplumber on Windows extracts text with line-break heuristics that don't match the Linux output our regexes were tuned against.
-2. The user's PDF was generated by an older/different version of the web app where section headers weren't UPPERCASE, or the bullet character differs.
-3. A non-Collator PDF was dropped on the GUI by accident.
-
-Diagnostic plan (in progress):
-- [x] Drive the live web app via Playwright, generate a fresh PDF, run narrator. If reproduces → fix the regexes. If not → ask user to share their actual PDF (or its first-page extracted text).
-- [ ] If still ambiguous, add a `--debug` mode that prints the raw pdfplumber text so we can see what extract.py is being asked to parse.
-
-The CLI extractor stub for direct inspection:
+App version **1.10** (29 April 2026) in `content-data.js`.
+**147 tests**, all passing, none touching the network:
 
 ```bash
 conda activate uplift-narrate
-python -c "import pdfplumber; print(pdfplumber.open('PATH.pdf').pages[0].extract_text())"
+python -m unittest discover -s _narrator/tests
 ```
 
-## Recent decisions / context
+The pipeline is complete and works end to end: extract → skeleton → prompt →
+polish via LM Studio → deterministic citation check → LLM second opinion →
+verdict. Both the GUI and the CLI run the identical pipeline through
+`polish.run()`, so the two can never disagree.
 
-- **Repo on `main` branch**, single-author. Direct push to main is allowed via an explicit `Bash(git push origin main:*)` rule in `.claude/settings.local.json` (added 2026-04-27 after running into Claude Code's default safety guard).
-- **App version is 1.9** in `content-data.js`. To bump, change `APP_VERSION` only — propagates everywhere.
-- **v1.9 (2026-04-28)** recalibrated the on-screen "Suggested: X%" from 5% per factor to 10% per factor. Narrator is unaffected — the PDF only contains the user's chosen final percentage, not the suggestion. All 20 narrator unit tests still pass against pre- and post-recalibration PDFs.
-- **Recent significant commits:**
-  - `35c362b` — first commit of this tool (CLI + tests), when the folder was still called `narrate/`
-  - `7ff3c1f` — added GUI front-end (PyQt6, myToolbox pattern)
-- **HANDOFF location**: `_narrator/HANDOFF.md` (this file). The matching pattern is myToolbox's `HANDOFF.md` — concise, structured for a fresh-session pick-up.
+## Where the bodies are buried
+
+Things that cost real time to learn and are easy to undo by accident.
+
+- **`reasoning_effort: "none"` is the only switch LM Studio honours** for
+  think-by-default families (Gemma 4, Qwen 3.5+). `enable_thinking` and
+  `chat_template_kwargs` are silently ignored. Without it the model spends its
+  whole budget reasoning and returns **empty**.
+- **`QPlainTextEdit` is a sibling of `QTextEdit`, not a subclass.** A
+  `QTextEdit { … }` stylesheet rule silently misses it. This shipped once and
+  left all three output panes on Qt's default palette, unreadable.
+- **`urllib` honours `http_proxy`.** Even a `127.0.0.1` request would route
+  through a proxy that then receives the narrative. All requests go through an
+  opener with proxies disabled (`lmstudio._OPENER`). Do not "simplify" that.
+- **`lms` output needs `encoding="utf-8"` explicitly**, or cp1252 decoding
+  turns a *successful* model load into a reported hard failure.
+- **Never `lms unload --all`.** It would evict a model another application is
+  mid-run on. Consent is recorded as specific model ids and re-read immediately
+  before acting.
+- **The citation check is deliberately not an LLM.** That question has an exact
+  answer. An earlier suite passed 20 tests while the checker was silently
+  fail-open on `CAG Section 12.5 & 12.9`, because no test used the citation
+  forms that actually occur in the templates. Cases are now generated from
+  `content-data.js` rather than chosen by hand.
+
+Two risks are **accepted rather than fixed**, and documented in the README: the
+race between the last model-state read and the `lms` command, and JIT loading
+when `/api/v0` is unavailable.
+
+## Next piece of work — the OCR fallback
+
+**Do not build from the sketch at the end of this section.** It was reviewed
+independently on 1 August 2026 and should not be built as written — it fails
+open in several places, most seriously by narrating a partial recovery as if it
+were complete. The findings are in **`OCR-DESIGN-REVIEW.md`** and the revised
+design is in **`OCR-PLAN.md`**; read those two first. The background below is
+still accurate and worth reading; the sketch at the end is kept only as the
+record of what was rejected.
+
+**Feasibility is measured. Nothing is written yet.**
+
+A real submission arrived as a correct v1.10 Collator PDF whose text had been
+converted to **vector outlines** — every glyph redrawn as its own shape — so
+nothing could be extracted. `narrate.py --debug` named the culprit from the
+PDF's own metadata: **`Aspose.Pdf for .NET 11.7.0`**. Aspose runs *inside* other
+software (case-management systems, portal uploads, mail gateways), so a system
+did it automatically in transit. It will recur until that system is found.
+
+The plan: detect the condition, render the pages, OCR them, rebuild `formData`,
+and hand it to the existing pipeline unchanged.
+
+Measured on `tests/fixtures/sample.pdf` at 300 dpi with Windows' built-in
+on-device OCR, against known ground truth:
+
+| | Result |
+|---|---|
+| Section headers | 6 of 6 exact |
+| Ticked criteria, fuzzy-matched to the closed label set | **7 of 7** |
+| Explanation prose | 97.8–100% char accuracy; 3 of 5 perfect |
+| Bullet `•` glyphs | **0 of 7 — dropped entirely** |
+
+Two consequences, both non-negotiable:
+
+1. **Anchor on labels, not bullets.** Criterion labels are a closed set in
+   `content-data.js`, so fuzzy matching (difflib, cutoff ≈0.85) recovers them
+   despite OCR slips. `extract.py`'s `startswith("•")` parsing cannot be reused
+   — write OCR-tolerant variants rather than loosening the existing ones, which
+   still need to be strict for real PDFs.
+2. **The solicitor's own words must be human-confirmed.** The fixture's one
+   significant quantity came back `1 ,400` instead of `1,400` — a single
+   inserted space that tokenises as `1` and `400`. It failed *plausibly*, not
+   visibly.
+
+   The user first chose "confirm the numbers only" and then **reversed it the
+   same day** to **confirm everything the solicitor typed** — all recovered
+   explanation prose, plus the uplift percentage and the case identity. The
+   numbers-only gate never saw the uplift at all, could not repair `1 ,400`
+   (two fields, neither of which owns the space), and was blind to number words
+   and to digits read as letters. Full details in `OCR-PLAN.md`.
+
+   Never unattended.
+
+Related decision: **do not** feed the page image to a vision model instead.
+OCR fails visibly; a VLM fails plausibly, inventing a clean wrong number. On an
+audited claim that is the worse tool — the same reasoning that picked Gemma
+over gpt-oss.
+
+Implementation notes, including the two silent failure modes when driving
+Windows OCR from WSL, are in project memory
+(`reference_windows_ocr_mechanics`). Read it before writing the driver; both
+failures look like unrelated bugs.
+
+Sketch:
+
+```
+extract.diagnose()  →  no text + (outlined | rasterised)  →  offer OCR
+  pypdfium2 render @300dpi   (already in the env; no poppler/gs/tesseract here)
+  one PowerShell process OCRs every page   (per-process WinRT contention)
+  section_slice() as-is      (headers survive OCR intact)
+  fuzzy label anchors        (new; replaces bullet detection)
+  numbers-confirmation dialog on the UI thread
+  → formData → existing skeleton/polish/check pipeline, stamped OCR-derived
+```
 
 ## Conventions
 
-Per user's global `~/.claude/CLAUDE.md`:
-- Mentor mode — explain trade-offs, plan before code.
-- Conda is on PATH on both Windows and WSL Linux. In `.bat` files use `CALL conda activate <env>` directly (don't probe install paths). In `.sh` files source conda's profile script first.
-- Always provide both `.bat` and `.sh` startup scripts, prefixed with `_` to sort to top.
-- All client work is GDPR-confidential — no cloud LLMs, no data leaves the machine.
-- Plain text + small clear sections > exhaustive prose. Critical honesty over hedging.
+Per the user's global `~/.claude/CLAUDE.md`:
 
-## Where to start a fresh session
-
-1. Read this file.
-2. `git log --oneline -10` to see what's recent.
-3. If picking up the empty-narrative bug:
-   - Run the CLI on a real PDF: `python narrate.py /path/to/your.pdf` and compare against the fixture run.
-   - Inspect raw pdfplumber output to see what `extract.py` is reading.
-4. If picking up new feature work: probably a multi-case batch mode or DOCX output (mentioned but not built).
+- Mentor mode — explain trade-offs, plan before coding, don't build until agreed.
+- Both `.bat` and `.sh` startup scripts, `_`-prefixed to sort to the top.
+- **Synthetic fixtures only.** Never read a real client PDF, even when it is the
+  most direct reproducer — `narrate.py --debug` exists precisely so extraction
+  failures can be triaged on real files without exposing client text. Only
+  `producer` and `creator` metadata are read; Title, Author, Subject and
+  Keywords can carry a client name and are never touched.
+- Direct push to `main` is allowed (`.claude/settings.local.json`).
