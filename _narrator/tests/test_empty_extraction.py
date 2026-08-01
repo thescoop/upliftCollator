@@ -246,6 +246,12 @@ ALLOWED_DIAGNOSE_KEYS = {
     "header_matches", "footer_matches", "producer", "creator",
     "made_by_the_app", "images", "largest_image_page_coverage",
     "vector_objects", "sections",
+    # Timestamps, added 1 August 2026. Safe on the same test as the software
+    # names: they describe the file, not the case. The gap between them says
+    # how long after generation the file was rewritten, which distinguishes an
+    # automatic process catching it in transit from something that ran when it
+    # was later filed or forwarded — two different systems to go looking for.
+    "created", "modified", "rewritten_after_seconds",
 }
 
 # PDF metadata that can carry a client name. Reading Producer and Creator is

@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pdfplumber
@@ -230,6 +231,99 @@ def _producer_note(producer: str) -> str:
     return ""
 
 
+# ── When the file was rewritten ─────────────────────────────────────────────
+# The producer says *what* rewrote the file; the gap between creation and
+# modification says *when in its life*, which points at a different system.
+# Rewritten seconds after it was generated means an automatic process caught it
+# on the way out — a mail gateway, a portal upload, a sanitiser. Rewritten days
+# later means it happened when somebody filed or forwarded it. Those are
+# different places to go looking.
+#
+# PDF date syntax is ``D:YYYYMMDDHHmmSSOHH'mm'``, truncatable at any point, with
+# the offset optionally ``Z`` or absent. jsPDF also wraps the value in literal
+# quote characters, so strip those first.
+_PDF_DATE = re.compile(
+    r"D:(?P<year>\d{4})(?P<month>\d{2})?(?P<day>\d{2})?"
+    r"(?P<hour>\d{2})?(?P<minute>\d{2})?(?P<second>\d{2})?"
+    r"(?:(?P<sign>[+\-Z])(?P<tzhour>\d{2})?'?(?P<tzmin>\d{2})?'?)?"
+)
+
+_MONTHS = ("January", "February", "March", "April", "May", "June", "July",
+           "August", "September", "October", "November", "December")
+
+
+def _parse_pdf_date(value: str) -> datetime | None:
+    """Parse a PDF date string, or return None if it is missing or malformed."""
+    if not value:
+        return None
+    m = _PDF_DATE.search(str(value).strip().strip('"').strip("'"))
+    if not m:
+        return None
+    try:
+        parts = {
+            "year": int(m.group("year")),
+            "month": int(m.group("month") or 1),
+            "day": int(m.group("day") or 1),
+            "hour": int(m.group("hour") or 0),
+            "minute": int(m.group("minute") or 0),
+            "second": int(m.group("second") or 0),
+        }
+        sign = m.group("sign")
+        if sign and sign != "Z":
+            offset = timedelta(hours=int(m.group("tzhour") or 0),
+                               minutes=int(m.group("tzmin") or 0))
+            tz = timezone(-offset if sign == "-" else offset)
+        else:
+            tz = timezone.utc
+        return datetime(**parts, tzinfo=tz)
+    except ValueError:
+        # A malformed date is a curiosity, not a failure — the caller still has
+        # the producer, which is the more useful half of the answer.
+        return None
+
+
+def _format_uk_date(moment: datetime) -> str:
+    """House format — ``27 April '26 at 10:57``. Day-month-year, always."""
+    return (f"{moment.day} {_MONTHS[moment.month - 1]} "
+            f"'{moment.strftime('%y')} at {moment.strftime('%H:%M')}")
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
+def _rewrite_timing_note(created: datetime | None,
+                         modified: datetime | None) -> str:
+    """Plain-English note about when the file was rewritten, or ""."""
+    if not (created and modified):
+        return ""
+    gap = (modified - created).total_seconds()
+    if gap < 0:
+        return ""
+    if gap < 300:
+        return (
+            f"It was generated on {_format_uk_date(created)} and rewritten "
+            f"{_plural(int(gap), 'second')} later.\n"
+            "A gap that short means an automatic process caught it in transit —\n"
+            "a mail gateway, a portal upload, or a file sanitiser — rather than\n"
+            "somebody opening it and re-saving it by hand."
+        )
+    if gap < 86400:
+        return (
+            f"It was generated on {_format_uk_date(created)} and rewritten "
+            f"{_plural(int(gap // 3600), 'hour')} later, the same day.\n"
+            "That is consistent with it being rewritten when the file was filed\n"
+            "or sent, rather than as it was generated."
+        )
+    return (
+        f"It was generated on {_format_uk_date(created)} and not rewritten\n"
+        f"until {_format_uk_date(modified)} — {_plural(int(gap // 86400), 'day')} "
+        "later.\nSo this happened when the file was filed, uploaded or forwarded,\n"
+        "well after it was saved. Look at what handles it at that point, not\n"
+        "at how it leaves the browser."
+    )
+
+
 class NoDataExtracted(Exception):
     """The PDF yielded nothing worth narrating.
 
@@ -266,6 +360,10 @@ def explain_empty_extraction(pdf_path: str | Path) -> str:
     )
 
     made_by = d.get("producer") or d.get("creator") or ""
+    timing = _rewrite_timing_note(
+        datetime.fromisoformat(d["created"]) if d.get("created") else None,
+        datetime.fromisoformat(d["modified"]) if d.get("modified") else None,
+    )
     if d["raw_chars"] < MIN_TEXT_CHARS:
         # How the text was destroyed, which is not the same question as who
         # did it. Rasterised: the page became a picture. Outlined: each letter
@@ -304,6 +402,9 @@ def explain_empty_extraction(pdf_path: str | Path) -> str:
             if note:
                 head += f"\n{note}\n"
 
+        if timing:
+            head += f"\n{timing}\n"
+
         return head + (
             "\nThe Collator's own PDF always has selectable text, so this\n"
             "happened to the file *after* the app saved it — it is not\n"
@@ -326,6 +427,7 @@ def explain_empty_extraction(pdf_path: str | Path) -> str:
             "The Collator writes its PDFs with jsPDF, so this file was made or\n"
             "rebuilt by something else.\n"
             + (f"\n{note}\n" if note else "")
+            + (f"\n{timing}\n" if timing else "")
             + "\nFix: ask for the file the app itself saved —\n"
             "LAA_Uplift_Data_Summary.pdf, straight from the Downloads folder."
         )
@@ -401,11 +503,14 @@ def diagnose(pdf_path: str | Path) -> dict:
     even when the input PDF contains GDPR-sensitive client data.
 
     ``producer``/``creator`` are the PDF's own software-name metadata, which
-    names whatever last wrote the file. Deliberately *only* those two: Title,
-    Author, Subject and Keywords can carry a client name, so they are never
-    read. That pair is what distinguishes "the app made this" from "something
-    rebuilt it afterwards", which is the difference between a bug in the
-    extractor and a file that arrived already flattened.
+    names whatever last wrote the file. ``created``/``modified`` are its
+    timestamps. Deliberately *only* those four: Title, Author, Subject and
+    Keywords can carry a client name, so they are never read, and a timestamp
+    identifies nobody. The software names distinguish "the app made this" from
+    "something rebuilt it afterwards"; the timestamps say how long after
+    generation that happened, which points at a different system again — an
+    automatic pipeline on the way out, or something that ran when the file was
+    later filed or forwarded.
     """
     pdf_path = Path(pdf_path)
     with pdfplumber.open(pdf_path) as pdf:
@@ -414,6 +519,8 @@ def diagnose(pdf_path: str | Path) -> dict:
         meta = pdf.metadata or {}
         producer = str(meta.get("Producer", "") or "")
         creator = str(meta.get("Creator", "") or "")
+        created = _parse_pdf_date(meta.get("CreationDate", ""))
+        modified = _parse_pdf_date(meta.get("ModDate", ""))
         # Is the page a picture of itself? A flattened PDF has no characters
         # and one large image; a normal one has characters and no image.
         n_images = 0
@@ -464,6 +571,15 @@ def diagnose(pdf_path: str | Path) -> dict:
         "footer_matches": len(FOOTER_PATTERN.findall(raw)),
         "producer": producer,
         "creator": creator,
+        "created": created.isoformat() if created else "",
+        "modified": modified.isoformat() if modified else "",
+        # None when either timestamp is missing — which is itself informative:
+        # the Collator's own PDFs carry a CreationDate and no ModDate, so a
+        # ModDate appearing at all means something rewrote the file.
+        "rewritten_after_seconds": (
+            int((modified - created).total_seconds())
+            if created and modified else None
+        ),
         "made_by_the_app": bool(JSPDF_PRODUCER.search(producer)),
         "images": n_images,
         "largest_image_page_coverage": round(image_coverage, 3),
