@@ -91,6 +91,16 @@ to the PDF:
   REVISION` — that reflects *both* checks. A discrepancy found by either one
   fails the run, and the CLI exits non-zero so a batch loop cannot mistake a
   flagged narrative for a clean one.
+
+  It may also carry a **Number agreement** note. When a claim rests on a single
+  factor the framing sentences are written in the singular, because "These
+  factors, individually and/or cumulatively" applied to one factor asserts
+  something that cannot be true — in the sentence carrying the whole
+  justification. The skeleton gets this right from the count, but the polish
+  step rewrites those sentences, so this reports the model putting the plural
+  back. It is deliberately a **warning and does not fail the run**: bad grammar
+  is an embarrassment, not a false statement to the LAA, and failing over it
+  would train you to ignore a red verdict.
 - **`narrative.md`** — the fully-cited skeleton the polish step worked from.
   The audit trail, and the fallback if LM Studio is unavailable.
 - **`narrative-prompt.txt`** — the exact instruction sent to the model. Kept as
@@ -295,7 +305,7 @@ conda activate uplift-narrate
 python -m unittest discover -s _narrator/tests -v
 ```
 
-178 tests. The suite never touches the network — it passes with LM Studio
+214 tests. The suite never touches the network — it passes with LM Studio
 closed. The citation cases are generated from `content-data.js` rather than
 chosen by hand: an earlier suite passed 20 tests while the checker was silently
 fail-open on `CAG Section 12.5 & 12.9`, because no test used the citation forms

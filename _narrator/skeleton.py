@@ -60,6 +60,30 @@ def _substitute(template: str, mapping: dict[str, str]) -> str:
     return out
 
 
+def _pick_by_count(templates: dict, base: str, count: int, variant: str) -> str:
+    """Choose the singular or plural wording of a framing sentence.
+
+    A claim resting on one factor is ordinary, and the plural wording is not
+    merely clumsy there: "These factors, individually and/or cumulatively"
+    applied to a single factor asserts something that cannot be true, in the
+    sentence that carries the whole justification.
+
+    The count is known exactly at this point, so this is decided here rather
+    than left to the polish step — the same reasoning that keeps the citation
+    check out of the model's hands. ``prompts/system.md`` additionally tells the
+    model to preserve the agreement it is given, and ``checks.agreement()``
+    reports it if the model puts the plural back.
+
+    Falls back to *base* when the variant is absent, so an edited or older
+    content-data.js still renders.
+    """
+    if variant == "singular" and count == 1:
+        return templates.get(f"{base}_singular", templates[base])
+    if variant == "plural" and count > 1:
+        return templates.get(f"{base}_plural", templates[base])
+    return templates[base]
+
+
 def _build_stage(
     section: dict,
     blocks: list[dict],
@@ -114,13 +138,20 @@ def build_skeleton(formdata: dict) -> str:
         "FEE_EARNER_NAME": (case.get("feeEarnerName") or "").strip() or "[fee earner]",
     }
 
-    sections: list[str] = [_substitute(templates["intro"], common)]
+    # "The following exceptional factors" and the conclusion both refer to
+    # everything the claim rests on — the Stage 1 and Stage 2 criteria. Panel
+    # membership is not one of them: it is the separate guaranteed 15%.
+    n_factors = len(stage1) + len(stage2)
+
+    sections: list[str] = [
+        _substitute(_pick_by_count(templates, "intro", n_factors, "singular"), common)
+    ]
 
     if panel:
         panel_labels = [_clean_panel_label(item["label"]) for item in panel.values()]
         sections.append(
             _substitute(
-                templates["panel_membership"],
+                _pick_by_count(templates, "panel_membership", len(panel), "plural"),
                 {**common, "PANEL_NAME": _join_panels(panel_labels)},
             )
         )
@@ -129,11 +160,15 @@ def build_skeleton(formdata: dict) -> str:
     if stage1_md:
         sections.append(stage1_md)
 
-    stage2_md = _build_stage(stage2, blocks, 3, templates["stage2_intro_narrative"], templates, common)
+    stage2_md = _build_stage(
+        stage2, blocks, 3,
+        _pick_by_count(templates, "stage2_intro_narrative", len(stage2), "singular"),
+        templates, common,
+    )
     if stage2_md:
         sections.append(stage2_md)
 
-    sections.append(templates["conclusion"])
+    sections.append(_pick_by_count(templates, "conclusion", n_factors, "singular"))
 
     return "\n\n".join(s.strip("\n") for s in sections if s.strip())
 

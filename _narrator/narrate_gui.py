@@ -42,6 +42,7 @@ from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent
 
 # ── Sibling modules from this folder ────────────────────────────────────────
+import checks as checks_mod
 import docx_writer
 import lmstudio
 import polish as polish_mod
@@ -212,6 +213,7 @@ class NarrateWorker(QThread):
                     model_hint=self._model_hint,
                     consented=self._consented,
                     prompt_snapshot=snap,
+                    n_factors=checks_mod.count_factors(formdata),
                     should_stop=self.isInterruptionRequested,
                     on_status=lambda msg: self.log_line.emit(
                         f'<span style="color:#88aaff;">{msg}</span>'

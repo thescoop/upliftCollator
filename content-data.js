@@ -29,8 +29,15 @@ const ACCEPTABLE_PASSWORDS_NORMALIZED = [
 // {ITEM_OF_WORK} will be: formData.caseDetails.matterType + ": " + formData.caseDetails.caseMatterName
 // {USER_EXPLANATION} will be replaced by the solicitor's text, formatted as a blockquote.
 const NARRATIVE_TEMPLATES = {
+    // Singular variants, added 1 August 2026. A claim resting on one factor is
+    // common, and the plural wording does not merely read awkwardly there — a
+    // single factor cannot be weighed "individually and/or cumulatively", which
+    // is the sentence carrying the whole justification. skeleton.py picks by
+    // count; see _pick_by_count().
     "intro": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factors, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2018 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
+    "intro_singular": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factor, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2018 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
     "panel_membership": "**Panel Membership (CAG Section 12.20-12.23):**\nA minimum enhancement of 15% is claimed as the fee earner ({FEE_EARNER_NAME}) is a member of the {PANEL_NAME}, and the work undertaken falls within the scope of this accreditation. This is a guaranteed minimum enhancement.",
+    "panel_membership_plural": "**Panel Membership (CAG Section 12.20-12.23):**\nA minimum enhancement of 15% is claimed as the fee earner ({FEE_EARNER_NAME}) is a member of the {PANEL_NAME}, and the work undertaken falls within the scope of those accreditations. This is a guaranteed minimum enhancement.",
     "threshold_intro_narrative": "\n**LAA Threshold Test (Qualifying for Enhancement - Spec Para 6.13 / CAG Section 12.4):**\nThe work meets the threshold for enhancement because:",
     "s1_competence_skill_expertise_header_narrative": "  The work was done with **exceptional competence, skill, or expertise** (Spec Para 6.13(a) / CAG Section 12.8.1) as evidenced by:",
     "s1_cse_detailed_knowledge": "    - Unusually detailed knowledge relevant to [SPECIFY AREA OF KNOWLEDGE/CASE ASPECT] was demonstrated and applied.{USER_EXPLANATION}",
@@ -53,6 +60,7 @@ const NARRATIVE_TEMPLATES = {
     "s1_circ_novelty": "    - The case presented novel points of law or a unique factual matrix concerning [SPECIFY NOVEL ASPECTS].{USER_EXPLANATION}",
     "s1_circ_weight_volume": "    - The sheer volume of documentation ([APPROX PAGES/FILES]) or number of distinct issues ([NUMBER]) constituted exceptional weight.{USER_EXPLANATION}",
     "stage2_intro_narrative": "\n**Determining the Level of Enhancement (Justifying the % - Spec Para 6.15 / CAG Section 12.5 & 12.9):**\nOnce the threshold test is met, the level of enhancement is justified by the following factors:",
+    "stage2_intro_narrative_singular": "\n**Determining the Level of Enhancement (Justifying the % - Spec Para 6.15 / CAG Section 12.5 & 12.9):**\nOnce the threshold test is met, the level of enhancement is justified by the following factor:",
     "s2_responsibility_header_narrative": "  **Degree of Responsibility accepted by the fee earner** (CAG 12.9(a)):",
     "s2_resp_no_counsel_analysis": "    - Significant analytical and case planning work was undertaken without recourse to Counsel.{USER_EXPLANATION}",
     "s2_resp_no_counsel_drafting": "    - Complex drafting ([SPECIFY DOCUMENTS]) was undertaken without recourse to Counsel.{USER_EXPLANATION}",
@@ -67,7 +75,8 @@ const NARRATIVE_TEMPLATES = {
     "s2_nwc_novelty_law": "    - (As detailed in Stage 1, if applicable) The case involved novel points of law or legal context.{USER_EXPLANATION}",
     "s2_nwc_weight_docs_issues": "    - (As detailed in Stage 1, if applicable) The case involved exceptional weight (documentation/number or importance of issues).{USER_EXPLANATION}",
     "s2_nwc_complexity_overall": "    - (As detailed in Stage 1, if applicable) The overall complexity of the legal and factual matrix was exceptional.{USER_EXPLANATION}",
-    "conclusion": "\nThese factors, individually and/or cumulatively, rendered the work exceptionally demanding and/or required exceptional skill/responsibility beyond that normally expected for a fee earner of this level, justifying the enhancement claimed. Evidence supporting these assertions can be found within the case file."
+    "conclusion": "\nThese factors, individually and/or cumulatively, rendered the work exceptionally demanding and/or required exceptional skill/responsibility beyond that normally expected for a fee earner of this level, justifying the enhancement claimed. Evidence supporting these assertions can be found within the case file.",
+    "conclusion_singular": "\nThis factor rendered the work exceptionally demanding and/or required exceptional skill/responsibility beyond that normally expected for a fee earner of this level, justifying the enhancement claimed. Evidence supporting this assertion can be found within the case file."
 };
 
 // --- QUESTION FLOW AND STRUCTURE (For building the solicitor-facing form) ---

@@ -36,6 +36,7 @@ import json
 import sys
 from pathlib import Path
 
+import checks as checks_mod
 import docx_writer
 import lmstudio
 import polish as polish_mod
@@ -182,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
                 verify=not args.no_verify,
                 force_swap=args.force_swap,
                 prompt_snapshot=snap,
+                n_factors=checks_mod.count_factors(formdata),
                 on_status=lambda msg: print(f"narrate: {msg}", file=sys.stderr),
             )
         except lmstudio.ModelSwapRequired as exc:

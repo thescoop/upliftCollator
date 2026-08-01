@@ -250,6 +250,7 @@ def run(
     consented: list[str] | None = None,
     force_swap: bool = False,
     prompt_snapshot: prompts.PromptSnapshot | None = None,
+    n_factors: int | None = None,
     on_token: Callable[[str], None] | None = None,
     on_status: Callable[[str], None] | None = None,
     should_stop: Callable[[], bool] | None = None,
@@ -273,7 +274,7 @@ def run(
                           verification_was_requested=verify)
 
     status("Checking citations…")
-    result.check = checks.check(skeleton, polished)
+    result.check = checks.check(skeleton, polished, n_factors=n_factors)
 
     if verify:
         status("Running LLM verification…")

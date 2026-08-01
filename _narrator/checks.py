@@ -135,6 +135,52 @@ def find_placeholders(text: str, skeleton: str = "") -> list[str]:
     return [cue for cue in candidates if cue.lower() in lowered]
 
 
+# ── Number agreement ────────────────────────────────────────────────────────
+# The skeleton already gets this right (skeleton._pick_by_count), but the polish
+# step rewrites every one of these sentences, so a correct skeleton does not
+# guarantee a correct narrative. These are the plural forms that are wrong when
+# the claim rests on a single factor.
+#
+# Deliberately a *warning*, not a failure: unlike a dropped citation, this is an
+# embarrassment rather than a false statement to the LAA, and failing the run
+# over grammar would train the reader to ignore a red verdict. The one that
+# matters most is "individually and/or cumulatively" — applied to one factor it
+# asserts something that cannot be true, in the sentence carrying the whole
+# justification.
+_PLURAL_GIVEAWAYS = (
+    re.compile(r"\bindividually and/or cumulatively\b", re.IGNORECASE),
+    re.compile(r"\bthese factors\b", re.IGNORECASE),
+    re.compile(r"\bthe following exceptional factors\b", re.IGNORECASE),
+    re.compile(r"\bthe following factors\b", re.IGNORECASE),
+    re.compile(r"\bthese assertions\b", re.IGNORECASE),
+)
+
+
+def agreement_warnings(polished: str, n_factors: int) -> list[str]:
+    """Plural wording left in a narrative that rests on a single factor.
+
+    Returns the offending phrases, in the order the patterns are declared.
+    Empty for any claim with two or more factors, where the plural is correct.
+    """
+    if n_factors != 1:
+        return []
+    found: list[str] = []
+    for pattern in _PLURAL_GIVEAWAYS:
+        m = pattern.search(polished)
+        if m:
+            found.append(m.group(0))
+    return found
+
+
+def count_factors(formdata: dict) -> int:
+    """The criteria a claim rests on: Stage 1 plus Stage 2.
+
+    Panel membership is excluded deliberately — it is the separate guaranteed
+    15%, not one of the "exceptional factors" the narrative introduces.
+    """
+    return len(formdata.get("stage1") or {}) + len(formdata.get("stage2") or {})
+
+
 @dataclass
 class CheckResult:
     """Outcome of comparing a polished narrative against its skeleton."""
@@ -143,9 +189,13 @@ class CheckResult:
     dropped_citations: list[str] = field(default_factory=list)
     added_citations: list[str] = field(default_factory=list)
     placeholders: list[str] = field(default_factory=list)
+    agreement: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
+        # `agreement` is deliberately absent: it is a wording warning, not a
+        # discrepancy between the narrative and its source, and must not turn
+        # the verdict red.
         return not (self.dropped_citations or self.added_citations or self.placeholders)
 
     @property
@@ -153,7 +203,7 @@ class CheckResult:
         return "SAFE TO REVIEW" if self.ok else "NEEDS REVISION"
 
 
-def check(skeleton: str, polished: str) -> CheckResult:
+def check(skeleton: str, polished: str, n_factors: int | None = None) -> CheckResult:
     """Compare a polished narrative against the skeleton it came from.
 
     A *dropped* citation is the serious failure: an assertion to the LAA that
@@ -182,6 +232,8 @@ def check(skeleton: str, polished: str) -> CheckResult:
         dropped_citations=_expand(skeleton_counts - polished_counts, skeleton_citations),
         added_citations=_expand(polished_counts - skeleton_counts, polished_citations),
         placeholders=find_placeholders(polished, skeleton),
+        agreement=(agreement_warnings(polished, n_factors)
+                   if n_factors is not None else []),
     )
 
 
@@ -214,6 +266,20 @@ def format_report(result: CheckResult) -> str:
         lines.extend(f"  - {p}" for p in result.placeholders)
     else:
         lines.append("No unfilled placeholders.")
+
+    if result.agreement:
+        lines += [
+            "",
+            "## Number agreement",
+            "",
+            "This claim rests on a single factor, but the narrative still uses "
+            "plural wording:",
+        ]
+        lines.extend(f"  - {phrase}" for phrase in result.agreement)
+        lines.append(
+            "Worth a quick edit. Not counted against the verdict — it is a "
+            "wording slip, not a discrepancy with the source."
+        )
 
     lines += ["", "## Verdict", "", result.verdict, ""]
     return "\n".join(lines)
