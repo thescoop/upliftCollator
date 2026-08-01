@@ -19,8 +19,13 @@ IF ERRORLEVEL 1 (
     echo ERROR: narrate_gui.py exited with an error.
     echo.
     echo Common causes:
-    echo   - Missing PyQt6 dependency. Re-run _setup.bat to update.
-    echo   - Some other import error - the message above will say which module.
+    echo   - "ModuleNotFoundError: No module named X" - a dependency is missing
+    echo     from this environment. Run _setup.bat; it updates an existing
+    echo     environment in place, it does not just create a new one.
+    echo   - Windows and WSL have SEPARATE conda environments that share the
+    echo     name 'uplift-narrate'. Installing a package under WSL does nothing
+    echo     for this one. Run _setup.bat here, on Windows.
+    echo   - Some other error - the message above will say what.
     echo.
     pause
     exit /b 1

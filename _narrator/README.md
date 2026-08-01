@@ -282,8 +282,16 @@ The LM Studio client is stdlib-only (`urllib`), so adding it required no new
 dependency and no re-run of `_setup`.
 
 **If you already have the `uplift-narrate` env from before 1 August 2026**, it
-predates `python-docx`. Either re-run `_setup`, or just
-`conda activate uplift-narrate && pip install python-docx`.
+predates `python-docx` and the GUI will stop at
+`ModuleNotFoundError: No module named 'docx'`. Re-run `_setup` — both scripts
+update an existing environment in place rather than only creating a new one.
+
+**Windows and WSL have separate conda environments that share the name
+`uplift-narrate`.** They are two independent installations, so installing a
+package on one side does nothing for the other. Run `_setup` on whichever side
+you actually launch the tool from — `_setup.bat` for
+`_Generate_Uplift_Narrative.bat`, `_setup.sh` for `./_narrator.sh`. If you use
+both, run both.
 
 ## House style
 
