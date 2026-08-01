@@ -16,6 +16,14 @@ Always produces:
 With ``--polish`` it also calls the local LM Studio server and adds:
   narrative-polished.md  — the finished, flowing narrative
   citation-check.txt     — deterministic citation/placeholder check + LLM review
+
+Exit codes::
+
+    0  clean run
+    1  narrative written, but a check flagged it — read citation-check.txt
+    2  the PDF path is not a file
+    3  LM Studio failed or refused; the skeleton was still written
+    4  nothing extracted from the PDF; no files written
 """
 
 from __future__ import annotations
@@ -27,7 +35,12 @@ from pathlib import Path
 
 import lmstudio
 import polish as polish_mod
-from extract import diagnose, extract_formdata
+from extract import (
+    diagnose,
+    explain_empty_extraction,
+    extract_formdata,
+    extraction_is_empty,
+)
 import prompts as prompts_mod
 from skeleton import build_skeleton
 
@@ -99,7 +112,6 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     out_dir = (args.out_dir or _default_out_dir(pdf_path)).resolve()
-    out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"narrate: reading {pdf_path.name}", file=sys.stderr)
     formdata = extract_formdata(pdf_path)
@@ -107,12 +119,29 @@ def main(argv: list[str] | None = None) -> int:
     n_panel = len(formdata.get("panelMembership", {}))
     n_s1 = len(formdata.get("stage1", {}))
     n_s2 = len(formdata.get("stage2", {}))
+    uplift = formdata.get("finalUpliftPercent", "")
     print(
         f"narrate: extracted — {n_panel} panel, {n_s1} Stage 1, {n_s2} Stage 2 ticks; "
-        f"uplift {formdata.get('finalUpliftPercent', '?')}%",
+        + (f"uplift {uplift}%" if uplift else "no uplift % found"),
         file=sys.stderr,
     )
 
+    # Nothing recovered means nothing to write. Stop at the PDF rather than
+    # building an empty skeleton, spending a model call on it, and reporting
+    # the result as a citation failure — which says the narrative is wrong
+    # when the truth is that there never was one.
+    if extraction_is_empty(formdata):
+        print("\nnarrate: nothing was extracted from this PDF.\n", file=sys.stderr)
+        print(explain_empty_extraction(pdf_path), file=sys.stderr)
+        print(
+            "\nnarrate: no files were written. For the full structural "
+            "diagnostic (no client text) run:\n"
+            f'  python narrate.py --debug "{pdf_path}"',
+            file=sys.stderr,
+        )
+        return 4
+
+    out_dir.mkdir(parents=True, exist_ok=True)
     skeleton_md = build_skeleton(formdata)
     case_meta = formdata.get("caseDetails", {}) | {
         "finalUpliftPercent": formdata.get("finalUpliftPercent", "")
@@ -171,8 +200,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.polish or args.model:
         print(f"narrate: {result.verdict} — {result.verdict_detail}.", file=sys.stderr)
-        if not result.ok:
-            print("narrate: read citation-check.txt before submitting.", file=sys.stderr)
+        print(f"narrate: {result.next_step}", file=sys.stderr)
         # Non-zero on either check failing, so a batch loop cannot mistake a
         # flagged narrative for a clean one.
         return 0 if result.ok else 1

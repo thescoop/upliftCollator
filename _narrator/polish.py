@@ -17,6 +17,17 @@ import lmstudio
 import prompts
 
 
+def _plural(count: int, singular: str, plural: str) -> str:
+    return f"{count} {singular if count == 1 else plural}"
+
+
+def _join(items: list[str]) -> str:
+    """Human list: "a", "a and b", "a, b and c"."""
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + " and " + items[-1]
+
+
 @dataclass
 class PolishResult:
     """Everything one polish run produced, including what went wrong."""
@@ -82,24 +93,52 @@ class PolishResult:
 
     @property
     def verdict_detail(self) -> str:
-        """One line explaining the verdict, for the log and the CLI."""
+        """One line explaining the verdict, for the log and the CLI.
+
+        Only reports what is actually wrong. The earlier version listed all
+        four counts every time, so a clean run and a broken one looked alike
+        at a glance and the reader had to do the arithmetic themselves.
+        """
         if not self.check:
             return "no check was run"
-        parts = [
-            f"{len(self.check.skeleton_citations)} citations",
-            f"{len(self.check.dropped_citations)} dropped",
-            f"{len(self.check.added_citations)} added",
-            f"{len(self.check.placeholders)} placeholders left",
-        ]
+
+        total = len(self.check.skeleton_citations)
+        faults: list[str] = []
+        if self.check.dropped_citations:
+            faults.append(_plural(len(self.check.dropped_citations),
+                                  "citation was", "citations were") + " dropped")
+        if self.check.added_citations:
+            faults.append(_plural(len(self.check.added_citations),
+                                  "citation was", "citations were") + " added")
+        if self.check.placeholders:
+            faults.append(_plural(len(self.check.placeholders),
+                                  "placeholder", "placeholders") + " left unfilled")
         if self.verification_error:
-            parts.append("LLM review FAILED to run — narrative unverified")
+            faults.append("the model's second-opinion check FAILED to run, "
+                          "so the narrative is unverified")
         elif self.llm_verification and not self.semantic_ok:
-            verdict = self._parsed_llm_verdict()
-            parts.append(
-                "LLM review flagged a discrepancy" if verdict == "NEEDS REVISION"
-                else "LLM review verdict could not be read"
+            faults.append(
+                "the model's second-opinion check flagged a discrepancy"
+                if self._parsed_llm_verdict() == "NEEDS REVISION"
+                else "the model's second-opinion verdict could not be read"
             )
-        return ", ".join(parts)
+
+        if not faults:
+            return (
+                f"all {total} " + ("citation" if total == 1 else "citations")
+                + " preserved, no placeholders left"
+            )
+        return f"{_join(faults)} (of {total} " + \
+               ("citation" if total == 1 else "citations") + ")"
+
+    @property
+    def next_step(self) -> str:
+        """What to do about the verdict, in one sentence."""
+        if self.ok:
+            return "Read it through before it goes to the LAA."
+        return ("Open the Citation Check tab for the detail. A dropped citation "
+                "is an assertion that has lost its authority; an added one may "
+                "be invented. Re-run, or try a different model.")
 
 
 def format_full_report(result: PolishResult) -> str:
@@ -115,7 +154,8 @@ def format_full_report(result: PolishResult) -> str:
     elif result.verification_error:
         report += ("\n\n---\n\n## LLM second opinion\n\n"
                    f"Did not run: {result.verification_error}\n")
-    report += f"\n\n---\n\n## Overall verdict\n\n{result.verdict} — {result.verdict_detail}\n"
+    report += (f"\n\n---\n\n## Overall verdict\n\n{result.verdict} — "
+               f"{result.verdict_detail}.\n\n{result.next_step}\n")
     return report
 
 

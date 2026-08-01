@@ -16,12 +16,25 @@ Two front-ends:
   `myToolbox` project so it can drop into that suite later.
 - **CLI** (`narrate.py`) — same pipeline, scriptable. Useful for batch runs.
 
+## The input must come from the app's own button
+
+The narrator reads the PDF that the Uplift Collator web app saves when you
+click **Generate PDF Summary** — `LAA_Uplift_Data_Summary.pdf`. Rename it
+freely; the *content* is what matters.
+
+It cannot read a PDF made by the browser's own Print / Save-as-PDF, because
+printing captures the on-screen page, which has none of the section structure
+the narrator parses. If nothing can be recovered the run **stops at the PDF**
+and says why in plain English — it does not build an empty narrative and then
+report it as a citation failure, which is what it used to do.
+
 ## What it produces
 
 For an input `case.pdf`, both front-ends write a folder `case-narrative/` next
 to the PDF:
 
-- **`narrative-polished.md`** — the finished narrative. This is the one you read.
+- **`narrative-polished.md`** — the finished narrative. **This is the one you
+  send.** In the GUI it is the *Polished Narrative* tab.
 - **`citation-check.txt`** — proof that nothing was lost in the polish step: a
   deterministic citation and placeholder check, plus a second-opinion review
   from the model. Ends in an overall verdict — `SAFE TO REVIEW` or `NEEDS
@@ -195,13 +208,17 @@ conda activate uplift-narrate
 python -m unittest discover -s _narrator/tests -v
 ```
 
-109 tests. The suite never touches the network — it passes with LM Studio
+133 tests. The suite never touches the network — it passes with LM Studio
 closed. The citation cases are generated from `content-data.js` rather than
 chosen by hand: an earlier suite passed 20 tests while the checker was silently
 fail-open on `CAG Section 12.5 & 12.9`, because no test used the citation forms
 that actually occur in the templates.
 
 ## Troubleshooting
+
+**"Nothing was extracted from this PDF"** — the run stopped at the PDF and the
+message names the likely cause and the fix. Almost always the PDF did not come
+from the app's **Generate PDF Summary** button. See the section above.
 
 **"Could not reach LM Studio"** — open LM Studio → Developer tab → turn the
 server on. Under WSL the server is reached on the WSL2 gateway IP, not

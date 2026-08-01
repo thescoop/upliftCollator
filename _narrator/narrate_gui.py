@@ -23,6 +23,7 @@ PDF path pre-loads the file so you only need to click Generate.
 """
 
 # ── Standard library imports ────────────────────────────────────────────────
+import html
 import json
 import os
 import shutil
@@ -44,7 +45,11 @@ from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent
 import lmstudio
 import polish as polish_mod
 import prompts as prompts_mod
-from extract import extract_formdata
+from extract import (
+    explain_empty_extraction,
+    extract_formdata,
+    extraction_is_empty,
+)
 from skeleton import build_skeleton
 
 
@@ -61,6 +66,33 @@ BG_HOVER   = "#4a4a7e"   # Button hover state
 TEXT_MAIN  = "#cdd6f4"   # Primary text
 TEXT_DIM   = "#9399b2"   # Muted labels / headings
 ACCENT     = "#89b4fa"   # Blue accent
+
+
+# Font stacks. Families are given as a fallback list rather than one name so
+# the same code reads well on Mutant (Windows fonts via WSL) and on a bare
+# Linux box, instead of silently dropping to Qt's default at whatever size.
+PROSE_FAMILIES = ["Segoe UI", "Calibri", "DejaVu Sans", "Noto Sans"]
+MONO_FAMILIES  = ["Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Liberation Mono"]
+
+
+# What each output tab is for, in the order the tabs are added. Shown under
+# the pane and as the tab's tooltip.
+TAB_CAPTIONS = (
+    "THE ONE YOU SEND — the finished narrative, written from the ticked "
+    "criteria and their citations. Read it before it goes to the LAA.",
+    "PROOF NOTHING WAS LOST — every LAA citation in the skeleton checked "
+    "against the finished text, plus a second opinion from the model. Read "
+    "this whenever the verdict says NEEDS REVISION.",
+    "THE AUDIT TRAIL — the raw cited template the model rewrote. Also your "
+    "fallback: if LM Studio is unavailable, this is what you paste in by hand.",
+)
+
+
+def _font(families: list[str], size: int) -> QFont:
+    font = QFont()
+    font.setFamilies(families)
+    font.setPointSize(size)
+    return font
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -110,11 +142,33 @@ class NarrateWorker(QThread):
             n_panel = len(formdata.get("panelMembership", {}))
             n_s1 = len(formdata.get("stage1", {}))
             n_s2 = len(formdata.get("stage2", {}))
-            uplift = formdata.get("finalUpliftPercent", "?")
+            uplift = formdata.get("finalUpliftPercent", "")
+            # "· % uplift" — a bare percent sign with no number in front of it
+            # — was how a missing value used to render. Say it plainly instead.
+            uplift_text = f"{uplift}% uplift" if uplift else "no uplift % found"
             self.log_line.emit(
                 f'<span style="color:#88aaff;">Extracted: {n_panel} panel · '
-                f'{n_s1} Stage 1 · {n_s2} Stage 2 · {uplift}% uplift</span>'
+                f'{n_s1} Stage 1 · {n_s2} Stage 2 · {uplift_text}</span>'
             )
+
+            # Nothing recovered means nothing to write. Stopping here is the
+            # honest outcome: the previous behaviour built an empty skeleton,
+            # spent a model call on it, and reported "NEEDS REVISION — 1
+            # citation dropped", which blames the narrative for a problem that
+            # is entirely in the PDF.
+            if extraction_is_empty(formdata):
+                self.log_line.emit(
+                    '<span style="color:#ff6b6b;">Nothing was extracted from this '
+                    'PDF — no narrative can be written from it.</span>'
+                )
+                for line in explain_empty_extraction(self._pdf_path).splitlines():
+                    self.log_line.emit(
+                        f'<span style="color:#fab387;">{html.escape(line) or "&nbsp;"}</span>'
+                    )
+                self.log_line.emit(
+                    '<span style="color:#9399b2;">No files were written.</span>'
+                )
+                return
 
             self.log_line.emit(
                 '<span style="color:#88aaff;">Building skeleton…</span>'
@@ -174,7 +228,10 @@ class NarrateWorker(QThread):
                 colour = "#a6e3a1" if result.ok else "#f9e2af"
                 self.log_line.emit(
                     f'<span style="color:{colour};">{result.verdict} — '
-                    f'{result.verdict_detail}.</span>'
+                    f'{html.escape(result.verdict_detail)}.</span>'
+                )
+                self.log_line.emit(
+                    f'<span style="color:{colour};">{html.escape(result.next_step)}</span>'
                 )
             except lmstudio.LMStudioError as exc:
                 # A failed polish must never lose the skeleton, which is the
@@ -407,9 +464,12 @@ class NarrateCard(QFrame):
         # ── Log area ─────────────────────────────────────────────────────
         self._log = QTextEdit()
         self._log.setReadOnly(True)
-        self._log.setMinimumHeight(80)
-        self._log.setMaximumHeight(140)
-        self._log.setFont(QFont("Consolas", 9))
+        self._log.setMinimumHeight(90)
+        # Roomy enough that the whole "nothing was extracted" explanation is
+        # readable without scrolling — that message is the one that matters
+        # most and the one you are least expecting.
+        self._log.setMaximumHeight(190)
+        self._log.setFont(_font(MONO_FAMILIES, 10))
         self._log.setStyleSheet(self._textarea_style())
         layout.addWidget(self._log)
 
@@ -429,9 +489,13 @@ class NarrateCard(QFrame):
         # QPlainTextEdit (not QTextEdit) for the output panes — guarantees that
         # Ctrl+C selections and toPlainText() produce \n line endings, never
         # the Unicode paragraph separator (U+2029) that QTextEdit can emit.
+        #
+        # The finished narrative is prose meant to be read, so it gets a
+        # proportional font at a comfortable size. The other two are structured
+        # output where alignment carries meaning, so they stay monospaced.
         self._polished_view = QPlainTextEdit()
         self._polished_view.setReadOnly(True)
-        self._polished_view.setFont(QFont("Consolas", 9))
+        self._polished_view.setFont(_font(PROSE_FAMILIES, 11))
         self._polished_view.setStyleSheet(self._textarea_style())
         self._polished_view.setPlaceholderText(
             "The finished narrative will appear here once LM Studio has polished it."
@@ -440,7 +504,7 @@ class NarrateCard(QFrame):
 
         self._check_view = QPlainTextEdit()
         self._check_view.setReadOnly(True)
-        self._check_view.setFont(QFont("Consolas", 9))
+        self._check_view.setFont(_font(MONO_FAMILIES, 10))
         self._check_view.setStyleSheet(self._textarea_style())
         self._check_view.setPlaceholderText(
             "Citation and placeholder check will appear here."
@@ -449,16 +513,31 @@ class NarrateCard(QFrame):
 
         self._narrative_view = QPlainTextEdit()
         self._narrative_view.setReadOnly(True)
-        self._narrative_view.setFont(QFont("Consolas", 9))
+        self._narrative_view.setFont(_font(MONO_FAMILIES, 10))
         self._narrative_view.setStyleSheet(self._textarea_style())
         self._narrative_view.setPlaceholderText("Generated skeleton will appear here.")
         self._tabs.addTab(self._narrative_view, "Narrative (skeleton)")
+
+        for index, tip in enumerate(TAB_CAPTIONS):
+            self._tabs.setTabToolTip(index, tip)
 
         # Default to the finished narrative — the thing you actually want.
         self._tabs.setCurrentIndex(0)
         self._tabs.setMinimumHeight(260)
         self._tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(self._tabs)
+
+        # One line saying what the tab in front of you is for. Without it the
+        # three tabs look like three versions of the same thing, and it is not
+        # obvious which one is the document you actually send.
+        self._tab_caption = QLabel()
+        self._tab_caption.setWordWrap(True)
+        self._tab_caption.setStyleSheet(
+            f"color: {TEXT_DIM}; font-size: 11px; padding: 2px 2px 0 2px;"
+        )
+        layout.addWidget(self._tab_caption)
+        self._tabs.currentChanged.connect(self._update_tab_caption)
+        self._update_tab_caption(0)
 
         # ── Action row: Copy + Open Folder ───────────────────────────────
         action_row = QHBoxLayout()
@@ -526,14 +605,25 @@ class NarrateCard(QFrame):
 
     # ── Style helper ─────────────────────────────────────────────────────
 
+    def _update_tab_caption(self, index: int) -> None:
+        self._tab_caption.setText(
+            TAB_CAPTIONS[index] if 0 <= index < len(TAB_CAPTIONS) else ""
+        )
+
     def _textarea_style(self) -> str:
+        # Both classes must be named. QPlainTextEdit is a *sibling* of
+        # QTextEdit, not a subclass, so a "QTextEdit { … }" rule silently
+        # misses it — which left the three output panes on Qt's default
+        # palette: dark text on a dark background, and unreadable.
         return (
-            "QTextEdit { "
-            "  background: #1a1a2a; "
+            "QTextEdit, QPlainTextEdit { "
+            "  background: #16162a; "
             f"  color: {TEXT_MAIN}; "
             "  border: 1px solid #3a3a5e; "
             "  border-radius: 4px; "
-            "  padding: 4px; "
+            "  padding: 8px; "
+            "  selection-background-color: #45475a; "
+            f"  selection-color: {TEXT_MAIN}; "
             "}"
             "QScrollBar:vertical { background: #1a1a2a; width: 8px; }"
             "QScrollBar::handle:vertical { background: #3a3a5e; border-radius: 4px; }"

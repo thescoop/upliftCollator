@@ -81,7 +81,29 @@ class TestVerdict(unittest.TestCase):
         self.assertFalse(result.ok)
 
     def test_verdict_detail_names_the_llm_finding(self):
-        self.assertIn("LLM review flagged", _result(CLEAN, LLM_FLAGGED).verdict_detail)
+        self.assertIn(
+            "second-opinion check flagged", _result(CLEAN, LLM_FLAGGED).verdict_detail
+        )
+
+    def test_verdict_detail_lists_only_what_is_wrong(self):
+        """A clean run must not read like a list of problems.
+
+        The earlier wording printed all four counts every time — "12 citations,
+        0 dropped, 0 added, 0 placeholders left" — so a good result and a bad
+        one looked alike until you did the arithmetic.
+        """
+        detail = _result(CLEAN, "").verdict_detail
+        self.assertNotIn("0 ", detail)
+        self.assertIn("preserved", detail)
+
+    def test_verdict_detail_uses_singular_for_one(self):
+        detail = polish.PolishResult(polished="x", check=DIRTY).verdict_detail
+        self.assertIn("1 citation was dropped", detail)
+        self.assertNotIn("citations were dropped", detail)
+
+    def test_next_step_differs_by_verdict(self):
+        self.assertIn("before it goes to the LAA", _result(CLEAN, "").next_step)
+        self.assertIn("Citation Check", _result(CLEAN, LLM_FLAGGED).next_step)
 
 
 class TestFullReport(unittest.TestCase):
@@ -91,10 +113,11 @@ class TestFullReport(unittest.TestCase):
 
     def test_a_flagged_review_produces_a_needs_revision_overall(self):
         report = polish.format_full_report(_result(CLEAN, LLM_FLAGGED))
+        result = _result(CLEAN, LLM_FLAGGED)
         self.assertIn("## Overall verdict", report)
-        self.assertTrue(report.rstrip().endswith(
-            f"NEEDS REVISION — {_result(CLEAN, LLM_FLAGGED).verdict_detail}"
-        ))
+        self.assertIn(f"NEEDS REVISION — {result.verdict_detail}.", report)
+        # The last thing the reader sees is what to do about it.
+        self.assertTrue(report.rstrip().endswith(result.next_step))
 
     def test_a_failed_review_is_recorded_rather_than_hidden(self):
         report = polish.format_full_report(_result(CLEAN, "", error="ValueError: bad markers"))
