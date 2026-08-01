@@ -220,12 +220,51 @@ def explain_empty_extraction(pdf_path: str | Path) -> str:
     )
 
     if d["raw_chars"] == 0:
+        made_by = d.get("producer") or d.get("creator") or ""
+        flattened = d.get("largest_image_page_coverage", 0) >= 0.5
+
+        head = (
+            "This PDF has no text layer — every page is a picture of the page\n"
+            "rather than text. Nothing can be read out of it.\n"
+            "(That is also why you cannot select any text in it yourself.)\n"
+        )
+        if made_by:
+            head += f"\nThe file says it was last written by: {made_by}\n"
+
+        if flattened:
+            head += (
+                "\nThe page content is one large image, so this is a *flattened*\n"
+                "copy of a real document rather than a scan of paper.\n"
+            )
+
+        return head + (
+            "\nThe Collator's own PDF always has selectable text, so the\n"
+            "flattening happened after the app produced the file. The usual\n"
+            "culprits, in order of likelihood:\n"
+            "  - Acrobat's 'Print as image' option, which is a sticky checkbox\n"
+            "    under Advanced print settings and rasterises everything.\n"
+            "  - A case-management or document-management system that flattens\n"
+            "    PDFs when a file is filed into it or exported from it.\n"
+            "  - Secure-email attachment sanitising, which rebuilds an incoming\n"
+            "    PDF as images to strip anything active from it.\n"
+            "  - The document being printed on paper and scanned back in.\n\n"
+            "Fix: ask for the file the app actually saved —\n"
+            "LAA_Uplift_Data_Summary.pdf, straight from the browser's Downloads\n"
+            "folder, before it went anywhere else. Do not re-key or OCR it: on\n"
+            "an audited claim a mis-read page count or percentage is worse than\n"
+            "no narrative at all."
+        )
+
+    if not d.get("made_by_the_app", True) and (d.get("producer") or d.get("creator")):
+        producer = d.get("producer") or d.get("creator")
         return (
-            "This PDF contains no text at all — only an image of one.\n"
-            "That happens when a PDF is scanned, photographed, or printed from a\n"
-            "scanner rather than saved by the Collator.\n\n"
-            "Fix: open the case in the Uplift Collator web app and use its own\n"
-            '"Generate PDF Summary" button, which saves LAA_Uplift_Data_Summary.pdf.'
+            "This PDF has text, but none of the Collator's section headings —\n"
+            "CASE DETAILS, PANEL MEMBERSHIP, STAGE 1, STAGE 2, PROPOSED UPLIFT.\n\n"
+            f"It also says it was written by: {producer}\n"
+            "The Collator writes its PDFs with jsPDF, so this file was made or\n"
+            "rebuilt by something else.\n\n"
+            "Fix: ask for the file the app itself saved —\n"
+            "LAA_Uplift_Data_Summary.pdf, straight from the Downloads folder."
         )
 
     if not matched:
@@ -286,17 +325,47 @@ def extract_formdata(pdf_path: str | Path) -> dict:
     }
 
 
+# PDF producers that mean "this file was rebuilt by something after the app
+# made it". jsPDF is the only one the Collator itself ever writes.
+JSPDF_PRODUCER = re.compile(r"jsPDF", re.IGNORECASE)
+
+
 def diagnose(pdf_path: str | Path) -> dict:
     """Structural diagnostics for an extraction failure.
 
     Returns *only* shape/structure information — no raw text, no
     explanations, no field values — so the output is safe to share
     even when the input PDF contains GDPR-sensitive client data.
+
+    ``producer``/``creator`` are the PDF's own software-name metadata, which
+    names whatever last wrote the file. Deliberately *only* those two: Title,
+    Author, Subject and Keywords can carry a client name, so they are never
+    read. That pair is what distinguishes "the app made this" from "something
+    rebuilt it afterwards", which is the difference between a bug in the
+    extractor and a file that arrived already flattened.
     """
     pdf_path = Path(pdf_path)
     with pdfplumber.open(pdf_path) as pdf:
         n_pages = len(pdf.pages)
         per_page_chars = [len(p.extract_text() or "") for p in pdf.pages]
+        meta = pdf.metadata or {}
+        producer = str(meta.get("Producer", "") or "")
+        creator = str(meta.get("Creator", "") or "")
+        # Is the page a picture of itself? A flattened PDF has no characters
+        # and one large image; a normal one has characters and no image.
+        n_images = 0
+        image_coverage = 0.0
+        n_vectors = 0
+        for page in pdf.pages:
+            n_images += len(page.images)
+            n_vectors += len(page.curves) + len(page.rects)
+            page_area = float(page.width) * float(page.height)
+            for img in page.images:
+                if page_area <= 0:
+                    continue
+                area = (abs(float(img["x1"]) - float(img["x0"]))
+                        * abs(float(img["bottom"]) - float(img["top"])))
+                image_coverage = max(image_coverage, area / page_area)
     raw = read_pdf_text(pdf_path)
     text = normalise_text(raw)
 
@@ -330,6 +399,12 @@ def diagnose(pdf_path: str | Path) -> dict:
         "normalised_chars": len(text),
         "header_matches": len(HEADER_PATTERN.findall(raw)),
         "footer_matches": len(FOOTER_PATTERN.findall(raw)),
+        "producer": producer,
+        "creator": creator,
+        "made_by_the_app": bool(JSPDF_PRODUCER.search(producer)),
+        "images": n_images,
+        "largest_image_page_coverage": round(image_coverage, 3),
+        "vector_objects": n_vectors,
         "sections": sections,
     }
 

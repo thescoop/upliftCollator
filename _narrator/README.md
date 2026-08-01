@@ -28,6 +28,34 @@ the narrator parses. If nothing can be recovered the run **stops at the PDF**
 and says why in plain English — it does not build an empty narrative and then
 report it as a citation failure, which is what it used to do.
 
+### The file must still have its text layer
+
+A correctly-generated Collator PDF can still arrive unreadable if something
+**flattened** it — rebuilt every page as a picture of itself — after the app
+saved it. The give-away is that you cannot select any text in it. Seen in
+practice on 1 August 2026: a correct v1.10 PDF with its text layer gone.
+
+Common causes, none of them the solicitor's mistake:
+
+- Acrobat's **Print as image** option — a sticky checkbox under Advanced print
+  settings that rasterises everything until it is turned off again.
+- A case- or document-management system flattening PDFs on filing or export.
+- Secure-email attachment sanitising (CDR), which rebuilds an incoming PDF as
+  images to strip anything active from it.
+- Printed on paper and scanned back in.
+
+`--debug` tells them apart. It reports the PDF's own `producer` metadata — the
+app's PDFs always say **jsPDF** — plus the image count and how much of the page
+the largest image covers. No text, one full-page image, and a producer that is
+not jsPDF is a flattened file; the app's own output has text, no images, and
+says jsPDF.
+
+**The fix is always to get the original file**, straight from the browser's
+Downloads folder before it went anywhere else. The narrator deliberately does
+not OCR: on an audited claim a mis-read page count or percentage is a worse
+outcome than no narrative at all, and the same reasoning picked the default
+model (see *Choosing a model*).
+
 ## What it produces
 
 For an input `case.pdf`, both front-ends write a folder `case-narrative/` next
@@ -208,7 +236,7 @@ conda activate uplift-narrate
 python -m unittest discover -s _narrator/tests -v
 ```
 
-133 tests. The suite never touches the network — it passes with LM Studio
+142 tests. The suite never touches the network — it passes with LM Studio
 closed. The citation cases are generated from `content-data.js` rather than
 chosen by hand: an earlier suite passed 20 tests while the checker was silently
 fail-open on `CAG Section 12.5 & 12.9`, because no test used the citation forms

@@ -36,11 +36,16 @@ def _sections(**matched):
     return out
 
 
-def _diag(raw_chars=2000, pages=2, **matched):
+def _diag(raw_chars=2000, pages=2, producer="jsPDF 2.5.1", creator="",
+          images=0, coverage=0.0, vectors=0, **matched):
     return {
         "pdf": "case.pdf", "pages": pages, "per_page_chars": [raw_chars],
         "raw_chars": raw_chars, "normalised_chars": raw_chars,
         "header_matches": 1, "footer_matches": 1,
+        "producer": producer, "creator": creator,
+        "made_by_the_app": bool(extract.JSPDF_PRODUCER.search(producer)),
+        "images": images, "largest_image_page_coverage": coverage,
+        "vector_objects": vectors,
         "sections": _sections(**matched),
     }
 
@@ -78,14 +83,53 @@ class TestExplanation(unittest.TestCase):
         with mock.patch.object(extract, "diagnose", return_value=diag):
             return extract.explain_empty_extraction("case.pdf")
 
-    def test_no_text_layer_is_called_a_scan(self):
-        text = self._explain(_diag(raw_chars=0))
-        self.assertIn("no text at all", text)
-        self.assertIn("scanned", text)
-        self.assertIn("Generate PDF Summary", text)
+    def test_no_text_layer_explains_why_text_cannot_be_selected(self):
+        text = self._explain(_diag(raw_chars=0, producer="", images=1, coverage=1.0))
+        self.assertIn("no text layer", text)
+        self.assertIn("cannot select any text", text)
 
-    def test_text_but_no_sections_blames_print_to_pdf(self):
-        text = self._explain(_diag(raw_chars=5000))
+    def test_a_flattened_page_is_distinguished_from_a_paper_scan(self):
+        """One full-page image means a rebuilt file, not a scan of paper.
+
+        The distinction matters: a scan means "someone printed it out", a
+        flatten means "software did this in transit" — and only the second
+        makes sense when the solicitor used the app's own button.
+        """
+        flat = self._explain(_diag(raw_chars=0, producer="", images=1, coverage=1.0))
+        self.assertIn("flattened", flat)
+        no_image = self._explain(_diag(raw_chars=0, producer="", images=0))
+        self.assertNotIn("flattened", no_image)
+
+    def test_the_producer_is_named_when_known(self):
+        text = self._explain(
+            _diag(raw_chars=0, producer="Microsoft: Print To PDF", images=1, coverage=1.0)
+        )
+        self.assertIn("Microsoft: Print To PDF", text)
+
+    def test_a_flattened_file_is_never_told_to_regenerate_from_the_app(self):
+        """She *did* use the app's button. Telling her to use it again is wrong.
+
+        Real case, 1 August 2026: a correctly-generated v1.10 PDF arrived with
+        its text layer gone. The first version of this message blamed the
+        browser's Print-to-PDF and sent the reader back to a button they had
+        already pressed.
+        """
+        text = self._explain(_diag(raw_chars=0, producer="", images=1, coverage=1.0))
+        self.assertNotIn("Generate PDF Summary", text)
+        self.assertIn("straight from the browser's Downloads", text)
+
+    def test_ocr_is_advised_against_rather_than_offered(self):
+        """Plausible-but-wrong is the worst failure class on an audited claim."""
+        text = self._explain(_diag(raw_chars=0, producer="", images=1, coverage=1.0))
+        self.assertIn("Do not re-key or OCR", text)
+
+    def test_text_but_no_sections_from_a_foreign_producer_names_it(self):
+        text = self._explain(_diag(raw_chars=5000, producer="Acrobat Distiller 23.0"))
+        self.assertIn("Acrobat Distiller 23.0", text)
+        self.assertIn("jsPDF", text)
+
+    def test_text_but_no_sections_from_an_unknown_producer_blames_print_to_pdf(self):
+        text = self._explain(_diag(raw_chars=5000, producer="", creator=""))
         self.assertIn("does not look like an Uplift Collator PDF", text)
         self.assertIn("Print-to-PDF", text)
 
@@ -107,32 +151,76 @@ class TestExplanation(unittest.TestCase):
 
     def test_every_branch_ends_with_a_fix(self):
         for diag in (
-            _diag(raw_chars=0),
-            _diag(raw_chars=5000),
+            _diag(raw_chars=0, producer="", images=1, coverage=1.0),
+            _diag(raw_chars=0, producer=""),
+            _diag(raw_chars=5000, producer=""),
+            _diag(raw_chars=5000, producer="Acrobat Distiller 23.0"),
             _diag(case_details=0, stage1=0, stage2=0),
             _diag(case_details=0, panel_membership=0),
             _diag(stage1=3, stage2=2),
         ):
-            with self.subTest(diag=diag["sections"]):
+            with self.subTest(producer=diag["producer"], raw=diag["raw_chars"]):
                 self.assertIn("Fix:", self._explain(diag))
 
-    def test_no_client_text_can_reach_the_explanation(self):
-        """diagnose() is the only input, and it carries structure alone.
-
-        Guards the property the message rests on: it is printed to terminals
-        and pasted into messages while triaging a real, privileged case PDF.
-        """
+    def test_diagnose_is_the_only_input(self):
         diag = _diag(raw_chars=5000)
         with mock.patch.object(extract, "diagnose", return_value=diag) as spy:
             extract.explain_empty_extraction("case.pdf")
         spy.assert_called_once()
-        # Nothing but structural keys — no values, no explanations, no names.
-        self.assertEqual(
-            set(diag) - {"pdf", "pages", "per_page_chars", "raw_chars",
-                         "normalised_chars", "header_matches", "footer_matches",
-                         "sections"},
-            set(),
-        )
+
+
+# Every key diagnose() is allowed to return. The message built from it gets
+# printed to terminals and pasted into messages while triaging a real,
+# privileged case PDF, so the contents must be structural or software names —
+# never a field value, an explanation, or anything naming a client.
+ALLOWED_DIAGNOSE_KEYS = {
+    "pdf", "pages", "per_page_chars", "raw_chars", "normalised_chars",
+    "header_matches", "footer_matches", "producer", "creator",
+    "made_by_the_app", "images", "largest_image_page_coverage",
+    "vector_objects", "sections",
+}
+
+# PDF metadata that can carry a client name. Reading Producer and Creator is
+# safe — they hold software names. Reading these is not, and a future edit
+# that adds one must fail here rather than in front of a client.
+FORBIDDEN_METADATA = ("Title", "Author", "Subject", "Keywords")
+
+
+class TestDiagnoseCarriesNoClientText(unittest.TestCase):
+    """Runs against the real fixture PDF, not a mock — the point is the
+    output of the real function, on a real file with real content in it."""
+
+    FIXTURE = Path(__file__).resolve().parent / "fixtures" / "sample.pdf"
+
+    def setUp(self):
+        if not self.FIXTURE.is_file():
+            self.skipTest("fixture PDF missing")
+        self.diag = extract.diagnose(self.FIXTURE)
+
+    def test_no_key_outside_the_allow_list(self):
+        self.assertEqual(set(self.diag) - ALLOWED_DIAGNOSE_KEYS, set())
+
+    def test_forbidden_metadata_is_never_read(self):
+        for field in FORBIDDEN_METADATA:
+            self.assertNotIn(field, self.diag)
+
+    def test_the_fixtures_own_field_values_do_not_appear(self):
+        """The strongest form: extract the PDF for real, then assert none of
+        what it recovered shows up anywhere in the diagnostic."""
+        import json
+        blob = json.dumps(self.diag)
+        formdata = extract.extract_formdata(self.FIXTURE)
+        secrets = list(formdata["caseDetails"].values())
+        for section in ("stage1", "stage2"):
+            for item in formdata[section].values():
+                secrets += [item.get("label", ""), item.get("explanation", "")]
+        for secret in (s for s in secrets if len(s) > 3):
+            with self.subTest(secret=secret[:30]):
+                self.assertNotIn(secret, blob)
+
+    def test_the_apps_own_pdf_is_recognised_as_such(self):
+        self.assertTrue(self.diag["made_by_the_app"])
+        self.assertIn("jsPDF", self.diag["producer"])
 
 
 if __name__ == "__main__":
