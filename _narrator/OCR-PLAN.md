@@ -121,10 +121,32 @@ label → category → explanation marker → explanation body
   `content-data.js`.** OCR versions of fixed wording never enter `formData`.
   Fixed text becomes incorruptible, and the human only ever proofreads the
   solicitor's own prose.
-- **Version-gate the label set.** The PDF stamps its own version — `script.js:980`
-  writes "Uplift Tool v1.10" into the page text, so OCR can read it. Fuzzy
-  matching an old label onto a renamed current one would silently attach a
-  different legal rationale. Unknown or unsupported version stops the run.
+- **Gate on label wording, not on the version number.** The PDF stamps its own
+  version — `script.js:980` writes "Uplift Tool v1.10" into the page text, so OCR
+  can read it. The danger being guarded against is real: fuzzy matching an old
+  label onto a since-reworded current one would silently attach a different legal
+  rationale, and fuzzy matching cannot tell "OCR mangled today's wording" apart
+  from "this is genuinely different, older wording".
+
+  But the version number is the wrong thing to test, because it moves for reasons
+  that have nothing to do with wording. Measured 1 August 2026: the 34 criterion
+  labels are **byte-identical across v1.8, v1.9, v1.10 and current** — three
+  releases, no wording change. Those bumps were the uplift-suggestion
+  recalibration, the Stage 2 data-loss fix and the T&C links. A strict
+  current-version-only gate would therefore refuse PDFs whose wording provably
+  matches, and every refusal would be a false alarm.
+
+  That cost is not abstract. Nobody but Simon runs the narrator; solicitors only
+  produce the PDF. A refusal lands on his desk and its only remedy is asking a
+  solicitor to fill the form in again — so a false alarm spends a client
+  relationship to prevent nothing.
+
+  So: the repo carries a short list of versions known to be label-compatible
+  (today `1.8`, `1.9`, `1.10` and current — all of them). A listed version
+  proceeds; an unknown or unlisted one stops the run. A test recomputes the
+  fingerprint of the current label set and fails if it has drifted from the
+  recorded value, so the list cannot silently go stale the day wording does
+  change. Decision taken 1 August 2026 on the measurement above.
 
 ### 6. Recovery contract — the load-bearing safeguard
 
@@ -195,7 +217,11 @@ The important tests prove **rejection**, not recovery:
 - duplicate labels; ambiguous top-two matches → must stop
 - header/footer text corrupted into an explanation
 - wrong, missing or out-of-range uplift
-- an older Collator version → must stop
+- a listed label-compatible older version (v1.8, v1.9) → must **proceed**; an
+  unknown or unlisted version → must stop; a missing or unreadable version
+  stamp → must stop
+- current labels drifted from the recorded fingerprint → the test suite itself
+  must fail, since that is the day the compatibility list stops being true
 - page 1/2/10 ordering; missing, duplicate and stale page images
 - UTF-8 and BOM handling; non-zero exit; stderr-only failure; timeout; truncated
   PowerShell output
