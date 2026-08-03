@@ -102,80 +102,48 @@ Two risks are **accepted rather than fixed**, and documented in the README: the
 race between the last model-state read and the `lms` command, and JIT loading
 when `/api/v0` is unavailable.
 
-## Next piece of work — the OCR fallback
+## Unreadable PDFs: detect and stop. An OCR fallback was rejected
 
-**Do not build from the sketch at the end of this section.** It was reviewed
-independently on 1 August 2026 and should not be built as written — it fails
-open in several places, most seriously by narrating a partial recovery as if it
-were complete. The findings are in **`OCR-DESIGN-REVIEW.md`** and the revised
-design is in **`OCR-PLAN.md`**; read those two first. The background below is
-still accurate and worth reading; the sketch at the end is kept only as the
-record of what was rejected.
+Some PDFs arrive legible to a human but empty to software — the text converted
+to vector outlines, or the page rasterised. `diagnose()` identifies which, and
+`explain_empty_extraction()` says so and stops. **That is the finished answer.
+Do not add OCR.**
 
-**Feasibility is measured. Nothing is written yet.**
+The cause is known. A real submission arrived as a correct v1.10 Collator PDF
+whose glyphs had been redrawn as shapes; the PDF's own metadata named
+**`Aspose.Pdf for .NET 11.7.0`**, which runs *inside* other software — case
+management systems, portal uploads, mail gateways. A system did it automatically
+in transit. **The Collator always writes selectable text**, so the damage is
+never the solicitor's doing in the app, and a good original existed. The remedy
+is to ask for that original as the browser saved it; failing that, re-key the
+answers into the web app from the damaged copy and generate a fresh PDF.
+`extract.py` already tells the user exactly this.
 
-A real submission arrived as a correct v1.10 Collator PDF whose text had been
-converted to **vector outlines** — every glyph redrawn as its own shape — so
-nothing could be extracted. `narrate.py --debug` named the culprit from the
-PDF's own metadata: **`Aspose.Pdf for .NET 11.7.0`**. Aspose runs *inside* other
-software (case-management systems, portal uploads, mail gateways), so a system
-did it automatically in transit. It will recur until that system is found.
+OCR was designed in full and rejected on 3 August 2026. Three reasons:
 
-The plan: detect the condition, render the pages, OCR them, rebuild `formData`,
-and hand it to the existing pipeline unchanged.
+1. **It would have saved typing, not reading.** The agreed verification level is
+   "confirm everything the solicitor typed", so every recovered field would be
+   proofread against the page image regardless. Eight phases of machinery to
+   pre-fill a box that must be read word-for-word anyway.
+2. **Pre-filled text is worse than transcription.** Checking plausible text
+   anchors the eye; you skim past `l,400` where you would never have typed it.
+   Measured evidence: `1,400` came back as `1 ,400` — a single inserted space
+   that tokenises as two numbers. It failed plausibly, not visibly.
+3. **It would introduce a failure class this tool does not currently have** — a
+   confidently wrong narrative from a damaged PDF — on a document going to the
+   LAA. Even the full design could not close the gap where OCR drops a criterion
+   block entirely, leaving a fluent, fully-cited narrative making a *weaker
+   claim than the solicitor actually made*.
 
-Measured on `tests/fixtures/sample.pdf` at 300 dpi with Windows' built-in
-on-device OCR, against known ground truth:
+A vision model instead of OCR was rejected earlier and separately: OCR fails
+visibly, a VLM fails plausibly, inventing a clean wrong number.
 
-| | Result |
-|---|---|
-| Section headers | 6 of 6 exact |
-| Ticked criteria, fuzzy-matched to the closed label set | **7 of 7** |
-| Explanation prose | 97.8–100% char accuracy; 3 of 5 perfect |
-| Bullet `•` glyphs | **0 of 7 — dropped entirely** |
-
-Two consequences, both non-negotiable:
-
-1. **Anchor on labels, not bullets.** Criterion labels are a closed set in
-   `content-data.js`, so fuzzy matching (difflib, cutoff ≈0.85) recovers them
-   despite OCR slips. `extract.py`'s `startswith("•")` parsing cannot be reused
-   — write OCR-tolerant variants rather than loosening the existing ones, which
-   still need to be strict for real PDFs.
-2. **The solicitor's own words must be human-confirmed.** The fixture's one
-   significant quantity came back `1 ,400` instead of `1,400` — a single
-   inserted space that tokenises as `1` and `400`. It failed *plausibly*, not
-   visibly.
-
-   The user first chose "confirm the numbers only" and then **reversed it the
-   same day** to **confirm everything the solicitor typed** — all recovered
-   explanation prose, plus the uplift percentage and the case identity. The
-   numbers-only gate never saw the uplift at all, could not repair `1 ,400`
-   (two fields, neither of which owns the space), and was blind to number words
-   and to digits read as letters. Full details in `OCR-PLAN.md`.
-
-   Never unattended.
-
-Related decision: **do not** feed the page image to a vision model instead.
-OCR fails visibly; a VLM fails plausibly, inventing a clean wrong number. On an
-audited claim that is the worse tool — the same reasoning that picked Gemma
-over gpt-oss.
-
-Implementation notes, including the two silent failure modes when driving
-Windows OCR from WSL, are in project memory
-(`reference_windows_ocr_mechanics`). Read it before writing the driver; both
-failures look like unrelated bugs.
-
-Sketch:
-
-```
-extract.diagnose()  →  no text + (outlined | rasterised)  →  offer OCR
-  pypdfium2 render @300dpi   (already in the env; no poppler/gs/tesseract here)
-  one PowerShell process OCRs every page   (per-process WinRT contention)
-  section_slice() as-is      (headers survive OCR intact)
-  fuzzy label anchors        (new; replaces bullet detection)
-  numbers-confirmation dialog on the UI thread
-  → formData → existing skeleton/polish/check pipeline, stamped OCR-derived
-```
+The measurement stands if this is ever revisited: at 300 dpi with Windows'
+on-device OCR, section headers 6/6, criteria 7/7 by fuzzy label match,
+explanation prose 97.8–100% char accuracy, and bullet `•` glyphs 0 of 7 —
+dropped entirely, which is why labels rather than bullets would have had to be
+the anchor. Mechanics for driving Windows OCR from WSL, including its two silent
+failure modes, remain in project memory (`reference_windows_ocr_mechanics`).
 
 ## Conventions
 
