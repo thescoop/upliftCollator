@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Woodruff Billing - Uplift Justification Collator v1.10</title>
+    <title>Woodruff Billing - Uplift Justification Collator v1.11</title>
 
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
@@ -20,8 +20,9 @@
         <div class="welcome-content">
             <img src="your-logo-transparent.png" alt="Woodruff Billing Logo" class="welcome-logo">
             <h1 class="welcome-title">Woodruff Billing</h1>
-            <p class="welcome-subtitle">Uplift Justification Collator <span class="version-badge">v1.10</span></p>
+            <p class="welcome-subtitle">Uplift Justification Collator <span class="version-badge">v1.11</span></p>
             <div class="password-entry">
+                <label for="passwordInput" class="visually-hidden">Password</label>
                 <input type="password" id="passwordInput" placeholder="Enter Password" class="form-control">
                 <button id="passwordSubmitButton" class="btn btn-primary-wb">Enter</button>
             </div>
@@ -43,12 +44,24 @@
                     <img src="your-logo-transparent.png" alt="Woodruff Billing Logo" class="wb-logo">
                     <div class="wb-titles">
                         <span class="wb-main-title">Woodruff Billing</span>
-                        <span class="wb-sub-title">Uplift Justification Collator <span id="headerVersion" class="version-badge">v1.10</span></span>
+                        <span class="wb-sub-title">Uplift Justification Collator <span id="headerVersion" class="version-badge">v1.11</span></span>
                     </div>
                 </div>
             </div>
         </div>
         <div class="wb-accent-bar"></div>
+
+        <!-- ────────── DRAFT RESTORED BANNER ──────────
+             Shown only when a saved draft was found in this browser's
+             localStorage and put back on the form. The solicitor is now writing
+             substantial original prose here, so a closed tab used to destroy
+             real work; the banner exists so that a restore is never silent —
+             someone returning to a half-finished form must be able to see at a
+             glance that it is last week's case and not this morning's. -->
+        <div id="draftRestoredBanner" class="draft-restored-banner" style="display:none;" role="status">
+            <span id="draftRestoredMessage"></span>
+            <button type="button" id="discardDraftButton" class="btn-link-inline">Discard this draft and start again</button>
+        </div>
 
         <!-- ────────── MAIN CONTAINER ────────── -->
         <div class="wb-main-container">
@@ -62,6 +75,11 @@
                     <div class="privacy-disclaimer-box">
                       <h4>About this Tool</h4>
                       <p>This is a client-side application. This means <u>no data leaves your computer</u>, and no data is sent to external servers.</p>
+                      <p>
+                        Your answers are saved automatically in this browser, on this computer, so that closing the tab
+                        does not lose your work. That saved draft never leaves the machine either. Use
+                        <em>Clear All Page Entries</em> when you have finished with a case to remove it.
+                      </p>
                       <ul>
                         <li>
                           Before using this tool for the first time, please ensure you read our 
@@ -90,7 +108,7 @@
                                 <label for="feeEarnerName">Fee Earner:</label>
                                 <input type="text" id="feeEarnerName" class="form-control needs-input-highlight"
                                        placeholder="e.g., Chloe Justice"
-                                       oninput="updateSuggestedPercentage(); validateField(this,'text');">
+                                       oninput="validateField(this,'text');">
                             </div>
                             <div class="form-group">
                                 <label for="caseMatterName">Case / Matter:</label>
@@ -114,6 +132,35 @@
                                 </select>
                                 <a href="#" class="contextual-help-link" data-helpkey="matterTypeHelp">Help about: Matter Type</a>
                             </div>
+                            <!--
+                                COURT — added in v1.11.
+
+                                CAG 12.2 sets the enhancement ceiling at 50%, but at 100% in the
+                                High Court, the Upper Tribunal, the Court of Appeal and the Supreme
+                                Court. Until now the form never asked, so it silently halved the
+                                ceiling for every claim heard above the County Court, and told a
+                                solicitor entitled to twice that "Max 50% generally".
+
+                                It is used to STATE the applicable ceiling in words on the final
+                                page. It is deliberately never used to compute, suggest or pre-fill
+                                a figure — see the note on the Proposed Uplift field below.
+                            -->
+                            <div class="form-group">
+                                <label for="courtLevel">Court:</label>
+                                <select id="courtLevel" class="form-control needs-input-highlight"
+                                        onchange="validateField(this,'select');">
+                                    <option value="">Select court…</option>
+                                    <option value="Family Court or County Court">Family Court / County Court</option>
+                                    <option value="High Court">High Court</option>
+                                    <option value="Upper Tribunal">Upper Tribunal</option>
+                                    <option value="Court of Appeal">Court of Appeal</option>
+                                    <option value="Supreme Court">Supreme Court</option>
+                                </select>
+                                <small class="form-text-muted-newline">
+                                    The ceiling is 50%, or 100% in the High Court, Upper Tribunal,
+                                    Court of Appeal or Supreme Court (CAG 12.2).
+                                </small>
+                            </div>
                         </div>
                     </div>
                     <div id="panelMembershipContainer" class="form-section">
@@ -129,13 +176,22 @@
                     <!-- JS injects the "LAA Enhancement Process Overview" content here -->
                     </div>
 
-                    <h2 class="page-section-title">Stage 1: LAA Threshold Test</h2>
+                    <!-- Deliberately not a second "Stage 1" heading: the page title above
+                         already says that, and repeating it made the page look as though it
+                         started twice. This heading names what follows it instead. -->
+                    <h2 class="page-section-title">Threshold factors — tick what applies</h2>
+
+                    <!-- STAGE1_THRESHOLD_BANNER is injected here by JS. It holds CAG 12.8's
+                         threshold ("more than simply above the average") and 12.11's rejection of
+                         category-based reasoning, and it governs every tick below it, so it sits
+                         above the blocks rather than inside any one of them. -->
+                    <div id="stage1ThresholdBanner" class="threshold-banner"></div>
 
                     <div id="stage1Container">
                         <!-- Stage 1 questions injected by JS -->
                     </div>
                     <div id="stage1Feedback" class="stage-feedback" style="display:none;">
-                        Threshold Test Met! You may now proceed to detail the level of enhancement factors.
+                        Threshold met. You can now go on to evidence the level of enhancement at Stage 2.
                     </div>
                 </div>
 
@@ -145,8 +201,10 @@
                         <!-- JS will inject content here -->
                     </div>
                     <div id="stage2DisabledBanner" class="stage2-disabled-banner" style="display:none;">
-                        <strong>Stage 1 explanation is not yet adequate.</strong>
-                        Your Stage 2 selections are saved, but will not count toward the suggested percentage until your Stage 1 explanation reaches at least 10 words. Go back, finish the Stage 1 explanation, and your Stage 2 ticks below will resume counting automatically.
+                        <strong>No Stage 1 threshold factor is ticked yet.</strong>
+                        Stage 1 is a pass/fail test (CAG 12.4): unless at least one threshold factor applies, there is
+                        no enhancement to determine the level of. Anything you enter below is kept, but go back to
+                        Stage 1 and tick what applies before continuing.
                     </div>
                     <div id="stage2Container">
                         <!-- Stage 2 questions injected by JS -->
@@ -167,17 +225,36 @@
 
                 <!-- PAGE 5 – Finalise & Download -->
                 <div id="page5Finalise" class="page" style="display:none;">
+                    <!--
+                        PROPOSED UPLIFT — v1.11.
+
+                        This tool suggests no percentage. There is no computed figure, no range, no
+                        default and no example number in the placeholder, and that is the point
+                        rather than an omission. Earlier versions showed a calculated "Suggested:
+                        X%" beside this box and pre-filled the box from it. It proposed 10% on a
+                        case that merited 30%, and later let five threshold ticks reach the cap
+                        before the stage that actually justifies the figure had done any work. A
+                        number on the screen ends up authoring the solicitor's answer, and
+                        under-claiming is silent and permanent where over-claiming is visible and
+                        gets argued.
+
+                        What replaces it is the ceiling from CAG 12.2, stated in words and chosen
+                        by the court entered on page 1. A ceiling is not a suggestion: it is the
+                        limit the guidance sets, and knowing that it is 100% rather than 50% is
+                        precisely what this form used to hide.
+                    -->
                     <div class="form-group final-uplift-group">
                         <label for="finalProposedUpliftPercent">Proposed Uplift %:</label>
                         <div class="input-with-guidance">
                             <input type="number" id="finalProposedUpliftPercent"
                                    class="form-control uplift-input needs-input-highlight"
-                                   placeholder="e.g., 25" min="0" max="100" step="1"
+                                   min="0" max="100" step="1"
+                                   aria-describedby="upliftCeilingStatement"
                                    oninput="validateField(this,'number'); checkAllPlaceholdersAndExplanationsGlobally();">
-                            <span id="finalSuggestedPercentageDisplay" class="suggested-percentage">Suggested: 0%</span>
                         </div>
+                        <p id="upliftCeilingStatement" class="uplift-ceiling-statement"></p>
+                        <p id="upliftCeilingWarning" class="uplift-ceiling-warning" style="display:none;" role="alert"></p>
                         <small class="form-text-muted-newline">
-                            Max 50% generally, or 100% for HC/UT/CoA/SC.
                             <a href="#" id="finalUpliftHelpLink">Help about: Proposed Uplift</a>
                         </small>
                     </div>
@@ -243,7 +320,7 @@
                     Please refer to our <a href="#" id="termsLink">terms & conditions</a>.
                 </p>
                 <p class="footer-right">
-                    © <span id="currentYearFooter"></span> Woodruff Billing Ltd | v<span id="appVersion">1.10</span>
+                    © <span id="currentYearFooter"></span> Woodruff Billing Ltd | v<span id="appVersion">1.11</span>
                 </p>
             </div>
         </div>

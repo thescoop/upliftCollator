@@ -142,7 +142,8 @@ input::placeholder { color: #aaa; font-style: italic; font-size: 0.95em; }
 
 .input-with-guidance { display: flex; align-items: center; margin-bottom: 5px; }
 .uplift-input { width: 70px !important; flex-grow: 0 !important; flex-shrink: 0 !important; margin-right: 10px; text-align: center; padding: 8px 10px;}
-.suggested-percentage { margin-left: 0; font-size: 0.95em; color: #333; font-style: italic; white-space: nowrap; line-height: 36px; }
+/* .suggested-percentage was removed in v1.11 along with the element it styled.
+   The tool displays no percentage of its own anywhere. */
 small.form-text-muted { display: block; margin-top: .25rem; font-size: 0.8em; color: #6c757d; }
 .form-text-muted-newline { display: block; font-size: 0.85em; color: #555; margin-top: 16px; line-height: 1.3; }
 .form-text-muted-newline .contextual-help-link { margin-left: 5px; font-size: 1em; vertical-align: baseline; }
@@ -575,6 +576,256 @@ textarea.explanation-input.needs-attention { border: 2px solid orange !important
     font-size: 0.9em;
     margin-top: 10px;
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   v1.11 — threshold banner, "what counts?" panels, Stage 2 stems, drafts
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The `hidden` attribute is the mechanism this version uses to collapse the
+   "what counts?" panels and to hide a carried-forward badge. A browser applies
+   `[hidden] { display: none }` only as a user-agent rule, so ANY author rule
+   that sets `display` on the same element silently defeats it — which is
+   exactly what happened first time round: every Stage 2 item announced itself
+   as carried forward from Stage 1, including the ones that have no Stage 1
+   origin at all. Stated here once, with the weight to hold. */
+[hidden] { display: none !important; }
+
+/* Visually hidden but still read by screen readers. Used for labels that the
+   visual design carries by position rather than by text. */
+.visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* The Stage 1 threshold banner. It governs all twelve ticks below it, so it is
+   sized to be read rather than skipped — this is the sentence that stops a
+   solicitor ticking everything that was merely above average. */
+.threshold-banner {
+    font-size: 1.02em;
+    font-weight: 600;
+    color: #4a3505;
+    background-color: #fff8e6;
+    border: 1px solid #f0d68a;
+    border-left: 5px solid #d49b1f;
+    border-radius: 3px;
+    padding: 14px 18px;
+    margin: 0 0 28px 0;
+    line-height: 1.55;
+}
+
+/* The CAG paragraph a block comes from, under its heading. */
+.cag-citation {
+    font-size: 0.85em;
+    color: #0056b3;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: -8px 0 12px 0;
+}
+
+/* The limb question on Stage 1 — a heading now, not a gate. */
+.limb-question {
+    font-size: 1em;
+    color: #333;
+    font-style: italic;
+    margin: 0 0 12px 0;
+}
+
+/* --- "what counts?" --------------------------------------------------------
+   Always-visible trigger, panel expanded in place. Deliberately understated:
+   it must be findable beside every label without competing with the labels. */
+.what-counts-toggle {
+    background: none;
+    border: none;
+    padding: 0 0 0 24px;
+    margin: 2px 0 0 0;
+    font-family: inherit;
+    font-size: 0.88em;
+    color: #0066cc;
+    cursor: pointer;
+    text-align: left;
+}
+.what-counts-toggle:hover { text-decoration: underline; }
+.what-counts-toggle:focus-visible { outline: 2px solid #0056b3; outline-offset: 2px; }
+.what-counts-toggle::before { content: "▸ "; }
+.what-counts-toggle.is-open::before { content: "▾ "; }
+
+.what-counts-panel {
+    margin: 6px 0 4px 24px;
+    padding: 10px 14px;
+    background-color: #f5f9fd;
+    border-left: 3px solid #b6d4f0;
+    border-radius: 3px;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+.what-counts-text { margin: 0; color: #333; }
+
+/* CAG 12.7 — rendered once, beneath whichever panel is open. */
+.what-counts-caveat {
+    margin: 10px 0 0 0;
+    padding-top: 8px;
+    border-top: 1px dotted #b6d4f0;
+    font-size: 0.95em;
+    font-style: italic;
+    color: #555;
+}
+
+/* --- Stage 2 --------------------------------------------------------------- */
+.factor-description {
+    font-size: 0.92em;
+    color: #444;
+    background-color: #f8f9fa;
+    border-left: 3px solid #ccc;
+    padding: 8px 12px;
+    margin: 0 0 14px 0;
+    line-height: 1.5;
+}
+
+/* CAG 12.16: instructing counsel makes this claim harder, not impossible. */
+.counsel-note {
+    font-size: 0.9em;
+    color: #4a3505;
+    background-color: #fffbe6;
+    border: 1px solid #ffe58f;
+    border-radius: 3px;
+    padding: 10px 14px;
+    margin: 0 0 14px 0;
+    line-height: 1.5;
+}
+
+.optional-badge {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background-color: #e9ecef;
+    color: #555;
+    font-size: 0.72em;
+    font-weight: normal;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Carried forward from Stage 1 — stated, not merely pre-ticked. */
+.carried-badge {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+    font-size: 0.72em;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+.checkbox-item-container.carried-forward {
+    border-left: 3px solid #6bbf7b;
+    padding-left: 10px;
+    margin-left: -13px;
+}
+
+/* The explanation block: stem, worked example, then the box. The example is a
+   permanent sibling of the textarea rather than its placeholder — placeholders
+   held the best-written content in this form and destroyed it on the first
+   keystroke. */
+.explanation-area {
+    width: 100%;
+    margin-top: 6px;
+    padding: 10px 12px;
+    background-color: #fbfcfe;
+    border: 1px solid #e3ebf3;
+    border-radius: 3px;
+}
+label.explanation-stem {
+    display: block;
+    font-weight: 600;
+    color: #0056b3;
+    font-size: 0.95em;
+    margin-bottom: 6px;
+}
+.explanation-example {
+    margin: 0 0 8px 0;
+    padding: 8px 10px;
+    background-color: #ffffff;
+    border-left: 3px solid #d6e4f0;
+    border-radius: 2px;
+    font-size: 0.87em;
+    font-style: italic;
+    color: #5a6570;
+    line-height: 1.45;
+}
+/* The base rule hides every .explanation-input; inside an explanation area the
+   textarea is the point of the thing, so it is shown. */
+.explanation-area textarea.explanation-input {
+    display: block;
+    margin-top: 0;
+}
+
+/* --- Final page: the ceiling, stated in words ------------------------------ */
+.uplift-ceiling-statement {
+    margin: 10px 0 0 0;
+    font-size: 0.92em;
+    line-height: 1.5;
+    color: #333;
+    background-color: #eef7ff;
+    border-left: 3px solid #0056b3;
+    border-radius: 3px;
+    padding: 10px 14px;
+}
+.uplift-ceiling-statement.needs-court {
+    background-color: #fff3e0;
+    border-left-color: orange;
+    color: #6b4d10;
+}
+.uplift-ceiling-warning {
+    margin: 8px 0 0 0;
+    font-size: 0.92em;
+    line-height: 1.5;
+    color: #7f1d1d;
+    background-color: #fdecea;
+    border-left: 3px solid #c62828;
+    border-radius: 3px;
+    padding: 10px 14px;
+}
+
+/* --- Draft restored -------------------------------------------------------- */
+.draft-restored-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    max-width: 1100px;
+    width: 95%;
+    margin: 15px auto -5px auto;
+    padding: 12px 18px;
+    background-color: #e8f4ea;
+    border: 1px solid #c3e6cb;
+    border-left: 5px solid #2e7d32;
+    border-radius: 3px;
+    font-size: 0.92em;
+    color: #1b5e20;
+}
+.btn-link-inline {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: 1em;
+    color: #0056b3;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.btn-link-inline:hover { color: #003d80; }
+.btn-link-inline:focus-visible { outline: 2px solid #0056b3; outline-offset: 2px; }
+
+.review-summary-area p.review-note { padding-left: 0; color: #555; }
+
 /* --- Version Badge Styles --- */
 .version-badge {
     display: inline-block;
