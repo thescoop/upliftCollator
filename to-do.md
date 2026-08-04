@@ -1,8 +1,32 @@
 # TODO — Recalibrate the portal's suggested-percentage logic
 
-**Status:** ✅ DONE in v1.9 (2026-04-28). Per-factor weighting bumped from 5% to 10%. Panel (15%) and cap (50%) unchanged per the Option 1 decision. See `VERSION_HISTORY.md` for the full release note.
+**Status: SETTLED 4 August 2026 — and none of the three options below was chosen.**
+v1.9 shipped Option 1 (5% → 10% per factor) as a half-measure. Option 2 (a range)
+was the long-standing recommendation. Both were rejected: **the tool now suggests
+no percentage at all.** Every option below still anchors, and anchoring is the
+defect — April's failure (suggested 10% on a 30% case) and August's (five Stage 1
+ticks hit the cap) are the same bug pointing opposite ways.
 
-The notes below are kept for historical context — they describe the decision-tree we used, the alternative options that were considered and rejected, and the impact-surface analysis from Phase 1 research. Useful if a future change revisits the calibration (e.g. raising the cap, switching to a range-based suggestion).
+Separately, the bands the tool cites were found to be **invented and misattributed
+to the LAA**, along with eleven further misattributions all biased toward
+under-claiming. **Read `_PLAN.md` first** — it carries the settled programme. The
+checklist below remains useful for the traps it flags, but its framing is
+superseded.
+
+Why it reopened: a real submission arrived with six well-evidenced Stage 1 factors
+and only two Stage 2 factors. The arithmetic is the cause. Every explained tick
+across **both** stages counts 10% and the total caps at 50%, so five Stage 1 ticks
+reach the cap and Stage 2 can no longer move the number — the form tells the
+solicitor they are finished before the stage that actually justifies the
+percentage has done any work. Same defect as April ("the app authored her
+answer"), pointing the other way.
+
+The check at line 34 below — the auto-fill regex grabbing the first number of a
+range — was independently identified as the sharpest trap by a cross-model review
+on 4 August 2026. Do not skip it.
+
+The notes below are the original Phase 1 research: the decision-tree, the rejected
+alternatives, and the impact-surface analysis.
 
 ---
 
