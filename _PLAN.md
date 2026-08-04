@@ -82,23 +82,29 @@ first fix did not reach:
 
 - A wrapped matter name whose second line opens `Court:` is indistinguishable from
   the real Court field. Case details are now parsed **in the order the PDF prints
-  them**, which resolves it: the court is the last such line, everything above it
-  belongs to the name.
+  them**, each field looked for only after the one before it, and the last field
+  taking the last of its candidates. **The format stays ambiguous in principle** —
+  a value wrapping onto a line beginning with the label of the very next field is
+  still read as that field. It loses no text; the order handles everything else.
 - A solicitor pasting boilerplate containing a whole confirmation block into an
-  explanation could have outranked their own refusal. The **last** block in the
-  document is now the real one — the genuine section is printed second from last.
+  explanation could have outranked their own refusal. The **last heading** now
+  marks the real section — found first, read second, so a genuine section whose
+  status line is damaged answers "no" instead of deferring to an intact copy
+  higher up the document.
 - **Exact label matching is not the same as safety.** Damage can turn one real label
   into a *different* real label: drop the parenthetical from the legacy Stage 1
   "Difficulty in taking instructions (client/witnesses)" and what remains is the
   current Stage 2 label word for word. Accepted, it would have filed a threshold
   factor as a level factor and reported a clean run. The key must now belong to the
-  section it was read from.
+  section it was read from — **in the `--from-json` recovery path too**, which
+  initially bypassed the check, so the file the stop had just written could be
+  re-run unedited and accepted.
 
 **4. `extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`,
 anchored to line start so a matter named "High Court: Re X and Y" cannot answer the
 court question.
 
-**274 tests pass.** Verified against ten generated PDFs, seven of them with the page
+**277 tests pass.** Verified against ten generated PDFs, seven of them with the page
 breaks walked across the new section.
 
 ### Still outstanding

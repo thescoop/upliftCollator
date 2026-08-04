@@ -179,6 +179,27 @@ class EvidenceConfirmationTests(unittest.TestCase):
         self.assertEqual(len(criteria), 2)
         self.assertIn("s2_care_vulnerable_client", criteria)
 
+    def test_a_damaged_real_section_does_not_fall_back_to_a_pasted_one(
+        self,
+    ) -> None:
+        """Why the heading is found first and read second. Searching for the
+        last *well-formed* block skipped a genuine section whose status line
+        was damaged and settled on an intact copy higher up — so a refusal the
+        solicitor made was overruled by wording they had pasted into a box.
+        The last heading is the section; if it does not read cleanly the
+        answer is no, not "look further up"."""
+        pasted = (
+            "STAGE 2: LEVEL OF ENHANCEMENT FACTORS\n"
+            "• Evidence marshalled with unusual skill\n"
+            "Care and skill\n"
+            "Explanation: I copied the standard closing wording, which reads:\n"
+            + self.CONFIRMED
+        )
+        damaged_real = self.DECLINED.replace(
+            "Evidence on file: Not confirmed", "Evidence on fi1e: Not confirmed"
+        )
+        self.assertFalse(extract_evidence_confirmation(pasted + damaged_real))
+
     def test_a_pasted_confirmation_cannot_outrank_the_real_refusal(self) -> None:
         """Boilerplate or a previous summary pasted into an explanation can
         carry a complete, undamaged confirmation block. The genuine section is
@@ -383,6 +404,30 @@ class CourtLineTests(unittest.TestCase):
         self.assertEqual(details["caseMatterName"], "In the High Court: Re X and Y")
         self.assertEqual(details["courtLevel"], "High Court")
         self.assertEqual(details["feeEarnerName"], "Jane Doe")
+
+    def test_a_continuation_cannot_replace_a_field_already_found(self) -> None:
+        """The mirror of the case above, and the reason each field is searched
+        only after the one before it. A matter name wrapping onto a line that
+        begins "Fee Earner:" sits *below* the real fee earner. Taking the last
+        candidate for every field emptied the fee earner entirely — losing a
+        field that the older, cruder parser had read correctly."""
+        block = (
+            "CASE DETAILS\n"
+            "Fee Earner:  Jane Doe\n"
+            "Matter Type:  Care & Supervision\n"
+            "Case / Matter Name:  In re the application of\n"
+            "Fee Earner: Smith and Jones\n"
+            "Court:  High Court\n"
+            "PANEL MEMBERSHIP\n"
+        )
+        details = extract_case_details(block)
+        self.assertEqual(details["feeEarnerName"], "Jane Doe")
+        self.assertEqual(details["matterType"], "Care & Supervision")
+        self.assertEqual(
+            details["caseMatterName"],
+            "In re the application of Fee Earner: Smith and Jones",
+        )
+        self.assertEqual(details["courtLevel"], "High Court")
 
     def test_a_pre_v111_case_name_containing_court_yields_no_court(self) -> None:
         block = (

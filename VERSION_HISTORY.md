@@ -152,21 +152,27 @@ impossible.
     stops the run rather than being repaired into the nearest thing that fits.
   - A **long Case / Matter name** was read as its first physical line only, putting a
     truncated case identity into the narrative through `{ITEM_OF_WORK}`. Case details
-    are now parsed in the order the PDF prints them, which is what makes a wrapped
-    value unambiguous: a name reading "In the High Court: Re X and Y" wraps so that
-    its second line opens with the label of a real field and is not one.
+    are now parsed in the order the PDF prints them, each field looked for only
+    after the one before it: a name reading "In the High Court: Re X and Y" wraps so
+    that its second line opens with the label of a real field and is not one. **The
+    format is ambiguous and no rule reads every case** — a value wrapping onto a line
+    that begins with the label of the very next field is still read as that field.
+    It loses no text, and the order handles everything else.
 - **A label read under the wrong heading is now rejected.** Exact matching stops a
   damaged label being repaired into something *like* it, but not from *being*
   something else — drop the parenthetical from the legacy Stage 1 "Difficulty in
   taking instructions (client/witnesses)" and what remains is the current Stage 2
   label word for word. Accepted, it would have filed a threshold factor as a level
   factor, under a heading the solicitor never wrote, and reported a clean run.
-- **274 tests** pass (was 253). The new ones pin the reading of the confirmation in the
+- **277 tests** pass (was 253). The new ones pin the reading of the confirmation in the
   direction that matters: "Not confirmed" contains the word "confirmed", so a looser
   search would read a refusal as a confirmation. The status line and the sentence
   beneath it must now agree — two strings that fail in opposite directions — and the
-  **last** such block in the document is the real one, so boilerplate a solicitor
-  pasted into an explanation cannot outrank their own refusal below it.
+  **last heading** in the document marks the real section, so boilerplate a
+  solicitor pasted into an explanation cannot outrank their own refusal below it.
+  The heading is found first and read second, deliberately: searching for the last
+  well-formed *block* would step over a genuine section whose status line was
+  damaged and settle on an intact copy higher up.
 
 **Deliberately NOT changed — do not "fix" these:**
 - The 2024 Costs Assessment Guidance and the Standard Civil Contract Specification are

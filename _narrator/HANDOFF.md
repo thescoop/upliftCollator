@@ -62,9 +62,11 @@ picking the work up needs.
 >   for one line matched nothing and *stopped the run* (every case ticking the
 >   vulnerable-client factor), and a long Case / Matter name reached the narrative
 >   truncated to its first line. `_resolve_wrapped_label` rejoins a label; the case
->   details are parsed **in the order the PDF prints them**, because a wrapped value
->   whose second line opens "Court:" is otherwise indistinguishable from the real
->   Court field. If you add a long string to the PDF, test it at length.
+>   details are parsed **in the order the PDF prints them**, each field looked for
+>   only after the one before it, because a wrapped value whose second line opens
+>   "Court:" is otherwise indistinguishable from the real Court field. The format
+>   stays ambiguous in principle and the code says so — do not "tidy" that caveat
+>   away. If you add a long string to the PDF, test it at length.
 > - **Exact matching is not the same as safety, and the comment that said so was
 >   wrong.** Rejoining a label is accepted only on an exact match against
 >   `content-data.js`, so it cannot be repaired into something *like* it — but
@@ -72,7 +74,11 @@ picking the work up needs.
 >   parenthetical from the legacy Stage 1 "Difficulty in taking instructions
 >   (client/witnesses)" and what remains is the current Stage 2 label word for word.
 >   `extract_criteria` therefore also checks the key belongs to the section it was
->   reading (`s1_`/`s2_`, the convention `content-data.js` already follows).
+>   reading (`s1_`/`s2_`, the convention `content-data.js` already follows) — and
+>   **so does `load_formdata_json`.** Guarding only the PDF reader left the guard
+>   undoing itself: the rejected file could be re-run through `--from-json`
+>   unedited and accepted, with the report naming the offending label as its own
+>   closest match, so nothing looked as though it needed correcting.
 > - **`extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`.
 >   Nothing computes with it — the tool proposes no figure — but the ceiling under
 >   CAG 12.2 now reaches `narrative-input.json` instead of being visible only to a
@@ -91,8 +97,8 @@ App version **1.11** (4 August 2026) in `content-data.js`. Simon confirmed on
 1 August 2026 that narrator-only template additions do **not** bump it; this
 version moved because the Collator itself changed.
 
-**274 tests**, all passing (was 244 before the redesign), none touching the
-network. The 274 figure was verified under **WSL Python on 4 August 2026**;
+**277 tests**, all passing (was 244 before the redesign), none touching the
+network. The 277 figure was verified under **WSL Python on 4 August 2026**;
 **Windows Python has not been re-run since the redesign** — do that before
 trusting a Windows launcher. Command:
 

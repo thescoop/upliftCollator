@@ -204,6 +204,37 @@ class ResumeFromCorrectedJsonTests(unittest.TestCase):
         loaded = load_formdata_json(self._with_damage(GOOD_S2.replace("(as", "(As")))
         self.assertEqual(len(loaded["unrecognised"]), 1)
 
+    def test_a_label_from_the_wrong_stage_is_not_accepted_on_resume(self):
+        """The recovery path applies the same section check as the first read.
+
+        Without it the guard undid itself: a label rejected on reading the PDF
+        because it belonged to the other stage could be accepted, unchanged,
+        simply by re-running ``--from-json`` on the file the stop had just
+        written. Nothing had to be edited, and the report named the offending
+        label as its own closest match, so it read as though nothing needed
+        correcting. The factor was then filed under a heading the solicitor
+        never wrote, and dropped out of the narrative.
+        """
+        stage2_label = next(
+            label
+            for label, key in label_to_key_lookup().items()
+            if key.startswith("s2_")
+        )
+        data = dict(self.data)
+        data["unrecognised"] = [{
+            "section": "stage1",          # the wrong stage for this label
+            "label": stage2_label,
+            "nearest": stage2_label,
+            "similarity": 1.0,
+            "categoryTitle": "Threshold limb (a)",
+            "explanation": EXPLANATION,
+        }]
+        loaded = load_formdata_json(self._write(data))
+        self.assertEqual(len(loaded.get("unrecognised", [])), 1)
+        self.assertNotIn(
+            label_to_key_lookup()[stage2_label], loaded.get("stage1", {})
+        )
+
     def test_untouched_data_survives_the_round_trip(self):
         loaded = load_formdata_json(self._write(self.data))
         self.assertEqual(loaded["stage1"], self.data["stage1"])

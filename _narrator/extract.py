@@ -80,6 +80,13 @@ EVIDENCE_STATUS = re.compile(
     r"^EVIDENCE ON FILE\s*\n\s*Evidence on file:\s*(?P<status>Not confirmed|Confirmed)\b",
     re.MULTILINE,
 )
+# The heading on its own, used to find *where* the genuine section is before
+# asking what it says. Searching only for well-formed blocks would skip a
+# damaged genuine one and settle on an intact copy higher up the document —
+# which is how a refusal the solicitor made could be overruled by boilerplate
+# they had pasted into an explanation. The last heading is the section; if it
+# does not read cleanly the answer is no, not "look further up".
+EVIDENCE_HEADING = re.compile(r"^EVIDENCE ON FILE\s*$", re.MULTILINE)
 # Whitespace-tolerant because jsPDF wraps this sentence at the column width and
 # the break lands in a different place depending on the page.
 EVIDENCE_CONFIRMED_SENTENCE = re.compile(
@@ -149,35 +156,45 @@ _DETAIL_FIELDS: list[tuple[str, str]] = [
 def extract_case_details(text: str) -> dict:
     """The four case-detail fields, each rejoined if the PDF wrapped it.
 
-    Parsed in the order the PDF prints them, because that order is the only
-    thing that makes a wrapped value unambiguous. A value running past the
-    line width carries no continuation marker, so a matter name reading
-    "In the High Court: Re X and Y" arrives as::
+    A value running past the line width wraps with nothing to mark that it
+    has, so a matter name reading "In the High Court: Re X and Y" arrives as::
 
         Case / Matter Name:  In the High
         Court: Re X and Y
         Court:  High Court
 
     where the second line opens with the label of a real field and is not one.
-    Reading each value as everything up to where the *next* field starts
-    resolves it: the court is the **last** ``Court:`` line, since it is
-    printed last and nothing follows it in this section, so everything above
-    that belongs to the name.
 
-    Treating any line that merely looks like a label as the end of a value
-    instead truncated the name to "In the High" and made the court
-    "Re X and Y". The case name becomes ``{ITEM_OF_WORK}`` in the narrative,
-    so that went to the LAA as the identity of the case.
+    **The format is genuinely ambiguous, and no rule reads every case
+    correctly.** What is certain is the order: the PDF prints these four
+    fields once each, always in the order below. So each is looked for only
+    *after* the field before it, which is what stops a continuation imitating
+    a field that has already been found — a matter name wrapping onto a line
+    beginning "Fee Earner:" sits below the real fee earner and must not
+    replace it. The final field takes the **last** of its candidates rather
+    than the first, because it is the only one that can be imitated from above
+    with nothing legitimate below it to confuse.
+
+    What this still does not handle: a value that wraps onto a line beginning
+    with the label of the very next field, other than at the end. Value and
+    field are then indistinguishable and the continuation is read as the
+    field. Rare enough to accept, and it loses no text — but it is not
+    "unambiguous", which an earlier version of this docstring claimed.
     """
     block = section_slice(text, "case_details")
     starts: dict[str, tuple[int, int]] = {}
-    for key, pattern in _DETAIL_FIELDS:
-        # The last match, not the first: only a continuation can imitate a
-        # label, and a continuation always sits *above* the field it imitates,
-        # because the fields are printed in a fixed order.
-        matches = list(re.finditer(pattern, block, re.MULTILINE))
-        if matches:
-            starts[key] = (matches[-1].start(), matches[-1].end())
+    search_from = 0
+    for position, (key, pattern) in enumerate(_DETAIL_FIELDS):
+        matches = [
+            m
+            for m in re.finditer(pattern, block, re.MULTILINE)
+            if m.start() >= search_from
+        ]
+        if not matches:
+            continue
+        chosen = matches[-1] if position == len(_DETAIL_FIELDS) - 1 else matches[0]
+        starts[key] = (chosen.start(), chosen.end())
+        search_from = chosen.end()
 
     fields: dict[str, str] = {}
     ordered = [key for key, _ in _DETAIL_FIELDS if key in starts]
@@ -486,18 +503,24 @@ def extract_evidence_confirmation(text: str) -> bool:
     Both the status line and the sentence below it must say the same thing.
     See :data:`EVIDENCE_STATUS` for why one of them is not enough.
 
-    The **last** such block in the document is the real one. The genuine
-    section is printed second from the end, with only the disclaimer after it,
-    so anything resembling it earlier came from the solicitor's own prose —
-    boilerplate or a previous summary pasted into an explanation. Reading the
-    first would let a pasted "Confirmed" outrank a genuine "Not confirmed"
-    below it, which is the one direction this must never fail in.
+    The **last heading** in the document marks the real section, and only that
+    one is read. The genuine section is printed second from the end, with only
+    the disclaimer after it, so anything resembling it earlier came from the
+    solicitor's own prose — boilerplate or a previous summary pasted into an
+    explanation, which would otherwise outrank the answer they actually gave.
+
+    Note the order: find the section first, *then* ask what it says. Searching
+    for the last well-formed block instead would skip a genuine block whose
+    status line had been damaged and settle on an intact copy higher up, so a
+    refusal the solicitor made could be overruled by wording they had pasted
+    into a box. A damaged section reads as no confirmation — the same answer
+    this gives to every other kind of damage.
     """
-    matches = list(EVIDENCE_STATUS.finditer(text))
-    if not matches:
+    headings = list(EVIDENCE_HEADING.finditer(text))
+    if not headings:
         return False
-    m = matches[-1]
-    if m.group("status") != "Confirmed":
+    m = EVIDENCE_STATUS.match(text, headings[-1].start())
+    if not m or m.group("status") != "Confirmed":
         return False
     # Bounded: far enough to clear the sentence and its wrapping, not so far
     # that the disclaimer or a later page could supply it.
@@ -842,6 +865,15 @@ def load_formdata_json(path: str | Path) -> dict:
         label = (item.get("label") or "").strip()
         section = item.get("section", "")
         key = label_keys.get(label)
+        # The same section check the PDF reader applies, repeated here because
+        # this is the *recovery* path and skipping it undid the guard: a
+        # cross-stage label rejected on reading the PDF could be accepted,
+        # unedited, simply by re-running --from-json on the file the stop had
+        # just written. The report even named the offending label as its own
+        # closest match, so it read as though nothing needed correcting.
+        if key and section in _SECTION_KEY_PREFIXES:
+            if not key.startswith(_SECTION_KEY_PREFIXES[section]):
+                key = None
         if not key or section not in ("panelMembership", "stage1", "stage2"):
             still_unmatched.append(
                 _unrecognised(
