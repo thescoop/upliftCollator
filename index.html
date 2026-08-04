@@ -8,11 +8,25 @@
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
+    <!--
+        Both libraries are served from this repository, not from a CDN, and that
+        is deliberate. A solicitor's firm blocking cdnjs or jsdelivr — which
+        firms do, by policy, without telling anyone — used to break the download
+        button with no error and no explanation, and since the tool now suggests
+        no percentage the download is its only output. A blocked CDN meant a
+        silently useless tool.
+
+        It also pins what runs. `marked` was loaded from `npm/marked` with no
+        version in the URL, so whatever the maintainers published last became
+        part of a legal-billing tool with no commit here and no test run.
+
+        vendor/_PROVENANCE.md records where each file came from and how to
+        update it. Nothing else in this page loads from the network.
+    -->
     <!-- Marked.js for Markdown rendering -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="vendor/marked.min.js"></script>
     <!-- jsPDF for PDF Generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="vendor/jspdf.umd.min.js"></script>
 </head>
 <body>
     <!-- ────────── WELCOME SCREEN ────────── -->

@@ -37,6 +37,7 @@ SHIPPED=(
   script.js
   style.css
   content-data.js
+  vendor/
   favicon.ico
   your-logo-transparent.png
   stylised-blossom.png
