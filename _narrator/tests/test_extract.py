@@ -133,6 +133,25 @@ class EvidenceConfirmationTests(unittest.TestCase):
         )
         self.assertTrue(extract_evidence_confirmation(wrapped))
 
+    # A bare heading a solicitor pasted into their own prose. Built once and
+    # used by two tests, because the damage it does has two halves: the
+    # confirmation can be read from the wrong place, and — the half that is
+    # easy to miss — the Stage 2 section can end at the pasted line, dropping
+    # every criterion after it out of the bill.
+    PASTED_BARE_HEADING = (
+        "STAGE 2: LEVEL OF ENHANCEMENT FACTORS\n"
+        "• Evidence marshalled with unusual skill\n"
+        "Care and skill\n"
+        "Explanation: My working note was headed as follows.\n"
+        "EVIDENCE ON FILE\n"
+        "That note listed the material relied on.\n"
+        "• Particular care with a vulnerable client\n"
+        "Care and skill\n"
+        "Explanation: The client required substantial adaptations throughout.\n"
+        "PROPOSED UPLIFT\n"
+        "Proposed Uplift Percentage: 40%\n"
+    )
+
     def test_the_heading_inside_a_solicitors_explanation_is_not_the_section(
         self,
     ) -> None:
@@ -141,17 +160,41 @@ class EvidenceConfirmationTests(unittest.TestCase):
         search passes over it and finds the genuine section further down —
         where, before this was fixed, it would have stopped and reported a
         real confirmation as absent."""
-        pasted = (
+        self.assertTrue(
+            extract_evidence_confirmation(self.PASTED_BARE_HEADING + self.CONFIRMED)
+        )
+
+    def test_a_pasted_heading_does_not_cut_the_stage_2_section_short(self) -> None:
+        """The other half, and the reason it is `SECTION_PATTERNS` that had to
+        change rather than only the confirmation reader: a pasted heading used
+        to end the Stage 2 section where it appeared, so every criterion below
+        it vanished from the narrative — a weaker claim than the solicitor
+        made, with nothing in the finished bill to show it."""
+        criteria = extract_criteria(
+            self.PASTED_BARE_HEADING + self.CONFIRMED,
+            "stage2",
+            label_to_key_lookup(),
+            [],
+        )
+        self.assertEqual(len(criteria), 2)
+        self.assertIn("s2_care_vulnerable_client", criteria)
+
+    def test_a_pasted_confirmation_cannot_outrank_the_real_refusal(self) -> None:
+        """Boilerplate or a previous summary pasted into an explanation can
+        carry a complete, undamaged confirmation block. The genuine section is
+        printed second from last, with only the disclaimer after it, so the
+        last block in the document is the real one. Reading the first let a
+        pasted "Confirmed" overrule a solicitor who declined."""
+        pasted_block = (
             "STAGE 2: LEVEL OF ENHANCEMENT FACTORS\n"
             "• Evidence marshalled with unusual skill\n"
-            "Care\n"
-            "Explanation: My working note was headed as follows.\n"
-            "EVIDENCE ON FILE\n"
-            "That note listed the material relied on.\n"
-            "PROPOSED UPLIFT\n"
-            "Proposed Uplift Percentage: 40%\n"
-        ) + self.CONFIRMED
-        self.assertTrue(extract_evidence_confirmation(pasted))
+            "Care and skill\n"
+            "Explanation: I copied the standard closing wording, which reads:\n"
+            + self.CONFIRMED
+        )
+        document = pasted_block + self.DECLINED
+        self.assertIn("Evidence on file: Confirmed", document)
+        self.assertFalse(extract_evidence_confirmation(document))
 
     def test_confirmed_reads_as_true(self) -> None:
         self.assertTrue(extract_evidence_confirmation(self.CONFIRMED))
@@ -229,6 +272,29 @@ class WrappedLabelTests(unittest.TestCase):
         # The continuation must not also survive in the category title.
         self.assertNotIn(tail, list(result.values())[0]["categoryTitle"])
 
+    def test_damage_that_lands_on_a_real_label_from_the_other_stage_stops(
+        self,
+    ) -> None:
+        """Exact matching stops a damaged label being repaired into something
+        like it — but not from *being* something else. Drop the parenthetical
+        from the legacy Stage 1 "Difficulty in taking instructions
+        (client/witnesses)" and what remains is the current Stage 2 label word
+        for word. Accepted, it would have filed a threshold factor as a level
+        factor: a claim under a heading the solicitor never wrote, reported as
+        a clean run."""
+        stage2_label = next(
+            label
+            for label, key in self.label_keys.items()
+            if key.startswith("s2_") and len(label) < 80
+        )
+        unmatched: list[dict] = []
+        result = extract_criteria(
+            self._section(stage2_label), "stage1", self.label_keys, unmatched
+        )
+        self.assertEqual(result, {})
+        self.assertEqual(len(unmatched), 1)
+        self.assertEqual(unmatched[0]["section"], "stage1")
+
     def test_rejoining_cannot_invent_a_label_that_was_never_ticked(self) -> None:
         """Joining is accepted only on an exact match, so a damaged label is
         still unmatched and still stops the run rather than being repaired
@@ -243,7 +309,11 @@ class WrappedLabelTests(unittest.TestCase):
         self.assertEqual(len(unmatched), 1)
 
     def test_an_unwrapped_label_is_unaffected(self) -> None:
-        short = next(label for label in self.label_keys if len(label) < 60)
+        short = next(
+            label
+            for label, key in self.label_keys.items()
+            if len(label) < 60 and key.startswith("s1_")
+        )
         unmatched = []
         result = extract_criteria(
             self._section(short), "stage1", self.label_keys, unmatched
@@ -292,6 +362,27 @@ class CourtLineTests(unittest.TestCase):
         # The continuation must not bleed into the field printed after it.
         self.assertEqual(details["courtLevel"], "High Court")
         self.assertEqual(details["matterType"], "Care & Supervision")
+
+    def test_a_wrapped_name_whose_continuation_looks_like_a_field(self) -> None:
+        """The hard case, and the reason the fields are parsed in print order.
+        A matter name reading "In the High Court: Re X and Y" wraps so that
+        its second line opens with the label of a real field. Treating any
+        such line as the next field truncated the name to "In the High" and
+        made the court "Re X and Y" — the case identity that then appears in
+        the narrative as {ITEM_OF_WORK}."""
+        block = (
+            "CASE DETAILS\n"
+            "Fee Earner:  Jane Doe\n"
+            "Matter Type:  Care & Supervision\n"
+            "Case / Matter Name:  In the High\n"
+            "Court: Re X and Y\n"
+            "Court:  High Court\n"
+            "PANEL MEMBERSHIP\n"
+        )
+        details = extract_case_details(block)
+        self.assertEqual(details["caseMatterName"], "In the High Court: Re X and Y")
+        self.assertEqual(details["courtLevel"], "High Court")
+        self.assertEqual(details["feeEarnerName"], "Jane Doe")
 
     def test_a_pre_v111_case_name_containing_court_yields_no_court(self) -> None:
         block = (

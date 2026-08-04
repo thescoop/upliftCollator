@@ -77,11 +77,28 @@ Both are the same lesson: **the PDF is a text layer with a line width, and anyth
 that wraps needs rejoining.** If a future change adds a long string to the PDF, test
 it at length, not just for correctness.
 
+**And three more, from a Sol pass over the fixes themselves** — each one an edge the
+first fix did not reach:
+
+- A wrapped matter name whose second line opens `Court:` is indistinguishable from
+  the real Court field. Case details are now parsed **in the order the PDF prints
+  them**, which resolves it: the court is the last such line, everything above it
+  belongs to the name.
+- A solicitor pasting boilerplate containing a whole confirmation block into an
+  explanation could have outranked their own refusal. The **last** block in the
+  document is now the real one — the genuine section is printed second from last.
+- **Exact label matching is not the same as safety.** Damage can turn one real label
+  into a *different* real label: drop the parenthetical from the legacy Stage 1
+  "Difficulty in taking instructions (client/witnesses)" and what remains is the
+  current Stage 2 label word for word. Accepted, it would have filed a threshold
+  factor as a level factor and reported a clean run. The key must now belong to the
+  section it was read from.
+
 **4. `extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`,
 anchored to line start so a matter named "High Court: Re X and Y" cannot answer the
 court question.
 
-**270 tests pass.** Verified against ten generated PDFs, seven of them with the page
+**274 tests pass.** Verified against ten generated PDFs, seven of them with the page
 breaks walked across the new section.
 
 ### Still outstanding
@@ -98,7 +115,8 @@ breaks walked across the new section.
    document**, so a solicitor who pastes a working note containing a line reading
    `DISCLAIMER` or `PROPOSED UPLIFT` into an explanation would truncate the section
    they are in. The new `EVIDENCE ON FILE` pattern is immune — it requires its own
-   status line to follow — but the older ones are not, and were deliberately left
+   status line to follow, and the confirmation is read from the last such block —
+   but the older ones are not, and were deliberately left
    alone: tightening them changes how PDFs already sitting in live matters are read,
    which is not a change to make in passing. Worth doing properly one day, with the
    legacy fixtures in front of you.
@@ -147,7 +165,9 @@ the same answer from the guidance: 12.4(c)'s operative threshold is "exceptional
 circumstances **or complexity**", and novelty and weight appear only in 12.8(c)'s
 heading before being developed as Stage 2 considerations at 12.9(c).
 
-**Consequences, now fixed:** the twelve labels below are the complete Stage 1 set, and
+**Consequences, now fixed:** the labels below are the complete Stage 1 set — twelve as
+drafted here, **thirteen as built**, the tactic/better-result label having since been
+split because one disjunctive checkbox generated a narrative asserting both halves. And
 the Stage 2 orphan set is `{Responsibility, Weight}` — both must be collected
 separately at Stage 2 because nothing carries them forward.
 

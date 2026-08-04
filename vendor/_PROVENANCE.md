@@ -56,8 +56,9 @@ serving in production: 15.0.12.
    PDF back with `_narrator/extract.py`. The narrator parses the PDF's *text
    layer*, so a jsPDF change that alters spacing or line breaking can break
    extraction while the document still looks perfectly correct on screen.
-5. `_narrator/` has 260 tests, but none of them run jsPDF. Step 4 is the only
-   check that covers it.
+5. `_narrator/`'s test suite does not run jsPDF at all — no test in it opens a
+   browser. Step 4 is the only check that covers a jsPDF change, which is how
+   two silent truncation bugs survived a green suite until August 2026.
 
 ## If you add another library here
 

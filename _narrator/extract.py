@@ -132,62 +132,65 @@ def section_slice(text: str, name: str) -> str:
     return text[start:end].strip()
 
 
+# The four fields addDetail prints, in the order it prints them. That order
+# is what makes a wrapped value readable at all — see extract_case_details.
+_DETAIL_FIELDS: list[tuple[str, str]] = [
+    ("feeEarnerName", r"^Fee Earner:\s+"),
+    ("matterType", r"^Matter Type:\s+"),
+    ("caseMatterName", r"^Case / Matter Name:\s+"),
+    # Printed since v1.11 because it fixes the ceiling at 50% or 100% under
+    # CAG 12.2. Nothing here computes with it — this tool proposes no figure —
+    # but the person checking a narrative needs it beside the percentage
+    # claimed, and a PDF from before v1.11 simply yields "".
+    ("courtLevel", r"^Court:\s+"),
+]
+
+
 def extract_case_details(text: str) -> dict:
-    block = section_slice(text, "case_details")
-    fields: dict[str, str] = {}
-    pairs = [
-        (r"Fee Earner:\s+(.+)", "feeEarnerName"),
-        (r"Matter Type:\s+(.+)", "matterType"),
-        (r"Case / Matter Name:\s+(.+)", "caseMatterName"),
-        # Printed since v1.11 because it fixes the ceiling at 50% or 100%
-        # under CAG 12.2. Nothing here computes with it — this tool proposes
-        # no figure — but the person checking a narrative needs it beside the
-        # percentage claimed, and a PDF from before v1.11 simply yields "".
-        #
-        # Anchored to the start of a line, unlike the three above, because
-        # "Court:" is a substring a case name can genuinely contain: a matter
-        # called "High Court: Re X and Y" would otherwise make the case name
-        # supply the court. The three above keep their looser form so that
-        # nothing changes in how PDFs already sitting in live matters are read.
-        (r"^Court:\s+(.+)", "courtLevel"),
-    ]
-    for pattern, key in pairs:
-        m = re.search(pattern, block, re.MULTILINE)
-        if not m:
-            fields[key] = ""
-            continue
-        value = m.group(1).strip()
-        # A long value wraps, and the case name is the one most likely to:
-        # nothing limits its length in the form, and it is the field that
-        # becomes {ITEM_OF_WORK} in the narrative. Reading the first physical
-        # line only put a truncated case identity into a document going to the
-        # LAA — visibly wrong to a human, but not wrong enough to notice.
-        fields[key] = " ".join([value, *_wrapped_remainder(block, m.end())]).strip()
-    return fields
+    """The four case-detail fields, each rejoined if the PDF wrapped it.
 
+    Parsed in the order the PDF prints them, because that order is the only
+    thing that makes a wrapped value unambiguous. A value running past the
+    line width carries no continuation marker, so a matter name reading
+    "In the High Court: Re X and Y" arrives as::
 
-# Every label addDetail can print. A line beginning with one of these starts
-# the next field rather than continuing the current one.
-_DETAIL_LABELS = re.compile(
-    r"^(?:Fee Earner|Matter Type|Case / Matter Name|Court):", re.MULTILINE
-)
+        Case / Matter Name:  In the High
+        Court: Re X and Y
+        Court:  High Court
 
+    where the second line opens with the label of a real field and is not one.
+    Reading each value as everything up to where the *next* field starts
+    resolves it: the court is the **last** ``Court:`` line, since it is
+    printed last and nothing follows it in this section, so everything above
+    that belongs to the name.
 
-def _wrapped_remainder(block: str, start: int) -> list[str]:
-    """Continuation lines belonging to the detail value ending at *start*.
-
-    A wrapped value carries no marker, so the end of one is found by the
-    beginning of the next: any line that does not open a known detail label
-    is part of the value above it. The section holds nothing but these four
-    fields, so there is nothing else a stray line could be.
+    Treating any line that merely looks like a label as the end of a value
+    instead truncated the name to "In the High" and made the court
+    "Re X and Y". The case name becomes ``{ITEM_OF_WORK}`` in the narrative,
+    so that went to the LAA as the identity of the case.
     """
-    rest: list[str] = []
-    for line in block[start:].splitlines()[1:]:
-        stripped = line.strip()
-        if not stripped or _DETAIL_LABELS.match(stripped):
-            break
-        rest.append(stripped)
-    return rest
+    block = section_slice(text, "case_details")
+    starts: dict[str, tuple[int, int]] = {}
+    for key, pattern in _DETAIL_FIELDS:
+        # The last match, not the first: only a continuation can imitate a
+        # label, and a continuation always sits *above* the field it imitates,
+        # because the fields are printed in a fixed order.
+        matches = list(re.finditer(pattern, block, re.MULTILINE))
+        if matches:
+            starts[key] = (matches[-1].start(), matches[-1].end())
+
+    fields: dict[str, str] = {}
+    ordered = [key for key, _ in _DETAIL_FIELDS if key in starts]
+    for position, key in enumerate(ordered):
+        value_to = (
+            starts[ordered[position + 1]][0]
+            if position + 1 < len(ordered)
+            else len(block)
+        )
+        fields[key] = " ".join(block[starts[key][1]:value_to].split())
+    for key, _ in _DETAIL_FIELDS:
+        fields.setdefault(key, "")
+    return fields
 
 
 # ── Ticked lines whose label matches nothing ──────────────────────────────
@@ -340,11 +343,18 @@ def _resolve_wrapped_label(
     ticked it, with the continuation swallowed into the category title.
 
     Joining is driven entirely by exact matches against ``content-data.js``:
-    a candidate is accepted only where the joined text **is** a known label.
-    So this cannot invent a criterion out of two unrelated lines, and a label
-    that is genuinely damaged still fails to match and still stops the run.
-    Reported as the first line alone in that case, because joining a
-    category line onto damaged text would only obscure the damage.
+    a candidate is accepted only where the joined text **is** a known label,
+    so this cannot invent a criterion out of two unrelated lines. Reported as
+    the first line alone when nothing matches, because joining a category line
+    onto damaged text would only obscure the damage.
+
+    That is not the same as damage always stopping the run, and the stronger
+    claim was wrong: damage can turn one real label into a *different* real
+    label. Drop the parenthetical from the legacy Stage 1 "Difficulty in
+    taking instructions (client/witnesses)" and what is left is the current
+    Stage 2 label word for word. Exact matching cannot see that, which is why
+    ``extract_criteria`` also checks the key it gets belongs to the section it
+    was reading.
     """
     label = lines[0].lstrip("•").strip()
     if label in label_keys:
@@ -358,6 +368,12 @@ def _resolve_wrapped_label(
         if joined in label_keys:
             return joined, index + 1
     return label, 1
+
+
+# Which key prefix belongs under which heading. content-data.js names every
+# key for its stage, current and retired alike, so this needs no second list
+# kept in step by hand.
+_SECTION_KEY_PREFIXES = {"stage1": "s1_", "stage2": "s2_"}
 
 
 def extract_criteria(
@@ -408,6 +424,18 @@ def extract_criteria(
         category_title = " ".join(category_parts).strip()
         explanation = " ".join(explanation_parts).strip()
         key = label_keys.get(label)
+        # A key from the wrong stage is treated as no key at all. Exact
+        # matching stops a damaged label being repaired into something like
+        # it, but not from *being* something else: drop the parenthetical from
+        # the legacy Stage 1 "Difficulty in taking instructions
+        # (client/witnesses)" and what is left is the current Stage 2 label
+        # word for word. Accepting it would have filed a threshold factor as a
+        # level factor — a claim under a heading the solicitor never wrote —
+        # and reported a clean run. A label under the wrong heading means a
+        # damaged document whatever it says, so it stops the run like any
+        # other unmatched line.
+        if key and not key.startswith(_SECTION_KEY_PREFIXES[section_name]):
+            key = None
         if not key:
             if unmatched is None:
                 print(
@@ -457,9 +485,19 @@ def extract_evidence_confirmation(text: str) -> bool:
 
     Both the status line and the sentence below it must say the same thing.
     See :data:`EVIDENCE_STATUS` for why one of them is not enough.
+
+    The **last** such block in the document is the real one. The genuine
+    section is printed second from the end, with only the disclaimer after it,
+    so anything resembling it earlier came from the solicitor's own prose —
+    boilerplate or a previous summary pasted into an explanation. Reading the
+    first would let a pasted "Confirmed" outrank a genuine "Not confirmed"
+    below it, which is the one direction this must never fail in.
     """
-    m = EVIDENCE_STATUS.search(text)
-    if not m or m.group("status") != "Confirmed":
+    matches = list(EVIDENCE_STATUS.finditer(text))
+    if not matches:
+        return False
+    m = matches[-1]
+    if m.group("status") != "Confirmed":
         return False
     # Bounded: far enough to clear the sentence and its wrapping, not so far
     # that the disclaimer or a later page could supply it.

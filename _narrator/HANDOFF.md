@@ -61,11 +61,18 @@ picking the work up needs.
 >   Two silent truncations were found this way and fixed: a Stage 1 label too long
 >   for one line matched nothing and *stopped the run* (every case ticking the
 >   vulnerable-client factor), and a long Case / Matter name reached the narrative
->   truncated to its first line. `_resolve_wrapped_label` and `_wrapped_remainder`
->   rejoin them. Rejoining a label is accepted **only on an exact match** against
->   `content-data.js`, so a damaged label still stops the run rather than being
->   repaired into the nearest thing that fits. If you add a long string to the PDF,
->   test it at length.
+>   truncated to its first line. `_resolve_wrapped_label` rejoins a label; the case
+>   details are parsed **in the order the PDF prints them**, because a wrapped value
+>   whose second line opens "Court:" is otherwise indistinguishable from the real
+>   Court field. If you add a long string to the PDF, test it at length.
+> - **Exact matching is not the same as safety, and the comment that said so was
+>   wrong.** Rejoining a label is accepted only on an exact match against
+>   `content-data.js`, so it cannot be repaired into something *like* it — but
+>   damage can turn one real label into a *different* real label: drop the
+>   parenthetical from the legacy Stage 1 "Difficulty in taking instructions
+>   (client/witnesses)" and what remains is the current Stage 2 label word for word.
+>   `extract_criteria` therefore also checks the key belongs to the section it was
+>   reading (`s1_`/`s2_`, the convention `content-data.js` already follows).
 > - **`extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`.
 >   Nothing computes with it — the tool proposes no figure — but the ceiling under
 >   CAG 12.2 now reaches `narrative-input.json` instead of being visible only to a
@@ -84,8 +91,8 @@ App version **1.11** (4 August 2026) in `content-data.js`. Simon confirmed on
 1 August 2026 that narrator-only template additions do **not** bump it; this
 version moved because the Collator itself changed.
 
-**270 tests**, all passing (was 244 before the redesign), none touching the
-network. The 270 figure was verified under **WSL Python on 4 August 2026**;
+**274 tests**, all passing (was 244 before the redesign), none touching the
+network. The 274 figure was verified under **WSL Python on 4 August 2026**;
 **Windows Python has not been re-run since the redesign** — do that before
 trusting a Windows launcher. Command:
 
@@ -113,11 +120,13 @@ Three conventions worth not rediscovering:
 - **A test that edits a shipped file must restore it as bytes**, not via
   `read_text`/`write_text`. The round trip translates newlines, so on Windows a
   clean test run used to leave `prompts/verification.md` rewritten as CRLF.
-- **Pushing narrator work no longer redeploys the solicitors' web tool.**
-  `vercel.json` runs `_vercel-should-build.sh`, which cancels the Vercel build
-  unless a file the live site actually serves has changed. If you add a file to
-  the web app, add it to that script's `SHIPPED` list or its changes will not go
-  live. The script errs towards building whenever it cannot be certain, because
+- **`_vercel-should-build.sh` is inert today, and is for the planned Vercel
+  move.** Production is GitHub Pages, which publishes the whole repository root
+  on every push to `main` with no build step to intercept — so pushing narrator
+  work does republish the site, byte-identically. Keep the script's `SHIPPED`
+  list correct anyway when you add a file to the web app, or the gate will skip
+  a needed deploy on the day it becomes live. It errs towards building whenever
+  it cannot be certain, because
   a needless redeploy of identical static files costs nothing while a skipped
   one leaves a fix believed shipped but absent.
 

@@ -151,11 +151,22 @@ impossible.
     the joined text is *exactly* a label in `content-data.js`, so a damaged label still
     stops the run rather than being repaired into the nearest thing that fits.
   - A **long Case / Matter name** was read as its first physical line only, putting a
-    truncated case identity into the narrative through `{ITEM_OF_WORK}`.
-- **270 tests** pass (was 253). The new ones pin the reading of the confirmation in the
+    truncated case identity into the narrative through `{ITEM_OF_WORK}`. Case details
+    are now parsed in the order the PDF prints them, which is what makes a wrapped
+    value unambiguous: a name reading "In the High Court: Re X and Y" wraps so that
+    its second line opens with the label of a real field and is not one.
+- **A label read under the wrong heading is now rejected.** Exact matching stops a
+  damaged label being repaired into something *like* it, but not from *being*
+  something else — drop the parenthetical from the legacy Stage 1 "Difficulty in
+  taking instructions (client/witnesses)" and what remains is the current Stage 2
+  label word for word. Accepted, it would have filed a threshold factor as a level
+  factor, under a heading the solicitor never wrote, and reported a clean run.
+- **274 tests** pass (was 253). The new ones pin the reading of the confirmation in the
   direction that matters: "Not confirmed" contains the word "confirmed", so a looser
   search would read a refusal as a confirmation. The status line and the sentence
-  beneath it must now agree — two strings that fail in opposite directions.
+  beneath it must now agree — two strings that fail in opposite directions — and the
+  **last** such block in the document is the real one, so boilerplate a solicitor
+  pasted into an explanation cannot outrank their own refusal below it.
 
 **Deliberately NOT changed — do not "fix" these:**
 - The 2024 Costs Assessment Guidance and the Standard Civil Contract Specification are
