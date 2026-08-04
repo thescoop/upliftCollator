@@ -24,25 +24,39 @@ live.** Only a merge to `main` publishes to solicitors.
 - Stage 1 is **13** labels, not 12: the tactic/better-result label was split because a
   single disjunctive checkbox was generating a narrative asserting both halves.
 
-### Not started — the front end
+### Front end — done in `fc0fe15`
 
-`index.html`, `script.js` and `style.css` were being rebuilt when the session paused and
-**those changes may be incomplete in the working tree — check `git status` before
-trusting them.** Outstanding:
+Suggested percentage removed from the UI; court question added with the 50%/100%
+ceiling stated as prose; Stage 1 tick-only with the "what counts?" panels; Stage 2
+carry-forward with stems and persistent examples; `localStorage` drafts; accessibility
+(0 unlabelled inputs, all toggles keyboard-operable). Driven through all five steps in
+Chromium, with a generated PDF round-tripped back through `extract.py` and every label
+matching.
 
-1. Remove the suggested percentage from the UI (`_updateSuggestedPercentage`, the
-   display element, the "use suggested" regex auto-fill). The data layer is already done.
-2. Render the 13 Stage 1 labels tick-only, with the `what_counts` expander and
-   `STAGE1_THRESHOLD_BANNER`.
-3. Render the 7 Stage 2 blocks with carry-forward pre-selection, `stem` and persistent
-   `example`.
-4. Ask which court, for the 50% vs 100% ceiling (CAG 12.2).
-5. **Set `evidenceOnFileConfirmed`** — the narrator now only emits "Evidence supporting
-   these assertions can be found within the case file" when this is truthy. Until the
-   front end sets it, that sentence never appears. Simon's decision was that it should
-   be gated on a positive tick, so build the tick.
-6. `localStorage` save/resume; vendor the CDN libraries; accessibility.
-7. Then, still untouched: the merged editable narrative page, and `.docx` output.
+**Not verified:** appearance in Acrobat, any browser other than Chromium, behaviour with
+`localStorage` disabled.
+
+### Still outstanding
+
+1. **`evidenceOnFileConfirmed` has no UI yet.** The narrator only emits "Evidence
+   supporting these assertions can be found within the case file" when this field is
+   truthy, per Simon's decision that it must trace to a positive confirmation. Until the
+   front end sets it, **that sentence never appears in any narrative.** Build the tick on
+   the final page. This is the highest-priority remaining item because it silently
+   changes what every bill says.
+2. **Vendor the CDN libraries.** Still not done, and it matters more now: with the
+   suggested percentage gone, the download button is the only output, so a firm blocking
+   `cdnjs` breaks the tool silently with no explanation.
+3. The merged editable narrative page, and `.docx` output. Untouched.
+4. `_narrator/extract.py` ignores the new `Court:` line the PDF now prints, so the bill
+   drafter's ceiling is only visible to a human reading the document. Nothing breaks.
+5. Terms clause 2 says data "is processed locally within the User's web browser" —
+   true, and not contradicted by `localStorage`, but it does not mention that drafts now
+   persist between sessions on a possibly shared machine. The on-page privacy note
+   covers it; the Terms would be better with one sentence added.
+6. Judgement call made, reversible in one line: a **ticked** item in the optional
+   Responsibility section still requires its explanation. Only an untouched section is
+   exempt. Change it if you would rather ticks there stood alone.
 
 ### Two things to decide next session
 
