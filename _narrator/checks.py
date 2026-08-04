@@ -37,7 +37,7 @@ import templates
 # ── Citation grammar ────────────────────────────────────────────────────────
 # Forms actually present in content-data.js (NARRATIVE_TEMPLATES):
 #   Spec Para 6.13 · Spec Para 6.13(a) · CPR 44.4(3)
-#   CAG 12.2 · CAG 12.9(a) · CAG Section 12.8.1
+#   CAG 12.2 · CAG 12.9(a) · CAG Section 12.8(a)
 #   CAG Section 12.20-12.23   (range)
 #   CAG Section 12.5 & 12.9   (conjunction)
 #
@@ -71,7 +71,7 @@ RUNTIME_FALLBACKS = ("[fee earner]", "[matter type]", "[case]", "[uplift %]")
 
 
 def _normalise(citation: str) -> str:
-    """Collapse whitespace and case so 'CAG  Section 12.8.1' == 'CAG Section 12.8.1'."""
+    """Collapse whitespace/case so ``CAG  12.8(a)`` equals ``CAG 12.8(a)``."""
     return re.sub(r"\s+", " ", citation).strip().lower()
 
 

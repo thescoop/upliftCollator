@@ -21,7 +21,7 @@ import templates  # noqa: E402
 SKELETON = (
     "An enhancement of 75% is claimed reflecting CPR 44.4(3).\n"
     "**Panel Membership (CAG Section 12.20-12.23):**\n"
-    "Exceptional competence (Spec Para 6.13(a) / CAG Section 12.8.1) was shown.\n"
+    "Exceptional competence (Spec Para 6.13(a) / CAG Section 12.8(a)) was shown.\n"
     "Level of enhancement (Spec Para 6.15 / CAG Section 12.5 & 12.9).\n"
     "Responsibility (CAG 12.9(a)) and care, speed and economy (CAG 12.9(b)).\n"
     "> Argued Re B-S (Children) [2013] EWCA Civ 1146 should govern.\n"
@@ -82,7 +82,7 @@ class TestExtractCitations(unittest.TestCase):
             "CPR 44.4(3)",
             "CAG Section 12.20-12.23",
             "Spec Para 6.13(a)",
-            "CAG Section 12.8.1",
+            "CAG Section 12.8(a)",
             "CAG Section 12.5 & 12.9",
             "CAG 12.9(a)",
             "CAG 12.9(b)",
@@ -114,7 +114,7 @@ class TestBoundaries(unittest.TestCase):
         self.assertIn("CAG 12.9(a)(ii)", result.added_citations)
 
     def test_deeper_section_number_is_a_different_citation(self):
-        self.assertFalse(checks.check("CAG Section 12.8", "CAG Section 12.8.1").ok)
+        self.assertFalse(checks.check("CAG Section 12.8", "CAG Section 12.8(a)").ok)
 
     def test_dropping_one_of_two_occurrences_is_caught(self):
         result = checks.check("CPR 44.4(3) x2: CPR 44.4(3)", "CPR 44.4(3) only once")

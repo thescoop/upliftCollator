@@ -56,7 +56,7 @@ class TestSingleFactorSkeleton(unittest.TestCase):
     def test_the_conclusion_drops_the_incoherent_phrase(self):
         """One factor cannot be weighed 'individually and/or cumulatively'."""
         self.assertNotIn("individually and/or cumulatively", self.md)
-        self.assertIn("This factor rendered the work", self.md)
+        self.assertIn("This factor made the work exceptional", self.md)
 
     def test_no_plural_giveaway_survives_anywhere(self):
         self.assertEqual(checks.agreement_warnings(self.md, 1), [])

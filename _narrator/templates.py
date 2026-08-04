@@ -88,9 +88,28 @@ def load_content_data() -> dict:
     }
 
 
+@lru_cache(maxsize=1)
+def legacy_label_aliases() -> dict[str, str]:
+    """Parse the pre-v1.11 label-to-key compatibility map.
+
+    Labels are the extraction contract for PDFs already saved in live matters.
+    Keeping this loader separate from :func:`load_content_data` makes callers
+    opt in to historical labels while still using the same comment-aware JS
+    scanner as the two live constants.
+    """
+    source = CONTENT_DATA_PATH.read_text(encoding="utf-8")
+    aliases = json5.loads(
+        _extract_balanced(source, "LEGACY_LABEL_ALIASES", "{", "}")
+    )
+    if not isinstance(aliases, dict):
+        raise ValueError("LEGACY_LABEL_ALIASES must be an object")
+    return aliases
+
+
 def label_to_key_lookup() -> dict[str, str]:
-    """Build {checkbox_label: key} from QUESTION_BLOCKS. Raises if labels collide."""
-    blocks = load_content_data()["question_blocks"]
+    """Build ``{current-or-legacy label: key}``, rejecting unsafe collisions."""
+    data = load_content_data()
+    blocks = data["question_blocks"]
     lookup: dict[str, str] = {}
     for block in blocks:
         for chk in block.get("checkboxes", []):
@@ -102,6 +121,24 @@ def label_to_key_lookup() -> dict[str, str]:
                     f"{lookup[label]!r} and {key!r}. Disambiguate in content-data.js."
                 )
             lookup[label] = key
+
+    templates = data["narrative_templates"]
+    for label, key in legacy_label_aliases().items():
+        live_key = lookup.get(label)
+        if live_key is not None and live_key != key:
+            raise ValueError(
+                f"Legacy checkbox label {label!r} maps to {key!r}, but the live "
+                f"label maps to {live_key!r}. Fix LEGACY_LABEL_ALIASES in "
+                "content-data.js."
+            )
+        if key not in templates:
+            raise ValueError(
+                f"Legacy checkbox label {label!r} maps to {key!r}, but that key "
+                "has no NARRATIVE_TEMPLATES entry in content-data.js."
+            )
+        # A matching live label is deliberately left in place. It is the active
+        # extraction contract; the equality check above proves the alias agrees.
+        lookup.setdefault(label, key)
     return lookup
 
 

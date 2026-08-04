@@ -1,6 +1,6 @@
 ## Introduction
 
-An enhancement of 75% is claimed on the Care & Supervision: Re X (Local Authority care proceedings) work due to the following exceptional factors, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2018 Standard Civil Contract Specification (referred to as 'Spec'):
+An enhancement of 75% is claimed on the Care & Supervision: Re X (Local Authority care proceedings) work due to the following exceptional factors, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2024 Standard Civil Contract Specification (referred to as 'Spec'):
 
 ## Panel Membership (CAG Section 12.20-12.23)
 
@@ -10,12 +10,12 @@ An enhancement of 75% is claimed on the Care & Supervision: Re X (Local Authorit
 
 The work meets the threshold for enhancement because:
 
-**Exceptional competence, skill, or expertise (Spec Para 6.13(a) / CAG Section 12.8.1):** The work was conducted with exceptional competence, skill, or expertise, as evidenced by:
+**Exceptional competence, skill, or expertise (Spec Para 6.13(a) / CAG Section 12.8(a)):** The work was conducted with exceptional competence, skill, or expertise, as evidenced by:
 
 *   **Detailed knowledge:** The fee earner demonstrated and applied unusually detailed knowledge regarding recent FPR amendments and the interaction with section 38(6) Children Act assessments. Specifically, the fee earner had to argue that the local authority's interpretation conflicted with the line of authority from *Re B-S (Children) [2013] EWCA Civ 1146*, which the fee earner contended should govern.
 *   **Unusual skill in evidence management:** Unusual skill was shown in identifying and marshalling complex and voluminous evidence relating to safeguarding concerns. The fee earner reviewed and indexed approximately 1,400 pages of social services records spanning eight years across two local authority areas, distilling the chronology of safeguarding concerns into a 12-page Scott Schedule for the threshold hearing.
 
-**Exceptional circumstances, novelty, weight, or complexity (Spec Para 6.13(c) / CAG Section 12.8.3):** The case involved exceptional circumstances, novelty, weight, or complexity, as evidenced by:
+**Exceptional circumstances or complexity (Spec Para 6.13(c) / CAG Section 12.8(c)):** The case involved exceptional circumstances or complexity, as evidenced by:
 
 *   **Complex expert evidence:** Complex questions of expert evidence from three experts in the fields of paediatrics, adult psychiatry, and Independent Social Work (ISW) required careful analysis. Three expert reports were obtained with materially conflicting opinions on the mother's capacity to safely parent. These reports required extensive cross-referencing and reconciliation before any meaningful negotiation could take place.
 
@@ -33,4 +33,4 @@ Once the threshold test is met, the level of enhancement is justified by the fol
 
 ## Conclusion
 
-These factors, individually and/or cumulatively, rendered the work exceptionally demanding and/or required exceptional skill/responsibility beyond that normally expected for a fee earner of this level, justifying the enhancement claimed. Evidence supporting these assertions can be found within the case file.
+These factors, individually and/or cumulatively, made the work exceptional when compared with the generality of legally aided proceedings to which the prescribed rates apply, justifying the enhancement claimed. Evidence supporting these assertions can be found within the case file.

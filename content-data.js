@@ -3,7 +3,7 @@
 
 // Version Information
 const APP_VERSION = "1.11";
-const APP_RELEASE_DATE = "29 April 2026";
+const APP_RELEASE_DATE = "4 August 2026";
 const APP_NAME = "Uplift Collator";
 
 const LAA_GUIDE_URL = "https://assets.publishing.service.gov.uk/media/66f13cfa76558d051527abb9/Costs_Assessment_Guidance_2024_SCC_-_Version_1a-_23_September_2024.pdf";
