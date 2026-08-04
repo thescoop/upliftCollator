@@ -268,6 +268,31 @@ class CourtLineTests(unittest.TestCase):
         self.assertEqual(details["courtLevel"], "Family Court or County Court")
         self.assertEqual(details["caseMatterName"], "High Court: Re X and Y")
 
+    def test_a_case_name_too_long_for_one_line_is_rejoined(self) -> None:
+        """Nothing limits the length of a matter name in the form, and it is
+        the field that becomes {ITEM_OF_WORK} in the narrative. Read as one
+        physical line, a long one put a truncated case identity into a
+        document going to the LAA."""
+        block = (
+            "CASE DETAILS\n"
+            "Fee Earner:  Jane Doe\n"
+            "Matter Type:  Care & Supervision\n"
+            "Case / Matter Name:  Re Y (synthetic) concerning the welfare\n"
+            "arrangements of three children and a contested fact-finding\n"
+            "hearing listed over five days\n"
+            "Court:  High Court\n"
+            "PANEL MEMBERSHIP\n"
+        )
+        details = extract_case_details(block)
+        self.assertEqual(
+            details["caseMatterName"],
+            "Re Y (synthetic) concerning the welfare arrangements of three "
+            "children and a contested fact-finding hearing listed over five days",
+        )
+        # The continuation must not bleed into the field printed after it.
+        self.assertEqual(details["courtLevel"], "High Court")
+        self.assertEqual(details["matterType"], "Care & Supervision")
+
     def test_a_pre_v111_case_name_containing_court_yields_no_court(self) -> None:
         block = (
             "CASE DETAILS\n"

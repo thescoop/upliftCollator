@@ -59,7 +59,9 @@ impossible.
   figure — could no longer move the number. Both are the same failure: the number
   authored the answer. A better-calibrated number is still a number. Under-claiming is
   silent and permanent; over-claiming is visible and gets argued.
-- Stage 1 becomes twelve tickable labels with no typing. It is a pass/fail threshold
+- Stage 1 becomes thirteen tickable labels with no typing — twelve were drafted, and
+  the tactic/better-result label was then split in two, because one disjunctive
+  checkbox generated a narrative asserting both halves. It is a pass/fail threshold
   (CAG 12.4) that earns nothing, so it should not consume the solicitor's effort — yet
   the form demanded 10+ words on each of 17 boxes and then presented 11 more to someone
   with nothing left to say. That produced a real submission with six well-evidenced
@@ -132,9 +134,28 @@ impossible.
   `caseDetails.courtLevel`. It has been printed since v1.11 but never read, so the
   ceiling that applies to a claim was visible only to a human reading the PDF. Nothing
   computes with it; it belongs in `narrative-input.json` beside the percentage claimed.
-- **260 tests** pass (was 253). The new ones fix the reading of the confirmation in the
+- **The two libraries are served from `vendor/`, not a CDN.** A firm blocking `cdnjs`
+  or `jsdelivr` — which firms do, by policy, without announcing it — broke the download
+  button with no error, and since the suggested percentage went, that download is the
+  tool's only output. `marked` was also loaded unpinned (`npm/marked`), so whatever was
+  published last became part of a legal-billing tool with no commit here; it is now
+  fixed at 15.0.12. `jspdf-autotable` was deleted rather than vendored: loaded on every
+  page view since the tool was written, never called. See `vendor/_PROVENANCE.md`.
+- **Two silent truncations were found by testing the PDF round trip, and fixed.** Both
+  pre-existed this release and both came from the same cause — jsPDF wraps at the
+  column width and marks the continuation in no way at all:
+  - A **Stage 1 label too long for one line** arrived as two, matched nothing, and
+    stopped the narrator outright (an unmatched label has halted the run since
+    `2ba3adb`). Any case ticking the vulnerable-client factor produced a PDF the
+    narrator refused to process. Continuation lines are now rejoined, but only where
+    the joined text is *exactly* a label in `content-data.js`, so a damaged label still
+    stops the run rather than being repaired into the nearest thing that fits.
+  - A **long Case / Matter name** was read as its first physical line only, putting a
+    truncated case identity into the narrative through `{ITEM_OF_WORK}`.
+- **270 tests** pass (was 253). The new ones pin the reading of the confirmation in the
   direction that matters: "Not confirmed" contains the word "confirmed", so a looser
-  search would read a refusal as a confirmation.
+  search would read a refusal as a confirmation. The status line and the sentence
+  beneath it must now agree — two strings that fail in opposite directions.
 
 **Deliberately NOT changed — do not "fix" these:**
 - The 2024 Costs Assessment Guidance and the Standard Civil Contract Specification are

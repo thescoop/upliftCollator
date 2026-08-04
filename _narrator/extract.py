@@ -153,8 +153,41 @@ def extract_case_details(text: str) -> dict:
     ]
     for pattern, key in pairs:
         m = re.search(pattern, block, re.MULTILINE)
-        fields[key] = m.group(1).strip() if m else ""
+        if not m:
+            fields[key] = ""
+            continue
+        value = m.group(1).strip()
+        # A long value wraps, and the case name is the one most likely to:
+        # nothing limits its length in the form, and it is the field that
+        # becomes {ITEM_OF_WORK} in the narrative. Reading the first physical
+        # line only put a truncated case identity into a document going to the
+        # LAA — visibly wrong to a human, but not wrong enough to notice.
+        fields[key] = " ".join([value, *_wrapped_remainder(block, m.end())]).strip()
     return fields
+
+
+# Every label addDetail can print. A line beginning with one of these starts
+# the next field rather than continuing the current one.
+_DETAIL_LABELS = re.compile(
+    r"^(?:Fee Earner|Matter Type|Case / Matter Name|Court):", re.MULTILINE
+)
+
+
+def _wrapped_remainder(block: str, start: int) -> list[str]:
+    """Continuation lines belonging to the detail value ending at *start*.
+
+    A wrapped value carries no marker, so the end of one is found by the
+    beginning of the next: any line that does not open a known detail label
+    is part of the value above it. The section holds nothing but these four
+    fields, so there is nothing else a stray line could be.
+    """
+    rest: list[str] = []
+    for line in block[start:].splitlines()[1:]:
+        stripped = line.strip()
+        if not stripped or _DETAIL_LABELS.match(stripped):
+            break
+        rest.append(stripped)
+    return rest
 
 
 # ── Ticked lines whose label matches nothing ──────────────────────────────

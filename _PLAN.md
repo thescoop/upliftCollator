@@ -36,45 +36,72 @@ matching.
 **Not verified:** appearance in Acrobat, any browser other than Chromium, behaviour with
 `localStorage` disabled.
 
-### Done since — the evidence-on-file confirmation
+### Done since, 4 August 2026 — and what it turned up
 
-**Built and verified end to end.** A tick on page 5 sets `evidenceOnFileConfirmed`; the
-PDF carries an `EVIDENCE ON FILE` section; `_narrator/extract.py` reads it back; the
-narrator's existing gate does the rest. Driven in Chromium and round-tripped through
-`extract.py` and `build_skeleton` in both states: with the tick the narrative closes on
-the case-file sentence, without it the sentence is absent. **260 tests pass.**
-
-Three decisions banked while building it:
+**1. The evidence-on-file confirmation is built and verified end to end.** A tick on
+page 5 sets `evidenceOnFileConfirmed`; the PDF carries an `EVIDENCE ON FILE` section;
+`_narrator/extract.py` reads it back; the narrator's existing gate does the rest.
+Driven in Chromium and round-tripped through `extract.py` and `build_skeleton` in both
+states. Decisions banked:
 
 - **The tick is optional** — Simon's call. It never touches the download button. A box
   that must be ticked to proceed is a rubber stamp, worth no more than the automatic
   sentence it replaced.
 - **The PDF prints the line in both states.** A line that appeared only when confirmed
   would make silence mean two things: declined, or produced before the question existed.
-- **The extractor reads only an exact `Evidence on file: Confirmed`.** A declined or
-  damaged line reads as false, and unlike a criterion label it does *not* stop the run.
-  A missing sentence costs nothing; a false one is an unsupported assertion to the LAA.
+- **The confirmation is read as two statements that must agree** — the status line and
+  the sentence beneath it. Either one alone is a single word away from reversing its
+  meaning. A declined, damaged or disagreeing pair reads as false, and unlike a
+  criterion label it does *not* stop the run: a missing sentence costs nothing, a false
+  one is an unsupported assertion to the LAA.
 
-Item 4 below went with it: `extract.py` now reads the `Court:` line into
-`caseDetails.courtLevel`.
+**2. The CDN libraries are vendored** into `vendor/`, with provenance and update
+instructions in `vendor/_PROVENANCE.md`. `jspdf-autotable` was deleted rather than
+vendored — it had loaded on every page view since the tool was written and is never
+called. `marked` was unpinned (`npm/marked`) and is now fixed at the 15.0.12 that was
+live. Verified by driving the whole form with every http(s) request aborted.
+
+**3. Two silent truncation bugs, found by testing the round trip rather than the
+code — both pre-existing, both now fixed.** These are the ones worth remembering:
+
+- **A Stage 1 label too long for one PDF line stopped the narrator entirely.** jsPDF
+  wraps at the column width and marks the continuation in no way at all, so the
+  vulnerable-client label arrived as two lines, matched nothing, and — since `2ba3adb`
+  — halted the run. Every case ticking that one factor was affected. Found by ticking
+  all thirteen labels and extracting: twelve came back.
+- **A long Case / Matter name was truncated to its first line**, putting a shortened
+  case identity into the narrative through `{ITEM_OF_WORK}`. Nothing limits that
+  field's length in the form.
+
+Both are the same lesson: **the PDF is a text layer with a line width, and anything
+that wraps needs rejoining.** If a future change adds a long string to the PDF, test
+it at length, not just for correctness.
+
+**4. `extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`,
+anchored to line start so a matter named "High Court: Re X and Y" cannot answer the
+court question.
+
+**270 tests pass.** Verified against ten generated PDFs, seven of them with the page
+breaks walked across the new section.
 
 ### Still outstanding
 
-1. **Vendor the CDN libraries.** Still not done, and it matters more now: with the
-   suggested percentage gone, the download button is the only output, so a firm blocking
-   `cdnjs` breaks the tool silently with no explanation. Note when doing it:
-   **`jspdf-autotable` is never called anywhere in `script.js`** — delete that script
-   tag rather than vendoring it. `marked` is loaded from `npm/marked` with **no version
-   pin**, so an upstream release changes the live tool with no commit here; vendoring
-   fixes that as a side effect.
-2. The merged editable narrative page, and `.docx` output. Untouched.
-3. Terms clause 2 says data "is processed locally within the User's web browser" —
+1. The merged editable narrative page, and `.docx` output. Untouched.
+2. Terms clause 2 says data "is processed locally within the User's web browser" —
    true, and not contradicted by `localStorage`, but it does not mention that drafts now
    persist between sessions on a possibly shared machine. The on-page privacy note
    covers it; the Terms would be better with one sentence added.
-4. Judgement call made, reversible in one line: a **ticked** item in the optional
+3. Judgement call made, reversible in one line: a **ticked** item in the optional
    Responsibility section still requires its explanation. Only an untouched section is
    exempt. Change it if you would rather ticks there stood alone.
+4. **Every section header is matched as the first bare occurrence anywhere in the
+   document**, so a solicitor who pastes a working note containing a line reading
+   `DISCLAIMER` or `PROPOSED UPLIFT` into an explanation would truncate the section
+   they are in. The new `EVIDENCE ON FILE` pattern is immune — it requires its own
+   status line to follow — but the older ones are not, and were deliberately left
+   alone: tightening them changes how PDFs already sitting in live matters are read,
+   which is not a change to make in passing. Worth doing properly one day, with the
+   legacy fixtures in front of you.
 
 ### Two things to decide next session
 

@@ -22,7 +22,7 @@ legal-billing tool with no commit in this repository and no test run.
 | File | Version | Licence | Used for |
 |---|---|---|---|
 | `jspdf.umd.min.js` | 2.5.1 (built 2022-01-28) | MIT | Writing the PDF summary (`generatePdfSummary` in `script.js`) |
-| `marked.min.js` | 15.0.12 | MIT | Rendering the help and terms markdown (`renderMarkdownToHtml` in `script.js`) |
+| `marked.min.js` | 15.0.12 | MIT | Rendering the help and terms markdown (`showModalWithMarkdown` in `script.js`) |
 
 Both licences are MIT and the notices are retained in the file headers, which is
 all MIT requires for redistribution.
@@ -61,6 +61,9 @@ serving in production: 15.0.12.
 
 ## If you add another library here
 
-Add it to `SHIPPED` in `_vercel-should-build.sh` — that list is the whole `vendor/`
-directory today, so a file dropped in is covered, but a library placed anywhere
-else would not deploy.
+Production today is **GitHub Pages**, which publishes the whole repository root on
+every push to `main` with no build step, so a new file is served wherever you put
+it. Add it to `SHIPPED` in `_vercel-should-build.sh` anyway — that entry is the
+whole `vendor/` directory, so a file dropped in here is already covered. The gate
+is inert until the planned Vercel move, and it is much easier to keep it correct
+now than to work out why a fix did not go live afterwards.

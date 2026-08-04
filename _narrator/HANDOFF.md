@@ -12,8 +12,9 @@ funded by the Legal Aid Agency):
    `content-data.js`, `style.css`). Password-gated, walks a solicitor through
    the LAA enhancement uplift questionnaire (Costs Assessment Guidance §12),
    and saves a PDF summary. **Its only output path is
-   `pdf.save("LAA_Uplift_Data_Summary.pdf")` at `script.js:1091`** — there is no
-   Word export, no `window.print()`, no print stylesheet.
+   `pdf.save("LAA_Uplift_Data_Summary.pdf")`, in `generatePdfSummary`** — there is
+   no Word export, no `window.print()`, no print stylesheet. Both libraries it
+   needs are served from `vendor/`, not a CDN; see `vendor/_PROVENANCE.md`.
 2. **Uplift Narrator** (`_narrator/`) — the back-office tool that turns that PDF
    into the finished LAA enhancement narrative. It drives a local LM Studio
    model directly and verifies the result.
@@ -48,11 +49,23 @@ picking the work up needs.
 > - **`evidenceOnFileConfirmed` gates** the conclusion's "Evidence supporting these
 >   assertions can be found within the case file", and the front end now sets it: an
 >   optional tick on page 5 → an `EVIDENCE ON FILE` section in the PDF →
->   `extract_evidence_confirmation()` → the gate. **The extractor accepts only an
->   exact `Evidence on file: Confirmed`.** "Not confirmed" contains the word
->   "confirmed", so a looser match would turn a refusal into an assertion to the LAA;
->   a damaged line likewise reads as false and, unlike a criterion label, does not
->   stop the run. A pre-v1.11 PDF has no such section and correctly yields False.
+>   `extract_evidence_confirmation()` → the gate. **The status line and the sentence
+>   beneath it must agree** before this counts as confirmed. Either alone is one word
+>   from reversing its meaning — "Not confirmed" contains "confirmed", so losing a
+>   "Not " in transit would turn a refusal into an assertion to the LAA. Two strings
+>   that fail in opposite directions. Anything else reads as false and, unlike a
+>   criterion label, does not stop the run. A pre-v1.11 PDF has no such section and
+>   correctly yields False.
+> - **Anything printed into the PDF wraps, and wrapping is where this breaks.**
+>   jsPDF wraps at the column width and marks the continuation in no way at all.
+>   Two silent truncations were found this way and fixed: a Stage 1 label too long
+>   for one line matched nothing and *stopped the run* (every case ticking the
+>   vulnerable-client factor), and a long Case / Matter name reached the narrative
+>   truncated to its first line. `_resolve_wrapped_label` and `_wrapped_remainder`
+>   rejoin them. Rejoining a label is accepted **only on an exact match** against
+>   `content-data.js`, so a damaged label still stops the run rather than being
+>   repaired into the nearest thing that fits. If you add a long string to the PDF,
+>   test it at length.
 > - **`extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`.
 >   Nothing computes with it — the tool proposes no figure — but the ceiling under
 >   CAG 12.2 now reaches `narrative-input.json` instead of being visible only to a
@@ -71,8 +84,8 @@ App version **1.11** (4 August 2026) in `content-data.js`. Simon confirmed on
 1 August 2026 that narrator-only template additions do **not** bump it; this
 version moved because the Collator itself changed.
 
-**260 tests**, all passing (was 244 before the redesign), none touching the
-network. The 260 figure was verified under **WSL Python on 4 August 2026**;
+**270 tests**, all passing (was 244 before the redesign), none touching the
+network. The 270 figure was verified under **WSL Python on 4 August 2026**;
 **Windows Python has not been re-run since the redesign** — do that before
 trusting a Windows launcher. Command:
 
