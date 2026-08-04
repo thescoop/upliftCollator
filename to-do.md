@@ -1,5 +1,35 @@
 # TODO — Recalibrate the portal's suggested-percentage logic
 
+## CLOSED — 4 August 2026. Built, not just decided.
+
+**The suggested percentage no longer exists.** Removed in commit `fc0fe15` on branch
+`redesign/stage1-labels`: the calculation, the on-screen display, and the auto-fill that
+regex-grepped a number out of that display and typed it into the solicitor's box. The
+field now starts empty with no placeholder figure.
+
+Every checklist item below about the suggestion — the auto-fill regex trap, the display
+width, `UPLIFT_PERCENTAGE_GUIDANCE_TEXT`, the edge cases — is therefore **moot rather
+than done**. There is nothing left to calibrate because there is nothing left to
+calculate. `UPLIFT_PERCENTAGE_GUIDANCE_TEXT` was rewritten from scratch around what the
+guidance actually says.
+
+**Read `_PLAN.md`** for the accurate build status and what remains. This file is kept
+for the reasoning it records, not as a live checklist.
+
+Two things here are worth carrying forward, because they were right:
+
+- The "Honest unknowns" section at the bottom. "Other firms routinely claim 50-60%" was
+  never sourced, and the tool must not repeat unsourced market-norms claims. That
+  instinct is now policy: `_cag-section-12-verbatim.md` is the citation source of truth
+  and anything not in it is not established.
+- The observation that the app "authored her answer". That turned out to be the whole
+  diagnosis, and it applied in both directions — the April failure (10% suggested on a
+  30% case) and the August failure (five ticks hitting the cap) are the same bug.
+
+---
+
+**Original status (superseded):**
+
 **Status: SETTLED 4 August 2026 — and none of the three options below was chosen.**
 v1.9 shipped Option 1 (5% → 10% per factor) as a half-measure. Option 2 (a range)
 was the long-standing recommendation. Both were rejected: **the tool now suggests

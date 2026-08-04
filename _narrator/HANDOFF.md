@@ -29,11 +29,44 @@ picking the work up needs.
 
 ## Current state
 
-App version **1.10** (29 April 2026) in `content-data.js`. Simon confirmed on
-1 August 2026 that narrator-only template additions do **not** bump it.
+> **4 August 2026 — the Collator was redesigned, and it changed the narrator's
+> input.** Work is on branch **`redesign/stage1-labels`** (pushed; nothing on
+> `main`, so nothing is live). **`_PLAN.md` in the repo root carries the accurate
+> build status — read it before this file.** In short:
+>
+> - **Stage 1 collects no prose.** It is now 13 tick-only labels; explanations are
+>   collected at Stage 2 only. `skeleton.py` formats an explanation only where the
+>   template actually contains `{USER_EXPLANATION}`.
+> - **Stage 2 is seven blocks**, one per CAG 12.9 factor, with ticks carried
+>   forward from Stage 1.
+> - **`LEGACY_LABEL_ALIASES` in `content-data.js` is load-bearing.** `extract.py`
+>   matches by label *text*, and since `2ba3adb` an unmatched label stops the run.
+>   The redesign reworded every label, so without this map **every PDF already
+>   sitting in a live matter would fail to extract.** The retired keys deliberately
+>   remain in `NARRATIVE_TEMPLATES` so old PDFs render as they did when produced —
+>   do not tidy them away, and do not "modernise" their wording.
+> - **`evidenceOnFileConfirmed` now gates** the conclusion's "Evidence supporting
+>   these assertions can be found within the case file". The front end does not set
+>   it yet, so that sentence currently appears in **no** narrative. Building the
+>   confirmation control is the next job.
+> - Citations corrected throughout: `12.8.1/.2/.3` → `12.8(a)/(b)/(c)`; the
+>   comparison benchmark now quotes CAG 12.8 rather than "a fee earner of this
+>   level"; the Specification year is now 2024.
+> - **`_cag-section-12-verbatim.md` is the citation source of truth.** Check any
+>   new citation against it before writing it. Twelve fabricated or misattributed
+>   statements were found in this tool on 4 August 2026, all biased toward
+>   under-claiming.
+> - `templates.py`'s JS scanner is now comment-aware — it previously read the
+>   apostrophe in prose like "the solicitor's own words" as a string delimiter.
 
-**244 tests**, all passing, none touching the network. Verified on 4 August 2026
-under both WSL *and* Windows Python, with a clean working tree after either:
+App version **1.11** (4 August 2026) in `content-data.js`. Simon confirmed on
+1 August 2026 that narrator-only template additions do **not** bump it; this
+version moved because the Collator itself changed.
+
+**253 tests**, all passing (was 244 before the redesign), none touching the
+network. The 253 figure was verified under **WSL Python on 4 August 2026**;
+**Windows Python has not been re-run since the redesign** — do that before
+trusting a Windows launcher. Command:
 
 ```bash
 conda activate uplift-narrate
