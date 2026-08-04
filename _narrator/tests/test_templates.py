@@ -68,13 +68,13 @@ class ContentDataTests(unittest.TestCase):
     def test_labels_are_unique(self) -> None:
         # label_to_key_lookup raises if a label collides; this just exercises it.
         lookup = label_to_key_lookup()
-        # 32 live labels plus all 28 distinct pre-v1.11 labels.
-        self.assertEqual(len(lookup), 60)
+        # 34 live labels plus 40 distinct historical labels.
+        self.assertEqual(len(lookup), 74)
 
     def test_all_legacy_aliases_are_loaded_and_renderable(self) -> None:
         aliases = legacy_label_aliases()
         narrative_templates = load_content_data()["narrative_templates"]
-        self.assertEqual(len(aliases), 28)
+        self.assertEqual(len(aliases), 40)
         self.assertEqual(set(aliases.values()) - set(narrative_templates), set())
 
     def test_retired_legacy_keys_remain_in_narrative_templates(self) -> None:
@@ -85,14 +85,11 @@ class ContentDataTests(unittest.TestCase):
             for checkbox in block.get("checkboxes", [])
         }
         retired_keys = set(legacy_label_aliases().values()) - live_keys
-        self.assertEqual(len(retired_keys), 12)
+        self.assertEqual(len(retired_keys), 14)
         self.assertLessEqual(retired_keys, set(data["narrative_templates"]))
 
     def test_a_live_legacy_collision_names_both_keys(self) -> None:
-        live_label = (
-            "Applied unusually detailed knowledge of the law or procedure "
-            "relevant to this case"
-        )
+        live_label = "Applied unusually detailed knowledge relevant to this case"
         legacy_key = "s1_cse_difficult_argument"
         with mock.patch.object(
             templates_module,
@@ -106,10 +103,7 @@ class ContentDataTests(unittest.TestCase):
         self.assertIn(legacy_key, message)
 
     def test_an_agreeing_legacy_duplicate_keeps_the_live_mapping(self) -> None:
-        live_label = (
-            "Applied unusually detailed knowledge of the law or procedure "
-            "relevant to this case"
-        )
+        live_label = "Applied unusually detailed knowledge relevant to this case"
         live_key = "s1_cse_detailed_knowledge"
         with mock.patch.object(
             templates_module,

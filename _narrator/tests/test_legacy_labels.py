@@ -40,10 +40,7 @@ def _stage_text(stage: str, labels: list[tuple[str, str]]) -> str:
 class LegacyPdfCompatibilityTests(unittest.TestCase):
     def test_every_pre_v111_label_extracts_and_renders(self) -> None:
         aliases = legacy_label_aliases()
-        self.assertEqual(len(aliases), 28, "the historical contract was truncated")
-        self.assertEqual(
-            len(set(aliases.values())), 28, "two labels collapsed to one key"
-        )
+        self.assertEqual(len(aliases), 40, "the historical contract was truncated")
 
         label_keys = label_to_key_lookup()
         unrecognised: list[dict] = []
@@ -83,7 +80,7 @@ class LegacyPdfCompatibilityTests(unittest.TestCase):
         }
         narrative = build_skeleton(formdata)
         self.assertIn("Synthetic family matter: Synthetic case", narrative)
-        self.assertIn("Evidence supporting these assertions", narrative)
+        self.assertNotIn("Evidence supporting these assertions", narrative)
 
         # Resolution alone is not enough: every resolved historical criterion
         # must survive assembly. Retired templates are especially vulnerable

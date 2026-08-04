@@ -64,7 +64,33 @@ class SkeletonContentTests(unittest.TestCase):
 
     def test_concluding_paragraph_present(self) -> None:
         self.assertIn("made the work exceptional", self.markdown)
-        self.assertIn("Evidence supporting these assertions", self.markdown)
+        self.assertNotIn("Evidence supporting these assertions", self.markdown)
+
+    def test_evidence_sentence_requires_positive_confirmation(self) -> None:
+        unconfirmed = json.loads(FIXTURE.read_text())
+        unconfirmed["evidenceOnFileConfirmed"] = False
+        self.assertNotIn(
+            "Evidence supporting these assertions", build_skeleton(unconfirmed)
+        )
+
+        confirmed = json.loads(FIXTURE.read_text())
+        confirmed["evidenceOnFileConfirmed"] = True
+        self.assertIn(
+            "Evidence supporting these assertions can be found within the case file.",
+            build_skeleton(confirmed),
+        )
+
+    def test_confirmed_evidence_sentence_agrees_for_one_factor(self) -> None:
+        confirmed = json.loads(FIXTURE.read_text())
+        confirmed["stage1"] = dict(list(confirmed["stage1"].items())[:1])
+        confirmed["stage2"] = {}
+        confirmed["evidenceOnFileConfirmed"] = True
+        markdown = build_skeleton(confirmed)
+        self.assertIn(
+            "Evidence supporting this assertion can be found within the case file.",
+            markdown,
+        )
+        self.assertNotIn("these assertions", markdown)
 
     def test_optional_responsibility_block_can_be_absent(self) -> None:
         formdata = json.loads(FIXTURE.read_text())
@@ -73,11 +99,7 @@ class SkeletonContentTests(unittest.TestCase):
 
         self.assertNotIn("Degree of responsibility accepted", markdown)
         self.assertIn("**Care** (CAG 12.9(b)(i))", markdown)
-        self.assertTrue(
-            markdown.endswith(
-                "Evidence supporting these assertions can be found within the case file."
-            )
-        )
+        self.assertTrue(markdown.endswith("justifying the enhancement claimed."))
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ reviewer) to draw on the solicitor's verbatim explanation when filling them in.
 
 from __future__ import annotations
 
-from templates import legacy_label_aliases, load_content_data
+from templates import load_content_data
 
 
 # QUESTION_BLOCKS no longer contains the pre-v1.11 grouping, but old PDFs still
@@ -37,6 +37,7 @@ _LEGACY_BLOCKS = [
                 "s1_cse_difficult_argument",
                 "s1_cse_marshalling_evidence",
                 "s1_cse_effective_tactic",
+                "s1_cse_effective_tactic_or_better_result_legacy",
                 "s1_cse_less_time",
                 "s1_cse_better_result",
                 "s1_cse_vulnerable_client",
@@ -92,6 +93,7 @@ _LEGACY_BLOCKS = [
             for key in (
                 "s2_cse_care_skill",
                 "s2_cse_care_vulnerable_client",
+                "s2_care_effective_tactic_or_better_result_legacy",
                 "s2_cse_speed",
                 "s2_cse_economy_efficiency",
             )
@@ -228,11 +230,11 @@ def _build_stage(
 def _stage_blocks(section: dict, live_blocks: list[dict], page_num: int) -> list[dict]:
     """Choose the block structure belonging to the submitted PDF generation.
 
-    A legacy label proves the submission predates v1.11. A retired key proves
-    the same thing for a corrected/resumed JSON file whose label may have been
-    edited. In either case the old three-block Stage 2 structure is required to
-    reach its retained templates; current submissions use the seven CAG 12.9
-    factor blocks exactly as authored in QUESTION_BLOCKS.
+    A retired key proves that the old three-block Stage 2 structure is required
+    to reach its retained template. Historical label wording alone does not:
+    labels can change while their keys remain in the current seven-factor schema.
+    A corrected/resumed data file can contain both generations, so the result may
+    combine historical blocks with current-only criteria.
     """
     live_keys = {
         checkbox["key"]
@@ -240,18 +242,36 @@ def _stage_blocks(section: dict, live_blocks: list[dict], page_num: int) -> list
         if block.get("page") == page_num
         for checkbox in block.get("checkboxes", [])
     }
-    live_labels = {
-        checkbox["label"]
-        for block in live_blocks
+    # Labels can change without changing the block schema. Such labels live in
+    # LEGACY_LABEL_ALIASES for PDF extraction, but must still use the current
+    # blocks; selecting _LEGACY_BLOCKS merely because the wording is historical
+    # can drop a current key that never existed in the pre-v1.11 layout. A retired
+    # key, by contrast, is definitive evidence that the old layout is required.
+    is_legacy = any(key not in live_keys for key in section)
+    if not is_legacy:
+        return live_blocks
+
+    # A recovered/corrected data file can legitimately contain criteria from
+    # both schemas. Keep the historical layout for retired keys, then add only
+    # current-only keys so none disappears and shared keys are not duplicated.
+    legacy_keys = {
+        checkbox["key"]
+        for block in _LEGACY_BLOCKS
         if block.get("page") == page_num
         for checkbox in block.get("checkboxes", [])
     }
-    historical_only_labels = set(legacy_label_aliases()) - live_labels
-    is_legacy = any(
-        key not in live_keys or item.get("label") in historical_only_labels
-        for key, item in section.items()
-    )
-    return _LEGACY_BLOCKS if is_legacy else live_blocks
+    current_only_blocks = []
+    for block in live_blocks:
+        if block.get("page") != page_num:
+            continue
+        checkboxes = [
+            checkbox
+            for checkbox in block.get("checkboxes", [])
+            if checkbox["key"] not in legacy_keys
+        ]
+        if checkboxes:
+            current_only_blocks.append({**block, "checkboxes": checkboxes})
+    return _LEGACY_BLOCKS + current_only_blocks
 
 
 def build_skeleton(formdata: dict) -> str:
@@ -310,6 +330,10 @@ def build_skeleton(formdata: dict) -> str:
         sections.append(stage2_md)
 
     sections.append(_pick_by_count(templates, "conclusion", n_factors, "singular"))
+    if formdata.get("evidenceOnFileConfirmed"):
+        sections.append(
+            _pick_by_count(templates, "evidence_on_file", n_factors, "singular")
+        )
 
     return "\n\n".join(s.strip("\n") for s in sections if s.strip())
 
