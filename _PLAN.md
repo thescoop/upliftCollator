@@ -36,25 +36,43 @@ matching.
 **Not verified:** appearance in Acrobat, any browser other than Chromium, behaviour with
 `localStorage` disabled.
 
+### Done since — the evidence-on-file confirmation
+
+**Built and verified end to end.** A tick on page 5 sets `evidenceOnFileConfirmed`; the
+PDF carries an `EVIDENCE ON FILE` section; `_narrator/extract.py` reads it back; the
+narrator's existing gate does the rest. Driven in Chromium and round-tripped through
+`extract.py` and `build_skeleton` in both states: with the tick the narrative closes on
+the case-file sentence, without it the sentence is absent. **260 tests pass.**
+
+Three decisions banked while building it:
+
+- **The tick is optional** — Simon's call. It never touches the download button. A box
+  that must be ticked to proceed is a rubber stamp, worth no more than the automatic
+  sentence it replaced.
+- **The PDF prints the line in both states.** A line that appeared only when confirmed
+  would make silence mean two things: declined, or produced before the question existed.
+- **The extractor reads only an exact `Evidence on file: Confirmed`.** A declined or
+  damaged line reads as false, and unlike a criterion label it does *not* stop the run.
+  A missing sentence costs nothing; a false one is an unsupported assertion to the LAA.
+
+Item 4 below went with it: `extract.py` now reads the `Court:` line into
+`caseDetails.courtLevel`.
+
 ### Still outstanding
 
-1. **`evidenceOnFileConfirmed` has no UI yet.** The narrator only emits "Evidence
-   supporting these assertions can be found within the case file" when this field is
-   truthy, per Simon's decision that it must trace to a positive confirmation. Until the
-   front end sets it, **that sentence never appears in any narrative.** Build the tick on
-   the final page. This is the highest-priority remaining item because it silently
-   changes what every bill says.
-2. **Vendor the CDN libraries.** Still not done, and it matters more now: with the
+1. **Vendor the CDN libraries.** Still not done, and it matters more now: with the
    suggested percentage gone, the download button is the only output, so a firm blocking
-   `cdnjs` breaks the tool silently with no explanation.
-3. The merged editable narrative page, and `.docx` output. Untouched.
-4. `_narrator/extract.py` ignores the new `Court:` line the PDF now prints, so the bill
-   drafter's ceiling is only visible to a human reading the document. Nothing breaks.
-5. Terms clause 2 says data "is processed locally within the User's web browser" —
+   `cdnjs` breaks the tool silently with no explanation. Note when doing it:
+   **`jspdf-autotable` is never called anywhere in `script.js`** — delete that script
+   tag rather than vendoring it. `marked` is loaded from `npm/marked` with **no version
+   pin**, so an upstream release changes the live tool with no commit here; vendoring
+   fixes that as a side effect.
+2. The merged editable narrative page, and `.docx` output. Untouched.
+3. Terms clause 2 says data "is processed locally within the User's web browser" —
    true, and not contradicted by `localStorage`, but it does not mention that drafts now
    persist between sessions on a possibly shared machine. The on-page privacy note
    covers it; the Terms would be better with one sentence added.
-6. Judgement call made, reversible in one line: a **ticked** item in the optional
+4. Judgement call made, reversible in one line: a **ticked** item in the optional
    Responsibility section still requires its explanation. Only an untouched section is
    exempt. Change it if you would rather ticks there stood alone.
 

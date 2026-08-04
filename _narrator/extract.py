@@ -8,12 +8,14 @@ bullet+label, category, ``Explanation: ...``). We parse against that structure.
 Output shape mirrors the in-app ``formData``::
 
     {
-      "caseDetails": {"feeEarnerName": ..., "matterType": ..., "caseMatterName": ...},
+      "caseDetails": {"feeEarnerName": ..., "matterType": ..., "caseMatterName": ...,
+                      "courtLevel": ...},
       "panelMembership": {key: {"checked": True, "label": ...}, ...},
       "stage1": {key: {"checked": True, "label": ..., "explanation": ...,
                        "categoryTitle": ...}, ...},
       "stage2": {...},
-      "finalUpliftPercent": "75"
+      "finalUpliftPercent": "75",
+      "evidenceOnFileConfirmed": True
     }
 
 Labels are mapped back to QUESTION_BLOCKS keys via the lookup in
@@ -44,6 +46,10 @@ SECTION_PATTERNS: dict[str, re.Pattern[str]] = {
     "stage1": re.compile(r"^STAGE 1: THRESHOLD TEST SELECTIONS\s*$", re.MULTILINE),
     "stage2": re.compile(r"^STAGE 2: LEVEL OF ENHANCEMENT FACTORS\s*$", re.MULTILINE),
     "proposed_uplift": re.compile(r"^PROPOSED UPLIFT\s*$", re.MULTILINE),
+    # Added in v1.11. Absent from every earlier PDF, which is handled rather
+    # than guarded against: section_slice simply finds no match and the
+    # confirmation reads as false.
+    "evidence_on_file": re.compile(r"^EVIDENCE ON FILE\s*$", re.MULTILINE),
     "disclaimer": re.compile(r"^DISCLAIMER\s*$", re.MULTILINE),
 }
 
@@ -100,6 +106,11 @@ def extract_case_details(text: str) -> dict:
         (r"Fee Earner:\s+(.+)", "feeEarnerName"),
         (r"Matter Type:\s+(.+)", "matterType"),
         (r"Case / Matter Name:\s+(.+)", "caseMatterName"),
+        # Printed since v1.11 because it fixes the ceiling at 50% or 100%
+        # under CAG 12.2. Nothing here computes with it — this tool proposes
+        # no figure — but the person checking a narrative needs it beside the
+        # percentage claimed, and a PDF from before v1.11 simply yields "".
+        (r"Court:\s+(.+)", "courtLevel"),
     ]
     for pattern, key in pairs:
         m = re.search(pattern, block)
@@ -323,6 +334,24 @@ def extract_uplift_percent(text: str) -> str:
     block = section_slice(text, "proposed_uplift")
     m = re.search(r"Proposed Uplift Percentage:\s*([\d.]+)\s*%", block)
     return m.group(1) if m else ""
+
+
+def extract_evidence_confirmation(text: str) -> bool:
+    """Whether the fee earner confirmed that the case file holds the evidence.
+
+    Read strictly, and defaulting to False in every doubtful case. The
+    narrative sentence this gates is an assertion to the LAA about the state
+    of a file none of us has seen, so it must trace to a tick the solicitor
+    actually made. A PDF produced before v1.11 has no such line, was never
+    asked the question, and correctly comes back False — as does a damaged
+    line we cannot read with certainty. The cost of a false negative is one
+    absent sentence; the cost of a false positive is an unsupported assertion
+    in a document going to the LAA under the solicitor's name.
+    """
+    block = section_slice(text, "evidence_on_file")
+    if not block:
+        return False
+    return bool(re.search(r"Evidence on file:\s*Confirmed\b", block, re.IGNORECASE))
 
 
 # Below this, whatever pdfplumber recovered is noise — a stray glyph, a
@@ -628,6 +657,7 @@ def extract_formdata(pdf_path: str | Path) -> dict:
         "stage1": extract_criteria(text, "stage1", label_keys, unmatched),
         "stage2": extract_criteria(text, "stage2", label_keys, unmatched),
         "finalUpliftPercent": extract_uplift_percent(text),
+        "evidenceOnFileConfirmed": extract_evidence_confirmation(text),
     }
     if unmatched:
         data["unrecognised"] = unmatched

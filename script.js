@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let stage1ThresholdBannerEl;
     let stage2ContainerOnPage3, stage2IntroNoteEl;
     let reviewSummaryEl, finalProposedUpliftPercentEl, upliftCeilingStatementEl, finalUpliftGuidanceButton;
+    let evidenceOnFileConfirmedEl;
     let draftRestoredBannerEl, draftRestoredMessageEl, discardDraftButtonEl;
     let helpModal, closeHelpModalButton, markdownMissingMsgMainEl, helpContentDiv;
     let upliftGuidanceModal, closeUpliftGuidanceModalButton, markdownMissingMsgUpliftEl, upliftGuidanceContentDiv;
@@ -41,7 +42,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const formElements = {};
     const formData = {
         caseDetails: { feeEarnerName: "", matterType: "", caseMatterName: "", courtLevel: "" },
-        panelMembership: {}, stage1: {}, stage2: {}, finalUpliftPercent: ""
+        panelMembership: {}, stage1: {}, stage2: {}, finalUpliftPercent: "",
+        // Whether the solicitor has confirmed that the file holds evidence for
+        // what they have written. Defaults to false and is only ever set by
+        // the tick on page 5: the narrator emits its case-file sentence only
+        // where this is true, so an unanswered question must read as "no",
+        // never as "probably".
+        evidenceOnFileConfirmed: false
     };
     let currentPageIndex = 0;
     const MIN_EXPLANATION_WORDS = 10;
@@ -107,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         finalProposedUpliftPercentEl = document.getElementById('finalProposedUpliftPercent');
         upliftCeilingStatementEl = document.getElementById('upliftCeilingStatement');
         finalUpliftGuidanceButton = document.getElementById('finalUpliftHelpLink');
+        evidenceOnFileConfirmedEl = document.getElementById('evidenceOnFileConfirmed');
 
         draftRestoredBannerEl = document.getElementById('draftRestoredBanner');
         draftRestoredMessageEl = document.getElementById('draftRestoredMessage');
@@ -598,6 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveFinalUpliftFromDom() {
         if (finalProposedUpliftPercentEl) formData.finalUpliftPercent = finalProposedUpliftPercentEl.value;
+        if (evidenceOnFileConfirmedEl) formData.evidenceOnFileConfirmed = evidenceOnFileConfirmedEl.checked;
     }
 
     function saveCurrentPageData() {
@@ -1184,6 +1193,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else { summaryHtml += "<p><em>No Stage 2 factors selected.</em></p>"; }
         }
+
+        // Shown even when it has not been ticked yet, because the review page
+        // is read before page 5 and this is where the solicitor learns the
+        // question exists. Reading "not confirmed" here and doing nothing about
+        // it is a decision; never seeing the line is an accident.
+        summaryHtml += "<h3>Evidence on File:</h3>";
+        summaryHtml += formData.evidenceOnFileConfirmed
+            ? "<p>Confirmed — the narrative will state that evidence supporting these assertions can be found within the case file.</p>"
+            : "<p><em>Not confirmed. The narrative will not state that evidence is held on the case file. You can confirm it on the next page.</em></p>";
+
         if (reviewSummaryEl) reviewSummaryEl.innerHTML = summaryHtml;
     }
 
@@ -1465,6 +1484,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
             }
 
+            // ── EVIDENCE ON FILE ───────────────────────────────────────────────
+            //
+            // Printed in both states, and never omitted. _narrator/extract.py
+            // reads this line to decide whether the narrative may state that
+            // the file holds supporting evidence, and a line that appeared only
+            // when confirmed would make "no line" mean two different things:
+            // the solicitor declined, or the PDF predates v1.11. The extractor
+            // treats an absent line as not confirmed, which is right for the
+            // old documents and would be wrong for a new one.
+            addSectionHeader("Evidence on File");
+            addText(
+                "Evidence on file: " +
+                (formData.evidenceOnFileConfirmed ? "Confirmed" : "Not confirmed"),
+                { size: bodySize, spaceAfter: 4 }
+            );
+            addText(
+                formData.evidenceOnFileConfirmed
+                    ? "The fee earner confirms that evidence supporting the matters set out above is held on the case file."
+                    : "The fee earner has not confirmed that supporting evidence is held on the case file. The narrative will not assert that it is.",
+                { size: bodySize, italic: true, color: midGrey, spaceAfter: 6 }
+            );
+
             // ── DISCLAIMER ─────────────────────────────────────────────────────
             currentY += sectionGap;
 
@@ -1549,8 +1590,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         formData.caseDetails = { feeEarnerName: "", matterType: "", caseMatterName: "", courtLevel: "" };
         formData.panelMembership = {}; formData.stage1 = {}; formData.stage2 = {}; formData.finalUpliftPercent = "";
+        formData.evidenceOnFileConfirmed = false;
 
         [feeEarnerNameEl, caseMatterNameEl, finalProposedUpliftPercentEl].forEach(el => {if(el) el.value = '';});
+        // Not in `formElements`, so the loop below does not reach it. A
+        // confirmation carried over from the last case would be a statement
+        // about a file nobody has looked at.
+        if(evidenceOnFileConfirmedEl) evidenceOnFileConfirmedEl.checked = false;
         if(matterTypeEl) matterTypeEl.value = "";
         if(courtLevelEl) courtLevelEl.value = "";
 
@@ -1628,6 +1674,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 courtLevel: courtLevelEl ? courtLevelEl.value : ""
             },
             finalUpliftPercent: finalProposedUpliftPercentEl ? finalProposedUpliftPercentEl.value : "",
+            evidenceOnFileConfirmed: evidenceOnFileConfirmedEl ? evidenceOnFileConfirmedEl.checked : false,
             checked: checked,
             explanations: explanations
         };
@@ -1703,6 +1750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (matterTypeEl) matterTypeEl.value = caseDetails.matterType || "";
         if (courtLevelEl) courtLevelEl.value = caseDetails.courtLevel || "";
         if (finalProposedUpliftPercentEl) finalProposedUpliftPercentEl.value = draft.finalUpliftPercent || "";
+        if (evidenceOnFileConfirmedEl) evidenceOnFileConfirmedEl.checked = draft.evidenceOnFileConfirmed === true;
 
         (Array.isArray(draft.checked) ? draft.checked : []).forEach(key => {
             if (formElements[key] && formElements[key].checkbox) formElements[key].checkbox.checked = true;
@@ -1849,6 +1897,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 validateField(finalProposedUpliftPercentEl, 'number');
                 updateCeilingBreachWarning();
                 checkAllPlaceholdersAndExplanations();
+                persistDraft();
+            });
+        }
+
+        // No call to checkAllPlaceholdersAndExplanations here, and that is the
+        // decision rather than an omission: this tick is optional, so it can
+        // never change whether the download button is enabled.
+        if (evidenceOnFileConfirmedEl) {
+            evidenceOnFileConfirmedEl.addEventListener('change', () => {
+                saveFinalUpliftFromDom();
                 persistDraft();
             });
         }

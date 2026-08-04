@@ -45,10 +45,18 @@ picking the work up needs.
 >   sitting in a live matter would fail to extract.** The retired keys deliberately
 >   remain in `NARRATIVE_TEMPLATES` so old PDFs render as they did when produced —
 >   do not tidy them away, and do not "modernise" their wording.
-> - **`evidenceOnFileConfirmed` now gates** the conclusion's "Evidence supporting
->   these assertions can be found within the case file". The front end does not set
->   it yet, so that sentence currently appears in **no** narrative. Building the
->   confirmation control is the next job.
+> - **`evidenceOnFileConfirmed` gates** the conclusion's "Evidence supporting these
+>   assertions can be found within the case file", and the front end now sets it: an
+>   optional tick on page 5 → an `EVIDENCE ON FILE` section in the PDF →
+>   `extract_evidence_confirmation()` → the gate. **The extractor accepts only an
+>   exact `Evidence on file: Confirmed`.** "Not confirmed" contains the word
+>   "confirmed", so a looser match would turn a refusal into an assertion to the LAA;
+>   a damaged line likewise reads as false and, unlike a criterion label, does not
+>   stop the run. A pre-v1.11 PDF has no such section and correctly yields False.
+> - **`extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`.
+>   Nothing computes with it — the tool proposes no figure — but the ceiling under
+>   CAG 12.2 now reaches `narrative-input.json` instead of being visible only to a
+>   human reading the PDF.
 > - Citations corrected throughout: `12.8.1/.2/.3` → `12.8(a)/(b)/(c)`; the
 >   comparison benchmark now quotes CAG 12.8 rather than "a fee earner of this
 >   level"; the Specification year is now 2024.
@@ -63,8 +71,8 @@ App version **1.11** (4 August 2026) in `content-data.js`. Simon confirmed on
 1 August 2026 that narrator-only template additions do **not** bump it; this
 version moved because the Collator itself changed.
 
-**253 tests**, all passing (was 244 before the redesign), none touching the
-network. The 253 figure was verified under **WSL Python on 4 August 2026**;
+**260 tests**, all passing (was 244 before the redesign), none touching the
+network. The 260 figure was verified under **WSL Python on 4 August 2026**;
 **Windows Python has not been re-run since the redesign** — do that before
 trusting a Windows launcher. Command:
 

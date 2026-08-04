@@ -360,6 +360,24 @@ textarea.explanation-input.needs-attention { border: 2px solid orange !important
 }
 .final-uplift-group label { font-size: 1.1em; font-weight: bold; margin-bottom: 10px; display: block; color: #222;}
 
+/* Evidence on file — the one optional control on the final page. Styled like
+   the uplift box above it so it reads as part of finalising, not as an
+   afterthought bolted below. */
+.evidence-on-file-group {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+.evidence-on-file-group h4 { margin: 0 0 12px 0; font-size: 1.1em; color: #222; }
+/* The label wraps to two or three lines, so the box sits against the first
+   line rather than floating in the middle of the sentence, and never shrinks
+   as the text reflows. */
+.evidence-on-file-group .checkbox-label-container { align-items: flex-start; line-height: 1.4; }
+.evidence-on-file-group .checkbox-label-container input[type="checkbox"] { flex: 0 0 auto; margin-top: 3px; }
+.evidence-on-file-group .form-text-muted-newline { margin-top: 10px; }
+
 
 /* Footer */
 .wb-footer {

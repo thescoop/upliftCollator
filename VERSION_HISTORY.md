@@ -84,6 +84,15 @@ impossible.
 - The form now asks **which court**. The ceiling is 50%, but 100% in the High Court,
   Upper Tribunal, Court of Appeal or Supreme Court (CAG 12.2). The tool never asked, so
   it silently halved the ceiling for anyone above the County Court.
+- **The narrative may now state that supporting evidence is on the case file only where
+  the solicitor has said so.** The finished narrative can close "Evidence supporting
+  these assertions can be found within the case file" — an assertion to the LAA about
+  the state of a file, made under the fee earner's name, which earlier versions added
+  automatically to every narrative whether or not anyone had considered it. A tick on
+  the final page now carries it, and the sentence is omitted without one. The tick is
+  deliberately **optional**: a box that must be ticked to proceed is a rubber stamp, and
+  a stamped confirmation is worth no more than the automatic sentence it replaces.
+  Leaving it untouched costs one sentence and blocks nothing.
 - Panel membership keeps its question, because CAG 12.22 requires the narrative to name
   the fee-earner and the basis, but it no longer feeds any calculation. The guaranteed
   15% (12.20) is applied at bill-drafting and is not payable in addition to a general
@@ -110,6 +119,22 @@ impossible.
   own words" as an opening string delimiter, which made every following brace invisible
   and produced a bracket-counting error that gave no hint of the real cause.
 - `content-data.js`: `APP_VERSION` 1.10 → 1.11, `APP_RELEASE_DATE` to 4 August 2026.
+- The evidence confirmation spans four files, because a tick in a browser reaches the
+  narrative only through the PDF: the control in `index.html`, `formData
+  .evidenceOnFileConfirmed` and an `EVIDENCE ON FILE` section in `script.js`,
+  `extract_evidence_confirmation()` in `_narrator/extract.py`, and the existing gate in
+  `_narrator/skeleton.py`. The PDF prints the line in **both** states, because a line
+  present only when confirmed would leave silence meaning two different things — the
+  solicitor declined, or the PDF predates the question. The extractor reads only an
+  exact `Evidence on file: Confirmed`, so a declined or damaged line reads as false: an
+  absent sentence costs nothing, an unsupported one is a false statement to the LAA.
+- `_narrator/extract.py` now also reads the `Court:` line into
+  `caseDetails.courtLevel`. It has been printed since v1.11 but never read, so the
+  ceiling that applies to a claim was visible only to a human reading the PDF. Nothing
+  computes with it; it belongs in `narrative-input.json` beside the percentage claimed.
+- **260 tests** pass (was 253). The new ones fix the reading of the confirmation in the
+  direction that matters: "Not confirmed" contains the word "confirmed", so a looser
+  search would read a refusal as a confirmation.
 
 **Deliberately NOT changed — do not "fix" these:**
 - The 2024 Costs Assessment Guidance and the Standard Civil Contract Specification are

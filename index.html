@@ -259,6 +259,43 @@
                         </small>
                     </div>
 
+                    <!--
+                        EVIDENCE ON FILE — v1.11.
+
+                        The finished narrative can close with "Evidence supporting these
+                        assertions can be found within the case file." That sentence is an
+                        assertion to the LAA about the state of the file, so it is emitted
+                        only where the solicitor has positively confirmed it here — the
+                        narrator gates on `evidenceOnFileConfirmed` and says nothing
+                        otherwise.
+
+                        Deliberately NOT required before download. A box that must be
+                        ticked to proceed is a rubber stamp, and a stamped confirmation is
+                        worth no more than the automatic sentence it replaced. Leaving it
+                        unticked costs one sentence and blocks nothing.
+
+                        The tick is printed into the PDF in both states, because silence
+                        would be ambiguous between "declined" and "made before this
+                        question existed".
+                    -->
+                    <div class="form-group evidence-on-file-group">
+                        <h4>Evidence on file</h4>
+                        <div class="checkbox-item-container">
+                            <label class="checkbox-label-container" for="evidenceOnFileConfirmed">
+                                <input type="checkbox" id="evidenceOnFileConfirmed"
+                                       aria-describedby="evidenceOnFileNote">
+                                I confirm that evidence supporting the matters set out above
+                                is held on the case file.
+                            </label>
+                        </div>
+                        <p id="evidenceOnFileNote" class="form-text-muted-newline">
+                            Optional. Tick this and the narrative will close by stating that
+                            evidence supporting these assertions can be found within the case
+                            file. Leave it untouched and that sentence is left out — nothing
+                            else changes, and you can still download your summary.
+                        </p>
+                    </div>
+
                     <div class="page-instruction">
                         <h4>Next Steps & PDF Summary</h4>
                         <p>
