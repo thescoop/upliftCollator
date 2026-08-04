@@ -19,7 +19,17 @@ CONTENT_DATA_PATH = Path(__file__).resolve().parent.parent / "content-data.js"
 
 
 def _extract_balanced(source: str, name: str, opening: str, closing: str) -> str:
-    """Find ``const NAME = <opening>...<closing>`` and return the JS literal."""
+    """Find ``const NAME = <opening>...<closing>`` and return the JS literal.
+
+    The scanner must skip comments, not just strings. content-data.js is heavily
+    commented — the comments explain which CAG paragraph each label derives from,
+    which is the whole defence against the misattributions found on 4 August 2026 —
+    and English prose is full of apostrophes ("the solicitor's own words"). Treating
+    one of those as an opening quote makes every following brace invisible, and the
+    scan then runs off the end of the file with a bracket-counting error that gives
+    no hint of the real cause. Backticks count too: NARRATIVE_TEMPLATES sits above
+    several template literals.
+    """
     marker = f"const {name}"
     idx = source.find(marker)
     if idx < 0:
@@ -32,7 +42,8 @@ def _extract_balanced(source: str, name: str, opening: str, closing: str) -> str
     depth = 0
     in_string: str | None = None
     i = open_idx
-    while i < len(source):
+    n = len(source)
+    while i < n:
         ch = source[i]
         if in_string:
             if ch == "\\":
@@ -40,8 +51,18 @@ def _extract_balanced(source: str, name: str, opening: str, closing: str) -> str
                 continue
             if ch == in_string:
                 in_string = None
+        elif ch == "/" and i + 1 < n and source[i + 1] == "/":
+            nl = source.find("\n", i)
+            i = n if nl < 0 else nl
+            continue
+        elif ch == "/" and i + 1 < n and source[i + 1] == "*":
+            end = source.find("*/", i + 2)
+            if end < 0:
+                raise ValueError(f"unterminated block comment while scanning {name}")
+            i = end + 2
+            continue
         else:
-            if ch in ('"', "'"):
+            if ch in ('"', "'", "`"):
                 in_string = ch
             elif ch == opening:
                 depth += 1

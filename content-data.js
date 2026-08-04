@@ -2,7 +2,7 @@
 // This file stores the static data for the LAA Uplift Data Capture Web Application.
 
 // Version Information
-const APP_VERSION = "1.10";
+const APP_VERSION = "1.11";
 const APP_RELEASE_DATE = "29 April 2026";
 const APP_NAME = "Uplift Collator";
 
@@ -28,44 +28,129 @@ const ACCEPTABLE_PASSWORDS_NORMALIZED = [
 // Placeholders: {UPLIFT_PERCENT}, {ITEM_OF_WORK}, {FEE_EARNER_NAME}, {PANEL_NAME}, {USER_EXPLANATION}
 // {ITEM_OF_WORK} will be: formData.caseDetails.matterType + ": " + formData.caseDetails.caseMatterName
 // {USER_EXPLANATION} will be replaced by the solicitor's text, formatted as a blockquote.
+// --- NARRATIVE TEMPLATES ---
+//
+// Rewritten 4 August 2026 with the v1.11 redesign. Three classes of correction
+// were made at the same time, all verified against `_cag-section-12-verbatim.md`:
+//
+//  1. CITATIONS. The limb headers cited "CAG Section 12.8.1 / 12.8.2 / 12.8.3".
+//     No such paragraphs exist — the guidance numbers its sub-limbs 12.8(a),
+//     12.8(b) and 12.8(c). Six citations were wrong in this object alone.
+//  2. THE COMPARISON BENCHMARK. The conclusion claimed the work was exceptional
+//     "beyond that normally expected for a fee earner of this level". CAG 12.8
+//     says the comparison is "with the generality of legally aided proceedings to
+//     which the prescribed rates apply", and 12.11 expressly rejects comparing
+//     solely within the same category or type of proceedings. The old wording
+//     measured the case against the wrong yardstick, and against that yardstick
+//     hard work looks ordinary.
+//  3. THE SPECIFICATION YEAR. The intro said "2018 Standard Civil Contract
+//     Specification". Every "Spec Para" number quoted here was taken from the 2024
+//     CAG, whose definitions section (PDF page 4) states: '"the Specification"
+//     means the 2024 Standard Civil Contract Specification'. The string "2018"
+//     appears nowhere in the CAG. Corrected to 2024 on Simon's decision,
+//     4 August 2026.
+//
+// RETIRED KEYS. Five Stage 1 keys and several Stage 2 keys left QUESTION_BLOCKS in
+// the redesign but REMAIN HERE deliberately, at the bottom of the object. PDFs
+// already sitting in live matters contain those criteria, and `_narrator/` must
+// keep rendering them exactly as it did when they were produced. They are no longer
+// offered to new users. Do not delete them; see LEGACY_LABEL_ALIASES.
 const NARRATIVE_TEMPLATES = {
     // Singular variants, added 1 August 2026. A claim resting on one factor is
     // common, and the plural wording does not merely read awkwardly there — a
     // single factor cannot be weighed "individually and/or cumulatively", which
     // is the sentence carrying the whole justification. skeleton.py picks by
     // count; see _pick_by_count().
-    "intro": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factors, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2018 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
-    "intro_singular": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factor, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2018 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
+    "intro": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factors, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2024 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
+    "intro_singular": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factor, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2024 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
     "panel_membership": "**Panel Membership (CAG Section 12.20-12.23):**\nA minimum enhancement of 15% is claimed as the fee earner ({FEE_EARNER_NAME}) is a member of the {PANEL_NAME}, and the work undertaken falls within the scope of this accreditation. This is a guaranteed minimum enhancement.",
     "panel_membership_plural": "**Panel Membership (CAG Section 12.20-12.23):**\nA minimum enhancement of 15% is claimed as the fee earner ({FEE_EARNER_NAME}) is a member of the {PANEL_NAME}, and the work undertaken falls within the scope of those accreditations. This is a guaranteed minimum enhancement.",
-    "threshold_intro_narrative": "\n**LAA Threshold Test (Qualifying for Enhancement - Spec Para 6.13 / CAG Section 12.4):**\nThe work meets the threshold for enhancement because:",
-    "s1_competence_skill_expertise_header_narrative": "  The work was done with **exceptional competence, skill, or expertise** (Spec Para 6.13(a) / CAG Section 12.8.1) as evidenced by:",
-    "s1_cse_detailed_knowledge": "    - Unusually detailed knowledge relevant to [SPECIFY AREA OF KNOWLEDGE/CASE ASPECT] was demonstrated and applied.{USER_EXPLANATION}",
-    "s1_cse_difficult_argument": "    - A [UNUSUAL/DIFFICULT] legal argument concerning [SPECIFY ARGUMENT] was skilfully pursued.{USER_EXPLANATION}",
-    "s1_cse_marshalling_evidence": "    - Unusual skill was shown in identifying and marshalling complex/ voluminous evidence relating to [SPECIFY EVIDENCE].{USER_EXPLANATION}",
-    "s1_cse_effective_tactic": "    - A particularly effective tactic ([SPECIFY TACTIC]) was identified and implemented, significantly benefiting the client's case.{USER_EXPLANATION}",
-    "s1_cse_less_time": "    - The work was completed in significantly less time than reasonably expected due to exceptional efficiency/expertise in [SPECIFY TASK].{USER_EXPLANATION}",
-    "s1_cse_better_result": "    - A better result ([SPECIFY RESULT]) was achieved than might usually have been expected, directly attributable to the exceptional skill applied.{USER_EXPLANATION}",
-    "s1_cse_vulnerable_client": "    - Exceptional skill was required and demonstrated in taking instructions from and/or providing effective representation for a client who was [A CHILD/SERIOUSLY MENTALLY ILL/OTHERWISE VERY VULNERABLE - SPECIFY], requiring [SPECIFY ADAPTATIONS].{USER_EXPLANATION}",
-    "s1_exceptional_speed_header_narrative": "  The work was done with **exceptional speed** (Spec Para 6.13(b) / CAG Section 12.8.2) as evidenced by:",
-    "s1_speed_proactive_pursuit": "    - The case was proactively pursued, resulting in [OBTAINING RE-HOUSING/INJUNCTION/ETC.] with unusual speed.{USER_EXPLANATION}",
-    "s1_speed_urgent_deadlines": "    - Substantial work was necessarily undertaken at very short notice ([SPECIFY TIMEFRAME]) due to urgent and unavoidable deadlines concerning [SPECIFY URGENT MATTER].{USER_EXPLANATION}",
-    "s1_exceptional_circumstances_complexity_header_narrative": "  The case involved **exceptional circumstances, novelty, weight, or complexity** (Spec Para 6.13(c) / CAG Section 12.8.3) as evidenced by:",
-    "s1_circ_legal_issues": "    - Complex legal issues arose concerning [SPECIFY LEGAL ISSUES].{USER_EXPLANATION}",
-    "s1_circ_expert_evidence": "    - Complex questions of expert evidence from [NUMBER] experts in [FIELD(S)] required careful analysis.{USER_EXPLANATION}",
-    "s1_circ_evidential_issues": "    - Significant evidential issues, such as [SEEKING/CHALLENGING EVIDENCE/TRACING ASSETS], added to the complexity.{USER_EXPLANATION}",
-    "s1_circ_difficult_instructions": "    - Difficulty in taking instructions from the client or key witnesses due to [LANGUAGE BARRIERS/TRAUMA/ETC.] required specialist handling.{USER_EXPLANATION}",
-    "s1_circ_client_impact": "    - The nature of the issues had an exceptional impact on the client, involving [LIBERTY/RIGHT TO REMAIN/HOUSING SECURITY/ETC.].{USER_EXPLANATION}",
-    "s1_circ_out_of_hours": "    - Substantial and unavoidable out-of-hours work was required on [SPECIFIC DATES/NATURE OF WORK].{USER_EXPLANATION}",
-    "s1_circ_novelty": "    - The case presented novel points of law or a unique factual matrix concerning [SPECIFY NOVEL ASPECTS].{USER_EXPLANATION}",
-    "s1_circ_weight_volume": "    - The sheer volume of documentation ([APPROX PAGES/FILES]) or number of distinct issues ([NUMBER]) constituted exceptional weight.{USER_EXPLANATION}",
+
+    // --- Stage 1: the threshold test -------------------------------------------
+    // Stage 1 is pass/fail (CAG 12.4) and earns nothing, so its contribution to the
+    // narrative is deliberately brief: it states the claim, and Stage 2 evidences
+    // it. CAG 12.7 expects exactly that overlap ("There is clearly some overlap
+    // between the factors that will justify enhancement under the 'threshold test'
+    // and the factors determining the level of enhancement"). These templates
+    // therefore carry no {USER_EXPLANATION} — from v1.11 Stage 1 collects no prose.
+    "threshold_intro_narrative": "\n**LAA Threshold Test (Qualifying for Enhancement - Spec Para 6.13 / CAG Section 12.4):**\nThe work meets the threshold for enhancement because, compared with the generality of legally aided proceedings to which the prescribed rates apply:",
+    "s1_competence_skill_expertise_header_narrative": "  The work was done with **exceptional competence, skill or expertise** (Spec Para 6.13(a) / CAG Section 12.8(a)):",
+    "s1_cse_detailed_knowledge": "    - Unusually detailed knowledge of the law or procedure relevant to this case was applied.",
+    "s1_cse_difficult_argument": "    - An unusual or difficult legal argument was pursued.",
+    "s1_cse_marshalling_evidence": "    - Evidence was identified and marshalled with unusual skill.",
+    "s1_cse_effective_tactic": "    - A particularly effective tactic was adopted, or the case was conducted so well that the client obtained a better result than would usually be expected.",
+    "s1_cse_less_time": "    - The work was completed in materially less time than a reasonable fee earner would ordinarily have required.",
+    "s1_cse_vulnerable_client": "    - Instructions were taken from, and effective representation provided for, a client who was a child, seriously mentally unwell or otherwise very vulnerable, requiring unusual skill.",
+    "s1_exceptional_speed_header_narrative": "  The work was done with **exceptional speed** (Spec Para 6.13(b) / CAG Section 12.8(b)):",
+    "s1_speed_proactive_pursuit": "    - A resolution of the client's problem was proactively obtained with unusual speed.",
+    "s1_speed_urgent_deadlines": "    - Substantial work was carried out at short notice to meet an urgent deadline or hearing.",
+    "s1_exceptional_circumstances_complexity_header_narrative": "  The case involved **exceptional circumstances or complexity** (Spec Para 6.13(c) / CAG Section 12.8(c)):",
+    "s1_circ_legal_issues": "    - The legal, expert or other evidential issues were exceptionally complex.",
+    "s1_circ_difficult_instructions": "    - Taking instructions from the client or other witnesses was exceptionally difficult.",
+    "s1_circ_client_impact": "    - The issues affecting the client gave rise to exceptional circumstances.",
+    "s1_circ_out_of_hours": "    - The case required substantial out-of-hours work in exceptional circumstances.",
+
+    // --- Stage 2: the level of enhancement --------------------------------------
+    // One header per factor in CAG 12.9. There are exactly seven, which 12.10
+    // confirms when it refers to "the above seven factors".
     "stage2_intro_narrative": "\n**Determining the Level of Enhancement (Justifying the % - Spec Para 6.15 / CAG Section 12.5 & 12.9):**\nOnce the threshold test is met, the level of enhancement is justified by the following factors:",
     "stage2_intro_narrative_singular": "\n**Determining the Level of Enhancement (Justifying the % - Spec Para 6.15 / CAG Section 12.5 & 12.9):**\nOnce the threshold test is met, the level of enhancement is justified by the following factor:",
-    "s2_responsibility_header_narrative": "  **Degree of Responsibility accepted by the fee earner** (CAG 12.9(a)):",
-    "s2_resp_no_counsel_analysis": "    - Significant analytical and case planning work was undertaken without recourse to Counsel.{USER_EXPLANATION}",
-    "s2_resp_no_counsel_drafting": "    - Complex drafting ([SPECIFY DOCUMENTS]) was undertaken without recourse to Counsel.{USER_EXPLANATION}",
-    "s2_resp_no_counsel_advocacy": "    - Advocacy in [SPECIFY HEARINGS] was undertaken without recourse to Counsel.{USER_EXPLANATION}",
-    "s2_resp_addressed_expert_issues": "    - The fee earner addressed complex evidential/expert issues ([SPECIFY]) that might otherwise have required separate expert instruction.{USER_EXPLANATION}",
+
+    "s2_care_header_narrative": "  **Care** (CAG 12.9(b)(i)):",
+    "s2_care_detailed_knowledge": "    - Unusually detailed knowledge of the law or procedure was applied to this case.{USER_EXPLANATION}",
+    "s2_care_marshalling_evidence": "    - Evidence was identified and marshalled with unusual skill.{USER_EXPLANATION}",
+    "s2_care_effective_tactic": "    - A particularly effective tactic was adopted, producing a better result than would usually be expected.{USER_EXPLANATION}",
+    "s2_care_vulnerable_client": "    - Particular care was required and shown in dealing with a vulnerable client.{USER_EXPLANATION}",
+
+    "s2_speed_header_narrative": "  **Speed** (CAG 12.9(b)(ii)):",
+    "s2_speed_proactive_pursuit": "    - The case was proactively pursued, obtaining a resolution with unusual speed.{USER_EXPLANATION}",
+    "s2_speed_urgent_deadlines": "    - Substantial work was carried out at short notice to meet an urgent deadline or hearing.{USER_EXPLANATION}",
+    "s2_speed_out_of_hours": "    - Substantial out-of-hours work was required.{USER_EXPLANATION}",
+
+    "s2_efficiency_header_narrative": "  **Efficiency** (CAG 12.9(b)(iii)):",
+    "s2_efficiency_less_time": "    - Less time was claimed than might otherwise have been expected.{USER_EXPLANATION}",
+
+    "s2_novelty_header_narrative": "  **Novelty** (CAG 12.9(c)(i)):",
+    "s2_novelty_difficult_argument": "    - The case involved a novel point of law or legal context.{USER_EXPLANATION}",
+
+    "s2_weight_header_narrative": "  **Weight** (CAG 12.9(c)(ii)):",
+    "s2_weight_client_importance": "    - The case was of exceptional importance to the client.{USER_EXPLANATION}",
+    "s2_weight_volume": "    - The volume of documentation or other material, or the number of issues arising, was exceptional.{USER_EXPLANATION}",
+
+    "s2_complexity_header_narrative": "  **Complexity** (CAG 12.9(c)(iii)):",
+    "s2_complexity_legal_issues": "    - The legal, expert or other evidential issues were exceptionally complex.{USER_EXPLANATION}",
+    "s2_complexity_difficult_instructions": "    - Taking instructions from the client or other witnesses was exceptionally difficult.{USER_EXPLANATION}",
+
+    // Degree of Responsibility closes the narrative. It is the only factor in 12.9
+    // describing the shape of the whole retainer rather than a single event, and
+    // CAG 12.16 uses the same framing (whether counsel "does take an unusual share
+    // of the load on a case"). It is ALSO the factor that may legitimately be
+    // absent: where counsel was instructed throughout there is little to claim
+    // (12.16 — "any claim for enhancement may be more difficult for the provider to
+    // justify"), and a forced closing paragraph would end the narrative on its
+    // weakest point. skeleton.py omits the whole block when nothing is ticked.
+    "s2_responsibility_header_narrative": "  **Degree of responsibility accepted by the fee earner** (CAG 12.9(a)):",
+    "s2_resp_no_counsel_analysis": "    - Significant analysis and planning of the case was undertaken without recourse to counsel.{USER_EXPLANATION}",
+    "s2_resp_no_counsel_drafting": "    - Complex drafting was undertaken without recourse to counsel.{USER_EXPLANATION}",
+    "s2_resp_no_counsel_advocacy": "    - Advocacy was undertaken without recourse to counsel.{USER_EXPLANATION}",
+    "s2_resp_addressed_expert_issues": "    - Evidential issues were identified or addressed that might otherwise have incurred the time of an expert.{USER_EXPLANATION}",
+
+    // The conclusion no longer asserts the wrong comparison. CAG 12.8 sets the
+    // benchmark as the generality of legally aided proceedings; the previous
+    // wording ("for a fee earner of this level") measured the case against its own
+    // peer group, which is the comparison 12.11 rejects.
+    "conclusion": "\nThese factors, individually and/or cumulatively, made the work exceptional when compared with the generality of legally aided proceedings to which the prescribed rates apply, justifying the enhancement claimed. Evidence supporting these assertions can be found within the case file.",
+    "conclusion_singular": "\nThis factor made the work exceptional when compared with the generality of legally aided proceedings to which the prescribed rates apply, justifying the enhancement claimed. Evidence supporting this assertion can be found within the case file.",
+
+    // --- RETIRED KEYS ------------------------------------------------------------
+    // Not offered to new users. Retained so `_narrator/` still renders PDFs that
+    // were produced before v1.11 exactly as it did at the time. See the note at the
+    // top of this object and LEGACY_LABEL_ALIASES below.
+    "s1_cse_better_result": "    - A better result ([SPECIFY RESULT]) was achieved than might usually have been expected, directly attributable to the exceptional skill applied.{USER_EXPLANATION}",
+    "s1_circ_expert_evidence": "    - Complex questions of expert evidence from [NUMBER] experts in [FIELD(S)] required careful analysis.{USER_EXPLANATION}",
+    "s1_circ_evidential_issues": "    - Significant evidential issues, such as [SEEKING/CHALLENGING EVIDENCE/TRACING ASSETS], added to the complexity.{USER_EXPLANATION}",
+    "s1_circ_novelty": "    - The case presented novel points of law or a unique factual matrix concerning [SPECIFY NOVEL ASPECTS].{USER_EXPLANATION}",
+    "s1_circ_weight_volume": "    - The sheer volume of documentation ([APPROX PAGES/FILES]) or number of distinct issues ([NUMBER]) constituted exceptional weight.{USER_EXPLANATION}",
     "s2_care_speed_economy_header_narrative": "  **Care, speed, and economy** (CAG 12.9(b)):",
     "s2_cse_care_skill": "    - Exceptional care and skill were demonstrated in the overall management and presentation of the case, particularly in [SPECIFY ASPECT].{USER_EXPLANATION}",
     "s2_cse_care_vulnerable_client": "    - Particular care was taken in dealing with a vulnerable client, demonstrating [EMPATHY/PATIENCE/ADAPTED TECHNIQUES].{USER_EXPLANATION}",
@@ -74,14 +159,29 @@ const NARRATIVE_TEMPLATES = {
     "s2_novelty_weight_complexity_header_narrative": "  **Novelty, weight, and complexity of the case** (CAG 12.9(c)):",
     "s2_nwc_novelty_law": "    - (As detailed in Stage 1, if applicable) The case involved novel points of law or legal context.{USER_EXPLANATION}",
     "s2_nwc_weight_docs_issues": "    - (As detailed in Stage 1, if applicable) The case involved exceptional weight (documentation/number or importance of issues).{USER_EXPLANATION}",
-    "s2_nwc_complexity_overall": "    - (As detailed in Stage 1, if applicable) The overall complexity of the legal and factual matrix was exceptional.{USER_EXPLANATION}",
-    "conclusion": "\nThese factors, individually and/or cumulatively, rendered the work exceptionally demanding and/or required exceptional skill/responsibility beyond that normally expected for a fee earner of this level, justifying the enhancement claimed. Evidence supporting these assertions can be found within the case file.",
-    "conclusion_singular": "\nThis factor rendered the work exceptionally demanding and/or required exceptional skill/responsibility beyond that normally expected for a fee earner of this level, justifying the enhancement claimed. Evidence supporting this assertion can be found within the case file."
+    "s2_nwc_complexity_overall": "    - (As detailed in Stage 1, if applicable) The overall complexity of the legal and factual matrix was exceptional.{USER_EXPLANATION}"
 };
 
-// --- QUESTION FLOW AND STRUCTURE (For building the solicitor-facing form) ---
+// The banner that sits above the Stage 1 labels. It holds CAG 12.8's threshold
+// ("'Exceptional' has its normal meaning of 'unusual' or 'out of the ordinary',
+// hence more than simply above the average") and encodes 12.11's rejection of
+// category-based reasoning. The second sentence matters MORE in a family-only tool,
+// not less: the error it prevents is concluding that a type of case is inherently
+// exceptional.
+const STAGE1_THRESHOLD_BANNER = "Tick only where this was unusual or out of the ordinary — not merely above average — compared with legally aided work generally. No category of case is exceptional in itself.";
+
+// Rendered once beneath any expanded "what counts?" panel, rather than repeated in
+// all twelve strings. CAG 12.7, verbatim.
+const WHAT_COUNTS_CAVEAT = "CAG 12.7: \"In neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits.\" These examples are the guidance's own. They are not a complete list, and your case does not have to match one of them.";
+
 const QUESTION_BLOCKS = [
     // PAGE 1 Content Block (Panel Membership)
+    //
+    // Retained because CAG 12.22 requires the bill narrative to "clearly state the
+    // fee-earner for whom the enhancement is claimed and the basis for the
+    // enhancement". From v1.11 it no longer feeds any calculation: the guaranteed
+    // 15% (12.20) is applied at bill-drafting and is NOT payable in addition to the
+    // general enhancement (12.23), so it is a floor, not an ingredient.
     {
         page: 1,
         id: "panel",
@@ -93,100 +193,376 @@ const QUESTION_BLOCKS = [
         ],
         columns_for_sub_options: 1
     },
-    // PAGE 2 Content Blocks (Stage 1)
+
+    // ===========================================================================
+    // PAGE 2 — STAGE 1: the threshold test (CAG 12.4)
+    // ===========================================================================
+    //
+    // TICK ONLY. No typing. Stage 1 is pass/fail and earns nothing, so it must not
+    // consume the solicitor's effort — the previous version demanded 10+ words on
+    // each of 17 boxes and then presented 11 more at Stage 2 to someone who had
+    // nothing left to say. That is what produced the real submission with six
+    // well-evidenced Stage 1 factors and only two at Stage 2, and it is a
+    // structural fault rather than a personal one.
+    //
+    // Generic wording is safe here BECAUSE of `stage2_factor` below: every ticked
+    // label reappears at Stage 2 and is evidenced there, so no ticked point is ever
+    // left bare and the document as a whole is never boilerplate.
+    //
+    // THE LABEL STRINGS ARE THE EXTRACTION CONTRACT. `_narrator/extract.py` matches
+    // ticked criteria by label text via `templates.label_to_key_lookup()`, and an
+    // unmatched label stops the run (commit 2ba3adb). Changing a label here without
+    // adding the old string to LEGACY_LABEL_ALIASES breaks every PDF already
+    // sitting in a live matter. Keep them short, stable and distinctive.
+    //
+    // `what_counts` is quoted from CAG 12.8 and cited — never invented. Invented
+    // examples read as an exhaustive list however they are captioned, so a
+    // solicitor whose situation is not listed concludes they do not qualify. That
+    // is the exact narrowing bias this redesign exists to remove.
+    //
+    // `stage2_factor` names the CAG 12.9 factor this label carries forward into.
+    // Every label has one. A label without one would vanish silently between the
+    // stages, which is the bug class this whole programme is about.
     {
         page: 2,
         id: "s1_competence",
-        title: "LAA Threshold Test: Exceptional Competence, Skill, or Expertise",
-        main_question_text: "Did the work involve exceptional competence, skill, or expertise?",
+        title: "Threshold limb (a): exceptional competence, skill or expertise",
+        main_question_text: "Was the work done with exceptional competence, skill or expertise?",
         main_toggle_id: "s1_competence_main_toggle",
         narrative_header_key: "s1_competence_skill_expertise_header_narrative",
+        cag_citation: "CAG 12.8(a) / Spec 6.13(a)",
         checkboxes: [
-            { label: "Unusually detailed knowledge demonstrated", key: "s1_cse_detailed_knowledge", explanation: true, placeholder_example: "e.g., An exceptional understanding of [obscure case law/specific local authority policy] regarding [topic] was crucial because..." },
-            { label: "Unusual/difficult legal argument skilfully pursued", key: "s1_cse_difficult_argument", explanation: true, placeholder_example: "e.g., We successfully advanced a novel interpretation of [Section X of Act Y / established precedent] concerning [the argument point], which was pivotal as..." },
-            { label: "Unusual skill in marshalling evidence", key: "s1_cse_marshalling_evidence", explanation: true, placeholder_example: "e.g., The case required collating and analysing over [number] pages of [type of evidence, e.g., medical records/financial statements] to distil key facts about..." },
-            { label: "Particularly effective tactic identified/implemented", key: "s1_cse_effective_tactic", explanation: true, placeholder_example: "e.g., Instead of [standard approach], we strategically opted for [specific tactic, e.g., an early without prejudice offer / a specific type of application], which led to..." },
-            { label: "Work completed in significantly less time", key: "s1_cse_less_time", explanation: true, placeholder_example: "e.g., Due to prior expertise in [similar complex cases/specific procedure], the [specific task, e.g., drafting of the complex Scott Schedule] was completed in approximately [X] hours less than typically expected for..." },
-            { label: "Better result achieved than usually expected", key: "s1_cse_better_result", explanation: true, placeholder_example: "e.g., The outcome achieved, namely [specific positive outcome, e.g., a more favourable contact arrangement / a higher financial settlement than initially proposed], exceeded typical expectations because..." },
-            { label: "Exceptional skill with vulnerable client", key: "s1_cse_vulnerable_client", explanation: true, placeholder_example: "e.g., Dealing with a client who [specific vulnerability, e.g., had severe anxiety / was a non-English speaker requiring an interpreter for every meeting] necessitated [specific adaptations, e.g., shorter, more frequent meetings / using visual aids] to ensure effective instructions..." },
+            {
+                label: "Applied unusually detailed knowledge of the law or procedure relevant to this case",
+                key: "s1_cse_detailed_knowledge",
+                explanation: false,
+                stage2_factor: "care",
+                what_counts: "CAG 12.8(a) gives as an example work where \"the fee-earner demonstrates unusually detailed knowledge relevant to the case\"."
+            },
+            {
+                label: "Pursued an unusual or difficult legal argument",
+                key: "s1_cse_difficult_argument",
+                explanation: false,
+                stage2_factor: "novelty",
+                what_counts: "CAG 12.8(a) covers work where the fee-earner \"skilfully pursues an unusual or difficult legal argument\". At Stage 2 this feeds novelty, which CAG 12.9(c)(i) describes as \"whether the case involves a novel point of law or legal context\"."
+            },
+            {
+                label: "Identified and marshalled evidence with unusual skill",
+                key: "s1_cse_marshalling_evidence",
+                explanation: false,
+                stage2_factor: "care",
+                what_counts: "CAG 12.8(a) includes \"unusual skill in identifying and marshalling evidence in pursuing or defending a case\"."
+            },
+            {
+                label: "Adopted a particularly effective tactic, or obtained a better result than would usually be expected",
+                key: "s1_cse_effective_tactic",
+                explanation: false,
+                stage2_factor: "care",
+                what_counts: "CAG 12.8(a) covers \"identifying a particularly effective tactic on behalf of the client\", and separately work where the fee-earner \"may have conducted the case so well that the client has received a better result than might usually have been expected\"."
+            },
+            {
+                label: "Completed the work in materially less time than a reasonable fee earner would ordinarily have required",
+                key: "s1_cse_less_time",
+                explanation: false,
+                stage2_factor: "efficiency",
+                what_counts: "CAG 12.8(a): enhancement \"may be indicated under this heading where the provider has carried out the case or particular work in a way that has required less time than would have been expected of a notional reasonable fee-earner\"."
+            },
+            {
+                label: "Took instructions from and effectively represented a child, a seriously mentally unwell client, or another very vulnerable client",
+                key: "s1_cse_vulnerable_client",
+                explanation: false,
+                stage2_factor: "care",
+                what_counts: "CAG 12.8(a): \"Another example of unusual skill may be taking instructions and providing effective representation for a client who is a child, is seriously mentally ill or is otherwise very vulnerable.\""
+            },
         ],
         columns_for_sub_options: 1
     },
     {
         page: 2,
         id: "s1_speed",
-        title: "LAA Threshold Test: Exceptional Speed",
+        title: "Threshold limb (b): exceptional speed",
         main_question_text: "Was the work done with exceptional speed?",
         main_toggle_id: "s1_speed_main_toggle",
         narrative_header_key: "s1_exceptional_speed_header_narrative",
+        cag_citation: "CAG 12.8(b) / Spec 6.13(b)",
         checkboxes: [
-            { label: "Case proactively pursued (e.g., rapid re-housing, injunction)", key: "s1_speed_proactive_pursuit", explanation: true, placeholder_example: "e.g., Given the imminent risk of [e.g., eviction/child removal], we proactively [action, e.g., issued an emergency application] within [timeframe, e.g., 24 hours of instruction], resulting in..." },
-            { label: "Substantial work at very short notice for urgent deadlines", key: "s1_speed_urgent_deadlines", explanation: true, placeholder_example: "e.g., Urgent instructions were received on [date] requiring [specific work, e.g., preparation for a short-notice hearing] by [deadline date/time] due to [reason for urgency], necessitating immediate and focused work..." },
+            {
+                label: "Proactively obtained a resolution of the client's problem with unusual speed",
+                key: "s1_speed_proactive_pursuit",
+                explanation: false,
+                stage2_factor: "speed",
+                what_counts: "CAG 12.8(b): enhancement may arise \"where the fee-earner has proactively pursued a case, for example in obtaining with unusual speed rehousing, community care support, receipt of welfare benefits, an injunction, release from mental health detention or other resolution of the client's problem\"."
+            },
+            {
+                label: "Carried out substantial work at short notice to meet an urgent deadline or hearing",
+                key: "s1_speed_urgent_deadlines",
+                explanation: false,
+                stage2_factor: "speed",
+                what_counts: "CAG 12.8(b): it \"may also be justified if the fee-earner carries out substantial work at short notice because of urgent deadlines\"."
+            },
         ],
         columns_for_sub_options: 1
     },
     {
         page: 2,
         id: "s1_circumstances",
-        title: "LAA Threshold Test: Exceptional Circumstances, Novelty, Weight, or Complexity",
-        main_question_text: "Did the case involve exceptional circumstances, novelty, weight, or complexity?",
+        // Heading follows CAG 12.4(c), which is the operative threshold —
+        // "exceptional circumstances or complexity". 12.8(c)'s own heading adds
+        // novelty and weight, but 12.8's headings are demonstrably loose (it also
+        // refers to "the three limbs of 6.15" where 12.4 puts the threshold at
+        // 6.13), so 12.4 governs. Novelty and weight are developed as Stage 2
+        // considerations at 12.9(c) and are collected there. Confirmed with Simon
+        // on 4 August 2026: he has never seen a claim pass the threshold on
+        // documentary weight or novelty alone.
+        title: "Threshold limb (c): exceptional circumstances or complexity",
+        main_question_text: "Did the case involve exceptional circumstances or complexity?",
         main_toggle_id: "s1_circumstances_main_toggle",
         narrative_header_key: "s1_exceptional_circumstances_complexity_header_narrative",
+        cag_citation: "CAG 12.8(c) / Spec 6.13(c)",
         checkboxes: [
-            { label: "Complex legal issues arose", key: "s1_circ_legal_issues", explanation: true, placeholder_example: "e.g., The case involved complex interplay between [legal area 1] and [legal area 2], specifically concerning [the difficult point of law] which required detailed research into..." },
-            { label: "Complex questions of expert evidence", key: "s1_circ_expert_evidence", explanation: true, placeholder_example: "e.g., We had to scrutinise and reconcile conflicting expert reports from [number] experts in [fields, e.g., paediatric neurology and psychology] concerning [the core issue of contention]..." },
-            { label: "Significant other evidential issues", key: "s1_circ_evidential_issues", explanation: true, placeholder_example: "e.g., Significant evidential challenges included [e.g., tracing a key witness who had moved abroad / obtaining disclosure of historic, poorly archived records] which demanded..." },
-            { label: "Difficulty in taking instructions (client/witnesses)", key: "s1_circ_difficult_instructions", explanation: true, placeholder_example: "e.g., The client's [e.g., trauma / learning disability / distrust of authority] made obtaining a coherent history and instructions exceptionally challenging, requiring multiple attendances and..." },
-            { label: "Exceptional impact of issues on client (liberty, housing etc.)", key: "s1_circ_client_impact", explanation: true, placeholder_example: "e.g., The proceedings had a profound impact on the client's [e.g., fundamental right to family life / risk of homelessness / deportation], making the stakes exceptionally high and requiring sensitive handling of..." },
-            { label: "Substantial and unavoidable out-of-hours work", key: "s1_circ_out_of_hours", explanation: true, placeholder_example: "e.g., Substantial work was unavoidably performed outside normal hours on [e.g., weekend of date / evenings of dates] to [reason, e.g., prepare for an emergency hearing / meet an unexpected court deadline]..." },
-            { label: "Novel points of law or unique factual matrix", key: "s1_circ_novelty", explanation: true, placeholder_example: "e.g., This case presented a novel point of law concerning [specific novel issue, e.g., the application of a new statutory instrument to shared care arrangements] for which there was no existing precedent..." },
-            { label: "Exceptional weight (documentation volume / number of issues)", key: "s1_circ_weight_volume", explanation: true, placeholder_example: "e.g., The sheer volume of disclosure, exceeding [e.g., 10 lever arch files / 2000 pages], related to [type of documents] and required an exceptional amount of time to review and schedule for..." },
+            {
+                label: "The legal, expert or other evidential issues were exceptionally complex",
+                key: "s1_circ_legal_issues",
+                explanation: false,
+                stage2_factor: "complexity",
+                what_counts: "CAG 12.8(c): \"Complexity may relate to legal issues, questions of expert evidence or other evidential issues, for instance seeking or challenging witness evidence in possession proceedings based on allegations of nuisance.\""
+            },
+            {
+                label: "Taking instructions from the client or other witnesses was exceptionally difficult",
+                key: "s1_circ_difficult_instructions",
+                explanation: false,
+                stage2_factor: "complexity",
+                what_counts: "CAG 12.8(c): complexity \"may also take into account difficulty in taking instructions from the client or other witnesses\"."
+            },
+            {
+                label: "The issues affecting the client gave rise to exceptional circumstances",
+                key: "s1_circ_client_impact",
+                explanation: false,
+                stage2_factor: "weight",
+                what_counts: "CAG 12.8(c) includes within \"exceptional circumstances\" \"the nature of the issues as they affect the client, such as liberty, right to remain in the country, the roof over the client's head, addressing domestic abuse or avoiding destitution\". At Stage 2 this feeds weight, which CAG 12.9(c)(ii) says \"may also refer to the importance of the case to the client\"."
+            },
+            {
+                label: "The case required substantial out-of-hours work in exceptional circumstances",
+                key: "s1_circ_out_of_hours",
+                explanation: false,
+                stage2_factor: "speed",
+                what_counts: "CAG 12.8(c): \"A case requiring substantial out of hours work may also be considered to fall under this limb or particular work may be considered under 6.15(b) of the Specification.\" 6.15(b) is care, speed and economy, which is why this carries forward to speed at Stage 2."
+            },
         ],
         columns_for_sub_options: 1
     },
-    // PAGE 3 Content Blocks (Stage 2)
+
+    // ===========================================================================
+    // PAGE 3 — STAGE 2: the level of enhancement (CAG 12.9)
+    // ===========================================================================
+    //
+    // One block per factor in CAG 12.9. There are exactly seven, which 12.10
+    // confirms when it speaks of "the above seven factors".
+    //
+    // `carried_from` lists the Stage 1 keys that pre-select this item. `stem` is a
+    // sentence opening rather than a blank box — a completion task, not a writing
+    // task — so what the solicitor types is already narrative prose. `example` is
+    // the worked model sentence, which in previous versions lived in the textarea
+    // placeholder and was destroyed by the first keystroke; it is now shown
+    // persistently beside the stem.
+    //
+    // `origin: "independent"` marks an item with no Stage 1 carrier, which must
+    // therefore be offered on its own. Omitting these would automate the exact bug
+    // this redesign exists to fix — the real submission that prompted it left the
+    // entire Responsibility block empty.
+    {
+        page: 3,
+        id: "s2_care",
+        title: "Care",
+        cag_citation: "CAG 12.9(b)(i)",
+        factor: "care",
+        narrative_header_key: "s2_care_header_narrative",
+        factor_description: "CAG 12.9(b)(i): \"aspects of the skill with which the fee-earner has carried out work within the case and in particular the care with which the fee-earner has dealt with a vulnerable client\".",
+        checkboxes: [
+            { label: "Unusually detailed knowledge applied", key: "s2_care_detailed_knowledge", explanation: true, carried_from: ["s1_cse_detailed_knowledge"], stem: "That knowledge mattered here because…", example: "e.g., An exceptional understanding of [obscure case law/specific local authority policy] regarding [topic] was crucial because..." },
+            // Label deliberately NOT "Unusual skill in marshalling evidence" — that
+            // exact string is a pre-v1.11 Stage 1 label in LEGACY_LABEL_ALIASES, and
+            // label_to_key_lookup() raises on one label mapping to two keys.
+            { label: "Evidence marshalled with unusual skill", key: "s2_care_marshalling_evidence", explanation: true, carried_from: ["s1_cse_marshalling_evidence"], stem: "The evidence required this skill because…", example: "e.g., The case required collating and analysing over [number] pages of [type of evidence, e.g., medical records/financial statements] to distil key facts about..." },
+            { label: "Particularly effective tactic, or a better result than usually expected", key: "s2_care_effective_tactic", explanation: true, carried_from: ["s1_cse_effective_tactic"], stem: "The tactic adopted was… and as a result…", example: "e.g., Instead of [standard approach], we strategically opted for [specific tactic, e.g., an early without prejudice offer / a specific type of application], which led to..." },
+            { label: "Particular care with a vulnerable client", key: "s2_care_vulnerable_client", explanation: true, carried_from: ["s1_cse_vulnerable_client"], stem: "The client's circumstances required… and so the work involved…", example: "e.g., Dealing with a client who [specific vulnerability, e.g., had severe anxiety / was a non-English speaker requiring an interpreter for every meeting] necessitated [specific adaptations, e.g., shorter, more frequent meetings / using visual aids] to ensure effective instructions..." },
+        ],
+        columns_for_sub_options: 1,
+        depends_on_threshold_met: true
+    },
+    {
+        page: 3,
+        id: "s2_speed",
+        title: "Speed",
+        cag_citation: "CAG 12.9(b)(ii)",
+        factor: "speed",
+        narrative_header_key: "s2_speed_header_narrative",
+        factor_description: "CAG 12.9(b)(ii): \"will involve similar considerations as in paragraph 12.8(b) above in relation to exceptional speed\".",
+        checkboxes: [
+            { label: "Case proactively pursued to a rapid resolution", key: "s2_speed_proactive_pursuit", explanation: true, carried_from: ["s1_speed_proactive_pursuit"], stem: "The urgency arose because… and as a result…", example: "e.g., Given the imminent risk of [e.g., eviction/child removal], we proactively [action, e.g., issued an emergency application] within [timeframe, e.g., 24 hours of instruction], resulting in..." },
+            { label: "Substantial work at short notice for an urgent deadline", key: "s2_speed_urgent_deadlines", explanation: true, carried_from: ["s1_speed_urgent_deadlines"], stem: "The deadline was… and meeting it required…", example: "e.g., Urgent instructions were received on [date] requiring [specific work, e.g., preparation for a short-notice hearing] by [deadline date/time] due to [reason for urgency], necessitating immediate and focused work..." },
+            { label: "Substantial out-of-hours work", key: "s2_speed_out_of_hours", explanation: true, carried_from: ["s1_circ_out_of_hours"], stem: "The out-of-hours work was necessary because…", example: "e.g., Substantial work was unavoidably performed outside normal hours on [e.g., weekend of date / evenings of dates] to [reason, e.g., prepare for an emergency hearing / meet an unexpected court deadline]..." },
+        ],
+        columns_for_sub_options: 1,
+        depends_on_threshold_met: true
+    },
+    {
+        page: 3,
+        id: "s2_efficiency",
+        title: "Efficiency",
+        cag_citation: "CAG 12.9(b)(iii)",
+        factor: "efficiency",
+        narrative_header_key: "s2_efficiency_header_narrative",
+        factor_description: "CAG 12.9(b)(iii): \"a reward for the provider for claiming less time or less in disbursements than might otherwise have been expected, whether because of the way in which particular items of work have been carried out or because of the way in which the case has been planned more generally\".",
+        checkboxes: [
+            { label: "Less time or fewer disbursements claimed than might otherwise have been expected", key: "s2_efficiency_less_time", explanation: true, carried_from: ["s1_cse_less_time"], stem: "The time saved came from… and amounted to roughly…", example: "e.g., By [e.g., front-loading negotiations / proposing a streamlined directions timetable that was adopted by the court], the case was resolved more efficiently, likely saving [X hours / specific costs] compared to a more protracted approach, because..." },
+        ],
+        columns_for_sub_options: 1,
+        depends_on_threshold_met: true
+    },
+    {
+        page: 3,
+        id: "s2_novelty",
+        title: "Novelty",
+        cag_citation: "CAG 12.9(c)(i)",
+        factor: "novelty",
+        narrative_header_key: "s2_novelty_header_narrative",
+        factor_description: "CAG 12.9(c)(i): \"it should be clear from the provider's claim whether the case involves a novel point of law or legal context\".",
+        checkboxes: [
+            { label: "A novel point of law or legal context", key: "s2_novelty_difficult_argument", explanation: true, carried_from: ["s1_cse_difficult_argument"], stem: "The point was novel because… and it required…", example: "e.g., This case presented a novel point of law concerning [specific novel issue, e.g., the application of a new statutory instrument to shared care arrangements] for which there was no existing precedent..." },
+        ],
+        columns_for_sub_options: 1,
+        depends_on_threshold_met: true
+    },
+    {
+        page: 3,
+        id: "s2_weight",
+        title: "Weight",
+        cag_citation: "CAG 12.9(c)(ii)",
+        factor: "weight",
+        narrative_header_key: "s2_weight_header_narrative",
+        // Weight has TWO halves and only one of them is carried forward. CAG
+        // 12.9(c)(ii) covers both "the volume of documentation, other material, or
+        // the number of issues arising" AND "the importance of the case to the
+        // client". The client-importance half arrives from Stage 1 label
+        // s1_circ_client_impact; the volume half has no Stage 1 carrier, because
+        // documentary weight is deliberately not a threshold label. So the volume
+        // item must be offered independently or it can never be claimed at all.
+        factor_description: "CAG 12.9(c)(ii): weight \"may refer to the volume of documentation, other material, or the number of issues arising. It may also refer to the importance of the case to the client.\"",
+        checkboxes: [
+            { label: "The case was of exceptional importance to the client", key: "s2_weight_client_importance", explanation: true, carried_from: ["s1_circ_client_impact"], stem: "What was at stake for the client was… and that meant…", example: "e.g., The proceedings had a profound impact on the client's [e.g., fundamental right to family life / risk of homelessness], making the stakes exceptionally high and requiring sensitive handling of..." },
+            { label: "Exceptional volume of documentation, material or issues", key: "s2_weight_volume", explanation: true, origin: "independent", stem: "The volume was… and dealing with it required…", example: "e.g., The sheer volume of disclosure, exceeding [e.g., 10 lever arch files / 2000 pages], related to [type of documents] and required an exceptional amount of time to review and schedule for..." },
+        ],
+        columns_for_sub_options: 1,
+        depends_on_threshold_met: true
+    },
+    {
+        page: 3,
+        id: "s2_complexity",
+        title: "Complexity",
+        cag_citation: "CAG 12.9(c)(iii)",
+        factor: "complexity",
+        narrative_header_key: "s2_complexity_header_narrative",
+        factor_description: "CAG 12.9(c)(iii) refers back to 12.8(c): complexity \"may relate to legal issues, questions of expert evidence or other evidential issues\", and \"may also take into account difficulty in taking instructions from the client or other witnesses\".",
+        checkboxes: [
+            { label: "Exceptionally complex legal, expert or evidential issues", key: "s2_complexity_legal_issues", explanation: true, carried_from: ["s1_circ_legal_issues"], stem: "The complexity lay in… and dealing with it required…", example: "e.g., The case involved complex interplay between [legal area 1] and [legal area 2], specifically concerning [the difficult point of law] which required detailed research into..." },
+            { label: "Exceptional difficulty in taking instructions", key: "s2_complexity_difficult_instructions", explanation: true, carried_from: ["s1_circ_difficult_instructions"], stem: "Taking instructions was difficult because… and so…", example: "e.g., The client's [e.g., trauma / learning disability / distrust of authority] made obtaining a coherent history and instructions exceptionally challenging, requiring multiple attendances and..." },
+        ],
+        columns_for_sub_options: 1,
+        depends_on_threshold_met: true
+    },
     {
         page: 3,
         id: "s2_responsibility",
-        title: "Determining Level of Enhancement: Degree of Responsibility",
+        title: "Degree of responsibility",
+        cag_citation: "CAG 12.9(a)",
+        factor: "responsibility",
         narrative_header_key: "s2_responsibility_header_narrative",
+        // Placed LAST because it closes the narrative: it is the only factor in
+        // 12.9 that describes the shape of the whole retainer rather than a single
+        // event, and CAG 12.16 frames it the same way ("whether counsel does take
+        // an unusual share of the load on a case"). That is inherently a summation.
+        //
+        // It is NOT "how much did this weigh on me", and it must never be prompted
+        // with "did anything need extra care?" — care is a separate, orthogonal
+        // factor at 12.9(b)(i). Collecting care answers here makes the same facts
+        // appear twice in the narrative, reading as padding or as double-counting
+        // one fact to inflate the claim.
+        //
+        // It may legitimately be ABSENT. Per 12.16, where counsel was instructed
+        // throughout there is little to claim, and a forced closing paragraph would
+        // be thin, defensive, and would end the narrative on its weakest point.
+        // Nothing here is required.
+        optional_section: true,
+        factor_description: "CAG 12.9(a): \"the extent to which the provider has carried out work without recourse to counsel, whether in relation to analysis and planning of the case, drafting or advocacy. Another point may be that the fee-earner has identified or addressed evidential issues that might otherwise have incurred the time of an expert.\"",
+        // CAG 12.16, in the LAA's own words. Instructing counsel makes this claim
+        // harder, not impossible — the previous version of the form read as binary.
+        counsel_note: "Instructing counsel does not rule this out. CAG 12.16: \"That does not mean that a provider can never claim an enhancement where they have instructed counsel\" — though it \"may be more difficult for the provider to justify\". The fourth item below is not about counsel at all, so it can apply even where counsel ran the advocacy. If none of these fit, leave the whole section blank: the narrative closes perfectly well without it.",
         checkboxes: [
-            { label: "Significant analysis/planning without Counsel", key: "s2_resp_no_counsel_analysis", explanation: true, placeholder_example: "e.g., The fee earner undertook all significant case analysis and strategic planning, including [e.g., identifying key legal arguments / devising the evidential strategy], without recourse to Counsel, which is unusual for a case of this complexity involving..." },
-            { label: "Complex drafting without Counsel", key: "s2_resp_no_counsel_drafting", explanation: true, placeholder_example: "e.g., Complex drafting of [e.g., a detailed Threshold Agreement / a nuanced position statement addressing multiple allegations] was handled entirely by the fee earner due to..." },
-            { label: "Advocacy undertaken without Counsel", key: "s2_resp_no_counsel_advocacy", explanation: true, placeholder_example: "e.g., The fee earner conducted advocacy at the [e.g., contested interim hearing / directions hearing involving complex legal argument] which might typically have been briefed to Counsel because..." },
-            { label: "Addressed expert/evidential issues (reducing expert/Counsel need)", key: "s2_resp_addressed_expert_issues", explanation: true, placeholder_example: "e.g., By meticulously [e.g., cross-referencing medical records with witness statements / researching technical financial data], the fee earner was able to address [specific expert/evidential issue] directly, thereby avoiding the need and cost of instructing a separate expert in..." },
-        ],
-        columns_for_sub_options: 1,
-        depends_on_threshold_met: true
-    },
-    {
-        page: 3,
-        id: "s2_care_economy",
-        title: "Determining Level of Enhancement: Care, Speed & Economy",
-        narrative_header_key: "s2_care_speed_economy_header_narrative",
-        checkboxes: [
-            { label: "Exceptional care/skill in case management/presentation", key: "s2_cse_care_skill", explanation: true, placeholder_example: "e.g., Exceptional care was demonstrated in the [e.g., preparation of the trial bundle, ensuring every document was correctly paginated and cross-referenced / meticulous preparation of the client for giving evidence] which contributed to..." },
-            { label: "Particular care with vulnerable client", key: "s2_cse_care_vulnerable_client", explanation: true, placeholder_example: "e.g., Particular sensitivity and adapted communication techniques were employed when dealing with the client's [vulnerability, e.g., recent bereavement / diagnosed PTSD], ensuring they felt supported and understood throughout..." },
-            { label: "Work conducted with exceptional speed (as per Stage 1)", key: "s2_cse_speed", explanation: true, placeholder_example: "e.g., As detailed in Stage 1, the proactive steps taken to [reiterate speed point, e.g., secure the emergency injunction] resulted in a swift and positive outcome for the client, which demonstrated..." },
-            { label: "Exceptional economy (less time/disbursements claimed)", key: "s2_cse_economy_efficiency", explanation: true, placeholder_example: "e.g., By [e.g., front-loading negotiations / proposing a streamlined directions timetable that was adopted by the court], the case was resolved more efficiently, likely saving [X hours / specific costs] compared to a more protracted approach, because..." },
-        ],
-        columns_for_sub_options: 1,
-        depends_on_threshold_met: true
-    },
-    {
-        page: 3,
-        id: "s2_novelty_weight_complexity",
-        title: "Determining Level of Enhancement: Novelty, Weight & Complexity",
-        narrative_header_key: "s2_novelty_weight_complexity_header_narrative",
-        checkboxes: [
-            { label: "Novel points of law or legal context (as per Stage 1)", key: "s2_nwc_novelty_law", explanation: true, placeholder_example: "e.g., The novel legal arguments surrounding [reiterate novelty point from Stage 1, if applicable, or new point] required the fee earner to undertake extensive research and careful formulation of submissions as there was little direct authority on..." },
-            { label: "Exceptional weight (docs/issues) (as per Stage 1)", key: "s2_nwc_weight_docs_issues", explanation: true, placeholder_example: "e.g., The exceptional weight of the case, stemming from [e.g., the voluminous and highly technical financial disclosure / the multiplicity of interconnected factual allegations], placed a significant burden on the fee earner in terms of analysis and management..." },
-            { label: "Overall complexity was exceptional (as per Stage 1)", key: "s2_nwc_complexity_overall", explanation: true, placeholder_example: "e.g., The overall complexity, arising from the combination of [e.g., international elements, conflicting expert evidence, and a vulnerable client with communication difficulties], made this case significantly more demanding than a standard [matter type] case because..." },
+            { label: "Significant analysis and planning without counsel", key: "s2_resp_no_counsel_analysis", explanation: true, origin: "independent", stem: "Across the case I carried… without counsel, which mattered because…", example: "e.g., The fee earner undertook all significant case analysis and strategic planning, including [e.g., identifying key legal arguments / devising the evidential strategy], without recourse to Counsel, which is unusual for a case of this complexity involving..." },
+            { label: "Complex drafting without counsel", key: "s2_resp_no_counsel_drafting", explanation: true, origin: "independent", stem: "I drafted… myself, which would ordinarily have been…", example: "e.g., Complex drafting of [e.g., a detailed Threshold Agreement / a nuanced position statement addressing multiple allegations] was handled entirely by the fee earner due to..." },
+            { label: "Advocacy without counsel", key: "s2_resp_no_counsel_advocacy", explanation: true, origin: "independent", stem: "I conducted the advocacy at… which might typically have been briefed because…", example: "e.g., The fee earner conducted advocacy at the [e.g., contested interim hearing / directions hearing involving complex legal argument] which might typically have been briefed to Counsel because..." },
+            { label: "Addressed evidential issues that might otherwise have needed an expert", key: "s2_resp_addressed_expert_issues", explanation: true, origin: "independent", stem: "I addressed… myself, which avoided…", example: "e.g., By meticulously [e.g., cross-referencing medical records with witness statements / researching technical financial data], the fee earner was able to address [specific expert/evidential issue] directly, thereby avoiding the need and cost of instructing a separate expert in..." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
     }
 ];
+
+// --- LEGACY LABEL ALIASES ----------------------------------------------------
+//
+// WHY THIS EXISTS. `_narrator/extract.py` reads a submitted PDF and matches each
+// ticked criterion by its LABEL TEXT, using `templates.label_to_key_lookup()`,
+// which is built from QUESTION_BLOCKS above. Since commit 2ba3adb a label that
+// matches nothing stops the run rather than being silently dropped — deliberately,
+// because silently dropping a factor loses part of the solicitor's claim.
+//
+// The v1.11 redesign reworded every Stage 1 and Stage 2 label. Without this map,
+// every PDF generated before v1.11 — including any already sitting in a live matter
+// — would fail to extract and the narrator would refuse to run on it. `_PLAN.md`
+// records keeping those PDFs working as non-negotiable.
+//
+// Each entry maps a PRE-v1.11 label string to the key it had at the time. The
+// retired keys are still present in NARRATIVE_TEMPLATES, so an old PDF renders
+// exactly as it would have done when it was produced. Nothing here is offered to
+// new users.
+//
+// DO NOT EDIT these strings to match current wording — they are historical records
+// of what was printed on documents that already exist. Add to this map whenever a
+// live label changes; never rewrite an existing entry.
+const LEGACY_LABEL_ALIASES = {
+    // Stage 1 — pre-v1.11 wording
+    "Unusually detailed knowledge demonstrated": "s1_cse_detailed_knowledge",
+    "Unusual/difficult legal argument skilfully pursued": "s1_cse_difficult_argument",
+    "Unusual skill in marshalling evidence": "s1_cse_marshalling_evidence",
+    "Particularly effective tactic identified/implemented": "s1_cse_effective_tactic",
+    "Work completed in significantly less time": "s1_cse_less_time",
+    "Better result achieved than usually expected": "s1_cse_better_result",
+    "Exceptional skill with vulnerable client": "s1_cse_vulnerable_client",
+    "Case proactively pursued (e.g., rapid re-housing, injunction)": "s1_speed_proactive_pursuit",
+    "Substantial work at very short notice for urgent deadlines": "s1_speed_urgent_deadlines",
+    "Complex legal issues arose": "s1_circ_legal_issues",
+    "Complex questions of expert evidence": "s1_circ_expert_evidence",
+    "Significant other evidential issues": "s1_circ_evidential_issues",
+    "Difficulty in taking instructions (client/witnesses)": "s1_circ_difficult_instructions",
+    "Exceptional impact of issues on client (liberty, housing etc.)": "s1_circ_client_impact",
+    "Substantial and unavoidable out-of-hours work": "s1_circ_out_of_hours",
+    "Novel points of law or unique factual matrix": "s1_circ_novelty",
+    "Exceptional weight (documentation volume / number of issues)": "s1_circ_weight_volume",
+    // Stage 2 — pre-v1.11 wording
+    "Significant analysis/planning without Counsel": "s2_resp_no_counsel_analysis",
+    "Complex drafting without Counsel": "s2_resp_no_counsel_drafting",
+    "Advocacy undertaken without Counsel": "s2_resp_no_counsel_advocacy",
+    "Addressed expert/evidential issues (reducing expert/Counsel need)": "s2_resp_addressed_expert_issues",
+    "Exceptional care/skill in case management/presentation": "s2_cse_care_skill",
+    "Particular care with vulnerable client": "s2_cse_care_vulnerable_client",
+    "Work conducted with exceptional speed (as per Stage 1)": "s2_cse_speed",
+    "Exceptional economy (less time/disbursements claimed)": "s2_cse_economy_efficiency",
+    "Novel points of law or legal context (as per Stage 1)": "s2_nwc_novelty_law",
+    "Exceptional weight (docs/issues) (as per Stage 1)": "s2_nwc_weight_docs_issues",
+    "Overall complexity was exceptional (as per Stage 1)": "s2_nwc_complexity_overall"
+};
+
 
 // --- HELP TEXTS (Markdown format) ---
 const MAIN_HELP_TEXT_MARKDOWN = `
@@ -214,7 +590,7 @@ This tool is a client-side web application. All data entered by the User is proc
 
 
 ## When to Consider an Enhancement Claim
-LAA enhancements are not designed for every legally aided family case. The LAA's Costs Assessment Guidance (CAG) explicitly states that for the threshold test, "the case must be viewed as **exceptional** in one of the ways referred to..." (CAG 12.8, emphasis added). The guidance further clarifies that the comparison is "with the generality of legally aided proceedings to which the prescribed rates apply" (CAG 6.17).
+LAA enhancements are not designed for every legally aided family case. The LAA's Costs Assessment Guidance (CAG) explicitly states that for the threshold test, "the case must be viewed as **exceptional** in one of the ways referred to..." (CAG 12.8, emphasis added). The guidance further clarifies that the comparison is "with the generality of legally aided proceedings to which the prescribed rates apply" (CAG 12.8, quoting Paragraph 6.17 of the Specification — there is no paragraph 6.17 in the CAG itself). CAG 12.11 goes further and rejects the narrower comparison outright: it is "not solely with cases within the same category of law (in non-family cases) or with cases of the same type of proceedings". CAG 12.8 also sets the height of the bar: "'Exceptional' has its normal meaning of 'unusual' or 'out of the ordinary', hence more than simply above the average."
 
 Before using this tool, critically assess if the case truly stands out due to:
 *   Exceptional Competence, Skill, or Expertise
@@ -240,16 +616,16 @@ Tick the main question for a category if it applies, then select specific reason
     *   Completes work in less time than expected.
     *   Achieves a better result than usually expected.
     *   Shows exceptional skill with a vulnerable client (e.g., child, serious mental illness, learning disabilities).
-    *(LAA Costs Assessment Guidance (CAG) Section 12.8.1)*
+    *(LAA Costs Assessment Guidance (CAG) Section 12.8(a))*
 
 2.  **Exceptional speed:**
     *   The fee earner proactively pursues the case to a swift resolution (e.g., obtaining re-housing, injunctions).
     *   Undertakes substantial work at very short notice due to urgent deadlines (e.g., deportation, urgent hearings).
-    *(CAG Section 12.8.2)*
+    *(CAG Section 12.8(b))*
 
 3.  **Exceptional circumstances, novelty, weight, or complexity:**
     *   This can include: complex legal or evidential issues, difficulty taking instructions, issues of exceptional impact to the client (liberty, safety from domestic violence, housing security, avoiding destitution), substantial and unavoidable out-of-hours work, novel points of law or unique factual matrix, or exceptional weight due to volume of documents or number of issues.
-    *(CAG Section 12.8.3)*
+    *(CAG Section 12.8(c))*
 
 ---
 ### Stage 2: Determining the Level of Enhancement (CAG Section 12.5 & 12.9)
@@ -298,47 +674,64 @@ The enhancement percentage is assessed holistically by the LAA. Higher percentag
 >
 > LAA CAG - refers to the Legal Aid Agency's Costs Assessment Guidance.
 >
-> Spec - refers to the 2018 Standard Civil Contract Specification.
+> Spec - refers to the 2024 Standard Civil Contract Specification.
 
 `;
 
 const UPLIFT_PERCENTAGE_GUIDANCE_TEXT = `
 # Guidance on Determining Your Proposed Uplift Percentage
 
-As the solicitor, you are best placed to assess the exceptionality of the work. The percentage you propose will be considered by Woodruff Billing Ltd when compiling the final claim.
+**This tool does not suggest a percentage, and that is deliberate.** You are the only person who knows how hard this case actually was. Earlier versions displayed a calculated "Suggested: X%", and it did real damage in both directions — it once proposed 10% on a case that merited 30%, and later let five threshold ticks reach the cap before the stage that actually justifies the figure had done any work. A number on the screen ends up authoring the answer. Below is what the guidance genuinely says, and nothing else.
 
-The "Suggested: X%" figure displayed on the final page is a **very rough illustration** based on a simple "10% per factor" rule of thumb some practitioners use for initial estimation. **It is NOT an official LAA calculation method.** Your professional judgment, based on the LAA's detailed criteria and the specifics of your case, is paramount.
+Everything on this page is quoted or cited from the LAA's Costs Assessment Guidance. Where it is in quotation marks, those are the LAA's words.
 
-### 1. First, ensure the Stage 1 Threshold is Met:
-   *   The work must genuinely meet at least ONE of the three primary LAA threshold criteria (Exceptional competence/skill/expertise; Exceptional speed; OR Exceptional circumstances/novelty/weight/complexity) **and be properly explained**.
-   *   If not, an enhancement is likely not appropriate.
+### 1. What the ceiling actually is (CAG 12.2)
 
-### 2. Consider Stage 2 Factors for the Level (%):
-   If Stage 1 is met, the following factors (detailed in the main Help / Info) influence the percentage. Ensure these are also well-explained if selected.
-   *   **Degree of Responsibility**
-   *   **Care, Speed, and Economy**
-   *   **Novelty, Weight, and Complexity**
+   *   Up to **50%** in proceedings below the High Court — this includes the Family Court and the County Court.
+   *   Up to **100%** in the **High Court, Upper Tribunal, Court of Appeal or Supreme Court**.
+   *   Check which applies before you decide. If your case was in one of those higher courts, your ceiling is 100%, not 50%.
+   *   The 50% and 100% figures are caps, not targets, and they are the **only** enhancement percentages in Section 12 apart from the 15% panel minimum. The guidance publishes no bands, no ladder and no scale of any kind.
 
-### 3. LAA's Holistic View & Caps:
-   *   The LAA states (CAG 12.10): Higher uplift levels are likely if more Stage 2 factors are strongly present. "A maximum enhancement could be payable on the basis of one factor alone where it is particularly strong."
-   *   **Consider these bands as a general guide for your proposal:**
-        *   **10-25%:** One or two Stage 2 factors notably present; work demonstrably harder than average.
-        *   **25-50%:** Several Stage 2 factors strongly present, or one/two exceptionally strong. Work significantly challenging, requiring high expertise/resilience. (This is often the practical cap for non-High Court work unless truly extraordinary).
-        *   **50%-75%+ (up to 100% in higher courts):** Multiple factors met to an exceptionally high degree. Work extraordinarily demanding, complex, immense responsibility, perhaps groundbreaking. (Needs very robust justification).
-   *   **LAA Caps (CAG 12.2):** Remember the LAA's own maximums:
-        *   Up to **50%** (Family Court, County Court).
-        *   Up to **100%** (High Court, Upper Tribunal, Court of Appeal, Supreme Court).
+### 2. You do not need every factor (CAG 12.10)
 
-### 4. Family Panel Membership (CAG Section 12.20-12.23):
-   *   If you've selected a panel membership and provided the Fee Earner's name, a 15% uplift is a guaranteed minimum *if an enhancement is otherwise justified by meeting the Stage 1 threshold*.
-   *   If your assessment of Stage 1 & 2 factors justifies more than 15%, propose that higher figure. The panel membership supports the underlying claim for expertise.
+   The LAA's own words:
 
-### 5. Proportionality and Reasonableness:
-   *   The key is whether the proposed percentage is reasonable and proportionate given the *specific exceptional work you've explained*.
-   *   Focus on the *strength* and *relevance* of each point, supported by your explanations.
+   > "Enhancement is likely to be allowed at higher levels where more of the above seven factors are present in the case and where any of the factors are strongly present."
 
-**Your Input is Crucial:**
-The explanations you provide in this form for each ticked criterion are vital. They form the basis of the justification Woodruff Billing Ltd will use. Ensure they are detailed enough (approx. 10+ words is a good guideline).
+   and, in the same paragraph:
+
+   > "A maximum enhancement could be payable on the basis of one factor alone where it is particularly strong."
+
+   So a single, genuinely strong factor can carry a maximum enhancement. Strength counts, not just how many boxes you ticked.
+
+### 3. What you are comparing against (CAG 12.8 and 12.11)
+
+   This is the point most easily got wrong, and getting it wrong costs money. The comparison is **not** with other family cases, and **not** with what is normal for a fee earner at your level. CAG 12.8 says the comparison is:
+
+   > "with the generality of legally aided proceedings to which the prescribed rates apply"
+
+   and CAG 12.11 expressly rejects the narrower comparison:
+
+   > "the comparison is to be made with other proceedings for which legal aid is available, not solely with cases within the same category of law (in non-family cases) or with cases of the same type of proceedings"
+
+   Measured against other family cases, hard family work looks ordinary. Measured as the guidance actually directs, it does not.
+
+   On the threshold itself, CAG 12.8: "'Exceptional' has its normal meaning of 'unusual' or 'out of the ordinary', hence more than simply above the average."
+
+### 4. Panel membership (CAG 12.20 and 12.23)
+
+   *   A guaranteed minimum of **15%** is payable for work by a fee earner on the Resolution Accredited Specialist Panel, the Law Society's Children Panel or the Law Society Family Law Panel Advanced (12.20).
+   *   It is **not payable in addition** to a general enhancement (12.23) — it is a floor, not a bonus.
+   *   The useful way to think about it: **you already have 15%. This tool is about whether the case justifies more.**
+   *   The panel question is still asked because CAG 12.22 requires the bill narrative to "clearly state the fee-earner for whom the enhancement is claimed and the basis for the enhancement".
+
+### 5. Each claim stands on its own facts (CAG 12.11)
+
+   > "Each claim must be considered on its own facts."
+
+   There is no tariff to look your case up in. What persuades an assessor is a specific, concrete account of what made this case unusual — which is what Stage 2 of this form is for.
+
+**Your explanations are what does the work.** The Stage 2 boxes become the justification Woodruff Billing Ltd puts to the LAA. Concrete detail — what happened, why it was necessary, what it led to — persuades; general assertion does not.
 `;
 
 // --- CONTEXTUAL HELP TEXTS ---
@@ -372,7 +765,7 @@ If unsure, select the closest match or consult Woodruff Billing Ltd.
 
 *   **Be Specific:** Avoid generic statements. Quantify where possible (e.g., "reviewed 500 pages of evidence," "hearing lasted 3 hours longer than scheduled," "researched obscure 19th-century case law for 2 hours").
 *   **Link Directly to LAA Criteria:** Explicitly state which LAA criterion (e.g., "exceptional competence," "unusual complexity," "degree of responsibility") your point supports. Refer to specific sub-points if applicable.
-*   **Focus on 'Exceptional':** Clearly explain *why* the work undertaken, or the circumstances faced, were beyond the normal scope, difficulty, or expectation for a fee earner of your level handling a case of this type. What made it stand out?
+*   **Focus on 'Exceptional':** Clearly explain *why* the work undertaken, or the circumstances faced, were "unusual" or "out of the ordinary" — CAG 12.8's own test — measured against "the generality of legally aided proceedings to which the prescribed rates apply". Do **not** measure it against what is normal for a fee earner of your level, or against other cases of this type: CAG 12.11 rejects that comparison, and it is the comparison under which genuinely hard work looks ordinary. What made this case stand out from legally aided work as a whole?
 *   **Show, Don't Just Tell:** Provide concrete examples and details of the skill, complexity, speed, or responsibility. Instead of "complex legal issues," state "complex legal issues regarding the interplay of international relocation conventions and domestic wardship."
 *   **Detail the Impact:** Describe how the exceptional work, skill, or circumstance positively impacted the case outcome, the client's position, or the efficiency of proceedings.
 *   **Brevity and Clarity:** Be concise but ensure all necessary justifying details are present. Use clear, professional language. Avoid jargon where simpler terms suffice.
