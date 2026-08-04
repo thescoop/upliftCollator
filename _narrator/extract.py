@@ -49,9 +49,42 @@ SECTION_PATTERNS: dict[str, re.Pattern[str]] = {
     # Added in v1.11. Absent from every earlier PDF, which is handled rather
     # than guarded against: section_slice simply finds no match and the
     # confirmation reads as false.
-    "evidence_on_file": re.compile(r"^EVIDENCE ON FILE\s*$", re.MULTILINE),
+    #
+    # Unlike its neighbours this one requires its own first line to follow,
+    # and that is deliberate. Every pattern here matches the *first* bare
+    # heading anywhere in the document, so a solicitor who pastes working
+    # notes containing a line reading EVIDENCE ON FILE into a Stage 2
+    # explanation would otherwise end the Stage 2 section there — dropping
+    # every criterion after it — and send the confirmation search to a heading
+    # inside their own prose, where it would find no status line and report a
+    # real confirmation as absent. Demanding the status line makes a heading in
+    # prose simply not a section. The older patterns share the weakness and are
+    # left alone for now: changing them would alter how PDFs already sitting in
+    # live matters are read, which is not a change to make in passing.
+    "evidence_on_file": re.compile(
+        r"^EVIDENCE ON FILE\s*\n\s*Evidence on file:\s*(?:Not confirmed|Confirmed)\b",
+        re.MULTILINE,
+    ),
     "disclaimer": re.compile(r"^DISCLAIMER\s*$", re.MULTILINE),
 }
+
+# The confirmation itself, read as two independent statements that must agree.
+#
+# The status line alone is one word away from reversing its meaning: lose the
+# "Not " from "Evidence on file: Not confirmed" — the kind of damage a PDF
+# rebuilt in transit does — and a refusal reads as a confirmation. So the
+# sentence beneath it has to agree before this is treated as confirmed. Two
+# separate strings must survive intact, and they fail in opposite directions,
+# which is what makes the pair worth more than either alone.
+EVIDENCE_STATUS = re.compile(
+    r"^EVIDENCE ON FILE\s*\n\s*Evidence on file:\s*(?P<status>Not confirmed|Confirmed)\b",
+    re.MULTILINE,
+)
+# Whitespace-tolerant because jsPDF wraps this sentence at the column width and
+# the break lands in a different place depending on the page.
+EVIDENCE_CONFIRMED_SENTENCE = re.compile(
+    r"The fee earner\s+confirms\s+that\s+evidence\s+supporting"
+)
 
 # Per-page footer stamped by addFooter — strip before parsing.
 FOOTER_PATTERN = re.compile(
@@ -110,10 +143,16 @@ def extract_case_details(text: str) -> dict:
         # under CAG 12.2. Nothing here computes with it — this tool proposes
         # no figure — but the person checking a narrative needs it beside the
         # percentage claimed, and a PDF from before v1.11 simply yields "".
-        (r"Court:\s+(.+)", "courtLevel"),
+        #
+        # Anchored to the start of a line, unlike the three above, because
+        # "Court:" is a substring a case name can genuinely contain: a matter
+        # called "High Court: Re X and Y" would otherwise make the case name
+        # supply the court. The three above keep their looser form so that
+        # nothing changes in how PDFs already sitting in live matters are read.
+        (r"^Court:\s+(.+)", "courtLevel"),
     ]
     for pattern, key in pairs:
-        m = re.search(pattern, block)
+        m = re.search(pattern, block, re.MULTILINE)
         fields[key] = m.group(1).strip() if m else ""
     return fields
 
@@ -253,6 +292,41 @@ def extract_panel(
     return result
 
 
+def _resolve_wrapped_label(
+    lines: list[str], label_keys: dict[str, str]
+) -> tuple[str, int]:
+    """The label from a bullet chunk, rejoined if the PDF wrapped it.
+
+    Returns the label and how many lines it occupied.
+
+    jsPDF wraps at the column width and marks the continuation in no way at
+    all, so a label longer than one line arrives as two. Reading only the
+    first line then leaves a label that matches nothing, and since ``2ba3adb``
+    an unmatched label stops the whole run — so one Stage 1 label being eleven
+    characters too long was enough to halt the narrator on any case that
+    ticked it, with the continuation swallowed into the category title.
+
+    Joining is driven entirely by exact matches against ``content-data.js``:
+    a candidate is accepted only where the joined text **is** a known label.
+    So this cannot invent a criterion out of two unrelated lines, and a label
+    that is genuinely damaged still fails to match and still stops the run.
+    Reported as the first line alone in that case, because joining a
+    category line onto damaged text would only obscure the damage.
+    """
+    label = lines[0].lstrip("•").strip()
+    if label in label_keys:
+        return label, 1
+    joined = label
+    for index in range(1, len(lines)):
+        nxt = lines[index].strip()
+        if not nxt or nxt.startswith("Explanation:"):
+            break
+        joined = f"{joined} {nxt}"
+        if joined in label_keys:
+            return joined, index + 1
+    return label, 1
+
+
 def extract_criteria(
     text: str,
     section_name: str,
@@ -261,7 +335,7 @@ def extract_criteria(
 ) -> dict:
     """Parse Stage 1 or Stage 2 criteria. Each ticked item in the PDF is::
 
-        •  <label>
+        •  <label, wrapped over as many lines as it needs>
         <categoryTitle>
         Explanation: <text, possibly wrapped over multiple lines>
     """
@@ -281,12 +355,12 @@ def extract_criteria(
         if not chunk.startswith("•"):
             continue
         lines = [ln.rstrip() for ln in chunk.splitlines()]
-        label = lines[0].lstrip("•").strip()
+        label, label_lines = _resolve_wrapped_label(lines, label_keys)
 
         category_parts: list[str] = []
         explanation_parts: list[str] = []
         in_explanation = False
-        for line in lines[1:]:
+        for line in lines[label_lines:]:
             stripped = line.strip()
             if not in_explanation and stripped.startswith("Explanation:"):
                 in_explanation = True
@@ -347,11 +421,16 @@ def extract_evidence_confirmation(text: str) -> bool:
     line we cannot read with certainty. The cost of a false negative is one
     absent sentence; the cost of a false positive is an unsupported assertion
     in a document going to the LAA under the solicitor's name.
+
+    Both the status line and the sentence below it must say the same thing.
+    See :data:`EVIDENCE_STATUS` for why one of them is not enough.
     """
-    block = section_slice(text, "evidence_on_file")
-    if not block:
+    m = EVIDENCE_STATUS.search(text)
+    if not m or m.group("status") != "Confirmed":
         return False
-    return bool(re.search(r"Evidence on file:\s*Confirmed\b", block, re.IGNORECASE))
+    # Bounded: far enough to clear the sentence and its wrapping, not so far
+    # that the disclaimer or a later page could supply it.
+    return bool(EVIDENCE_CONFIRMED_SENTENCE.search(text[m.end():m.end() + 400]))
 
 
 # Below this, whatever pdfplumber recovered is noise — a stray glyph, a
