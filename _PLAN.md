@@ -1,5 +1,75 @@
 # Agreed programme — settled 4 August 2026
 
+## BUILD STATUS — updated 4 August 2026, end of session
+
+Work is on branch **`redesign/stage1-labels`**. **Nothing is on `main`, so nothing is
+live.** Only a merge to `main` publishes to solicitors.
+
+### Done and committed
+
+| Commit | What |
+|---|---|
+| `bc57575` | Last open question closed: novelty and weight stay out of Stage 1 |
+| `e1a5557` | Stage 1 → 13 tick-only labels; Stage 2 → 7 CAG 12.9 factor blocks; all citation and benchmark fixes; invented bands deleted; `APP_VERSION` 1.11 |
+| `603dfbb` | Legacy label aliases wired; `_narrator/` green at 251 tests |
+| `44a6c94` | Sol's review applied — the narrowing qualifiers we had invented, removed; 253 tests |
+
+- **`_cag-section-12-verbatim.md` is now the citation source of truth.** Check every
+  citation against it before writing one. It is verified: extracted by gpt-5.6-sol and
+  independently re-checked by string-matching twelve load-bearing quotes against a
+  second extraction of the PDF.
+- **`_narrator/` is finished for this phase: 253 tests pass.** The legacy-label
+  regression is proven by deliberate breakage — disabling the alias wiring puts all 28
+  historical labels into `unrecognised`, as it must.
+- Stage 1 is **13** labels, not 12: the tactic/better-result label was split because a
+  single disjunctive checkbox was generating a narrative asserting both halves.
+
+### Not started — the front end
+
+`index.html`, `script.js` and `style.css` were being rebuilt when the session paused and
+**those changes may be incomplete in the working tree — check `git status` before
+trusting them.** Outstanding:
+
+1. Remove the suggested percentage from the UI (`_updateSuggestedPercentage`, the
+   display element, the "use suggested" regex auto-fill). The data layer is already done.
+2. Render the 13 Stage 1 labels tick-only, with the `what_counts` expander and
+   `STAGE1_THRESHOLD_BANNER`.
+3. Render the 7 Stage 2 blocks with carry-forward pre-selection, `stem` and persistent
+   `example`.
+4. Ask which court, for the 50% vs 100% ceiling (CAG 12.2).
+5. **Set `evidenceOnFileConfirmed`** — the narrator now only emits "Evidence supporting
+   these assertions can be found within the case file" when this is truthy. Until the
+   front end sets it, that sentence never appears. Simon's decision was that it should
+   be gated on a positive tick, so build the tick.
+6. `localStorage` save/resume; vendor the CDN libraries; accessibility.
+7. Then, still untouched: the merged editable narrative page, and `.docx` output.
+
+### Two things to decide next session
+
+- **Sol argued novelty and weight should return to Stage 1** and was told not to, since
+  Simon settled it. Its argument: CAG 12.8(c)'s heading, expressly introduced as
+  threshold guidance, names "exceptional circumstances, novelty, weight or complexity".
+  The counter, which stands: 12.4(c) is the operative threshold and says "circumstances
+  **or** complexity", and 12.8's headings are demonstrably loose — the same paragraph
+  cites "the three limbs of 6.15" where 12.4 puts the threshold at 6.13. Recorded
+  because it is the argument an assessor could make back.
+- **Sol's finding 6 was never applied.** The panel checkboxes add conditions CAG 12.20
+  does not: "(and work relates to children)" and "the work undertaken falls within the
+  scope of this accreditation". 12.20 requires only that the work was carried out by a
+  fee-earner on a named panel. These may well be real contractual conditions from
+  outside Section 12 — but if they are not, they are two more under-claiming
+  restrictions. **Needs Simon, not a model.**
+
+### Known, deliberate, do not "fix"
+
+- Retired legacy templates still contain the old narrowing language ("exceptional
+  economy", "significant evidential issues"). They are not offered to new users; they
+  exist so pre-v1.11 PDFs render as they did when produced. Changing them would
+  rewrite history.
+- `MAIN_HELP_TEXT_MARKDOWN` repeats its opening paragraph. Cosmetic, noticed late.
+
+---
+
 Entry point for the next session. **Direction is fully settled; nothing is blocked.**
 This supersedes the earlier version of this file, which described a percentage
 range and an embedded XML payload — both of those were dropped, deliberately, and
