@@ -17,11 +17,16 @@ Output shape mirrors the in-app ``formData``::
     }
 
 Labels are mapped back to QUESTION_BLOCKS keys via the lookup in
-``templates.label_to_key_lookup``. Unknown labels are reported on stderr.
+``templates.label_to_key_lookup``. A ticked item whose label matches nothing is
+**not** dropped: it is recorded under ``unrecognised`` so the caller can stop
+the run. Skipping it would silently remove a factor the solicitor claimed, and
+a narrative that is quietly missing an argument reads exactly like one that
+never had it.
 """
 
 from __future__ import annotations
 
+import difflib
 import json
 import re
 import sys
@@ -102,11 +107,122 @@ def extract_case_details(text: str) -> dict:
     return fields
 
 
-def extract_panel(text: str, label_keys: dict[str, str]) -> dict:
+# ── Ticked lines whose label matches nothing ──────────────────────────────
+#
+# Such a line is one of two things, and they need different handling. Usually
+# it is a known label with damage in it — a PDF that has been OCR'd or rebuilt
+# by another program comes back with a bracket read as a brace, or a space lost
+# before a slash. Rarely it is a line of the solicitor's own prose that happened
+# to start with a bullet.
+#
+# The difference matters for confidentiality as much as for diagnosis. A
+# damaged label is a fixed string from content-data.js with noise in it and
+# carries nothing about the case, so it can be shown in full. An unrelated line
+# may be case text, so only its length is reported. Similarity decides which.
+LABEL_MATCH_FLOOR = 0.60
+
+
+def _nearest_label(label: str, known: list[str]) -> tuple[str, float]:
+    """The closest known label, and how close it is on a 0–1 scale."""
+    best, best_ratio = "", 0.0
+    for candidate in known:
+        ratio = difflib.SequenceMatcher(None, label, candidate).ratio()
+        if ratio > best_ratio:
+            best, best_ratio = candidate, ratio
+    return best, best_ratio
+
+
+def _first_difference(read: str, expected: str) -> str:
+    """Where the read text first departs from the label it should have been."""
+    for i, (a, b) in enumerate(zip(read, expected)):
+        if a != b:
+            return (
+                f"first difference at character {i + 1}: "
+                f"read {a!r}, expected {b!r}"
+            )
+    if len(read) == len(expected):
+        return "no character differs"
+    if len(read) < len(expected):
+        return (
+            f"text ends early at character {len(read) + 1}: "
+            f"expected {expected[len(read)]!r}"
+        )
+    return (
+        f"unexpected text from character {len(expected) + 1}: "
+        f"read {read[len(expected)]!r}"
+    )
+
+
+def _unrecognised(
+    section: str, label: str, known: list[str], **extra: str
+) -> dict:
+    """Record one unmatched line, with the known label it most resembles.
+
+    ``nearest`` is left empty below :data:`LABEL_MATCH_FLOOR`: naming a
+    "closest" label that shares only a third of its characters invites
+    correcting a line that was never that criterion in the first place.
+    """
+    nearest, ratio = _nearest_label(label, known)
+    record = {
+        "section": section,
+        "label": label,
+        "nearest": nearest if ratio >= LABEL_MATCH_FLOOR else "",
+        "similarity": round(ratio, 3),
+    }
+    record.update(extra)
+    return record
+
+
+def describe_unrecognised_criteria(items: list[dict]) -> str:
+    """Plain-English report of ticked lines that matched no known label.
+
+    Structure only, on the same terms as :func:`diagnose`: a read label is
+    echoed only where it is demonstrably a damaged copy of a known one, and the
+    explanation beneath it is never touched. Safe to print to a terminal, paste
+    into a message, or keep in a log.
+    """
+    n = len(items)
+    lines = [
+        f"narrate: {n} ticked "
+        + ("item" if n == 1 else "items")
+        + " could not be matched to a criterion in content-data.js."
+    ]
+    for item in items:
+        section = item.get("section", "?")
+        label = item.get("label", "")
+        nearest = item.get("nearest", "")
+        lines.append("")
+        if nearest:
+            lines.append(f"  {section} — read:    {label!r}")
+            lines.append(f"  {' ' * len(section)}   nearest: {nearest!r}")
+            lines.append(f"  {' ' * len(section)}   {_first_difference(label, nearest)}")
+        else:
+            lines.append(
+                f"  {section} — a bulleted line of {len(label)} characters "
+                "matching no known label."
+            )
+            lines.append(
+                f"  {' ' * len(section)}   Not shown: too unlike any criterion "
+                "to rule out case text."
+            )
+    lines.append("")
+    lines.append(
+        "Nothing was guessed. A label misread this way came off the same text "
+        "layer as\nthe explanation beneath it, so correcting the label alone "
+        "would leave prose that\nis just as wrong but no longer visibly so — "
+        "read both against the page before\naccepting either."
+    )
+    return "\n".join(lines)
+
+
+def extract_panel(
+    text: str, label_keys: dict[str, str], unmatched: list[dict] | None = None
+) -> dict:
     block = section_slice(text, "panel_membership")
     if not block or "None selected." in block:
         return {}
     result: dict[str, dict] = {}
+    known = list(label_keys)
     for line in block.splitlines():
         stripped = line.strip()
         if not stripped.startswith("•"):
@@ -114,14 +230,23 @@ def extract_panel(text: str, label_keys: dict[str, str]) -> dict:
         label = stripped.lstrip("•").strip()
         key = label_keys.get(label)
         if not key:
-            print(f"narrate: unknown panel label {label!r}", file=sys.stderr)
+            # A panel membership can be worth more on its own than every
+            # other factor combined, so a tick lost here is not the lesser
+            # problem. Same treatment as a criterion.
+            if unmatched is None:
+                print(f"narrate: unknown panel label {label!r}", file=sys.stderr)
+            else:
+                unmatched.append(_unrecognised("panelMembership", label, known))
             continue
         result[key] = {"checked": True, "label": label}
     return result
 
 
 def extract_criteria(
-    text: str, section_name: str, label_keys: dict[str, str]
+    text: str,
+    section_name: str,
+    label_keys: dict[str, str],
+    unmatched: list[dict] | None = None,
 ) -> dict:
     """Parse Stage 1 or Stage 2 criteria. Each ticked item in the PDF is::
 
@@ -139,6 +264,7 @@ def extract_criteria(
     # Split into chunks each beginning with a bullet at start-of-line.
     chunks = re.split(r"\n(?=•\s)", "\n" + block)
     result: dict[str, dict] = {}
+    known = list(label_keys)
     for chunk in chunks:
         chunk = chunk.strip()
         if not chunk.startswith("•"):
@@ -165,10 +291,24 @@ def extract_criteria(
         explanation = " ".join(explanation_parts).strip()
         key = label_keys.get(label)
         if not key:
-            print(
-                f"narrate: unknown criterion label in {section_name}: {label!r}",
-                file=sys.stderr,
-            )
+            if unmatched is None:
+                print(
+                    f"narrate: unknown criterion label in {section_name}: {label!r}",
+                    file=sys.stderr,
+                )
+            else:
+                # The category and explanation travel with the record so a
+                # corrected label can be re-resolved from narrative-input.json
+                # without re-reading the PDF. They stay out of every message.
+                unmatched.append(
+                    _unrecognised(
+                        section_name,
+                        label,
+                        known,
+                        categoryTitle=category_title,
+                        explanation=explanation,
+                    )
+                )
             continue
         result[key] = {
             "checked": True,
@@ -481,13 +621,72 @@ def extract_formdata(pdf_path: str | Path) -> dict:
     raw = read_pdf_text(pdf_path)
     text = normalise_text(raw)
     label_keys = label_to_key_lookup()
-    return {
+    unmatched: list[dict] = []
+    data = {
         "caseDetails": extract_case_details(text),
-        "panelMembership": extract_panel(text, label_keys),
-        "stage1": extract_criteria(text, "stage1", label_keys),
-        "stage2": extract_criteria(text, "stage2", label_keys),
+        "panelMembership": extract_panel(text, label_keys, unmatched),
+        "stage1": extract_criteria(text, "stage1", label_keys, unmatched),
+        "stage2": extract_criteria(text, "stage2", label_keys, unmatched),
         "finalUpliftPercent": extract_uplift_percent(text),
     }
+    if unmatched:
+        data["unrecognised"] = unmatched
+    return data
+
+
+def load_formdata_json(path: str | Path) -> dict:
+    """Re-read a ``narrative-input.json``, re-resolving any corrected labels.
+
+    The way out of an unmatched-label stop: fix the label in that file and run
+    again. Every entry under ``unrecognised`` is looked up afresh, and any that
+    now matches moves into its real section with its explanation intact. What
+    still does not match stays put, so the run stops again rather than
+    proceeding with the factor quietly missing.
+
+    Re-resolving against ``content-data.js`` rather than trusting the file is
+    the point: a hand-edited label is only accepted if it is now *exactly* a
+    real criterion, so a near-miss correction cannot slip through.
+    """
+    path = Path(path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{path.name} does not contain a formData object.")
+    for section in ("caseDetails", "panelMembership", "stage1", "stage2"):
+        if not isinstance(data.get(section, {}), dict):
+            raise ValueError(f"{path.name}: {section!r} is not an object.")
+
+    label_keys = label_to_key_lookup()
+    known = list(label_keys)
+    still_unmatched: list[dict] = []
+    for item in data.get("unrecognised") or []:
+        label = (item.get("label") or "").strip()
+        section = item.get("section", "")
+        key = label_keys.get(label)
+        if not key or section not in ("panelMembership", "stage1", "stage2"):
+            still_unmatched.append(
+                _unrecognised(
+                    section or "?",
+                    label,
+                    known,
+                    **{
+                        k: item[k]
+                        for k in ("categoryTitle", "explanation")
+                        if k in item
+                    },
+                )
+            )
+            continue
+        entry = {"checked": True, "label": label}
+        if section != "panelMembership":
+            entry["categoryTitle"] = item.get("categoryTitle", "")
+            entry["explanation"] = item.get("explanation", "")
+        data.setdefault(section, {})[key] = entry
+
+    if still_unmatched:
+        data["unrecognised"] = still_unmatched
+    else:
+        data.pop("unrecognised", None)
+    return data
 
 
 # PDF producers that mean "this file was rebuilt by something after the app

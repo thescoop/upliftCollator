@@ -48,6 +48,7 @@ import lmstudio
 import polish as polish_mod
 import prompts as prompts_mod
 from extract import (
+    describe_unrecognised_criteria,
     explain_empty_extraction,
     extract_formdata,
     extraction_is_empty,
@@ -152,6 +153,44 @@ class NarrateWorker(QThread):
                 f'<span style="color:#88aaff;">Extracted: {n_panel} panel · '
                 f'{n_s1} Stage 1 · {n_s2} Stage 2 · {uplift_text}</span>'
             )
+
+            # A ticked item that matches no known criterion would otherwise
+            # vanish from the narrative with nothing on the finished page to
+            # show it had gone. Ordered ahead of the empty check for the same
+            # reason as in narrate.py: when every label is damaged both are
+            # true, and naming the labels is the more useful answer.
+            unrecognised = formdata.get("unrecognised") or []
+            if unrecognised:
+                out_dir = Path(self._out_dir)
+                out_dir.mkdir(parents=True, exist_ok=True)
+                for stale in ("narrative.md", "narrative-prompt.txt",
+                              "narrative-polished.docx", "narrative-polished.md",
+                              "citation-check.txt"):
+                    (out_dir / stale).unlink(missing_ok=True)
+                input_json = out_dir / "narrative-input.json"
+                input_json.write_text(
+                    json.dumps(formdata, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+                self.log_line.emit(
+                    '<span style="color:#ff6b6b;">Stopping — a ticked item could '
+                    'not be matched to a criterion, so the narrative would be '
+                    'missing a factor the solicitor claimed.</span>'
+                )
+                for line in describe_unrecognised_criteria(unrecognised).splitlines():
+                    self.log_line.emit(
+                        f'<span style="color:#fab387;">{html.escape(line) or "&nbsp;"}</span>'
+                    )
+                self.log_line.emit(
+                    '<span style="color:#9399b2;">Correct each label in '
+                    f'{html.escape(input_json.name)} to match content-data.js, '
+                    'then re-run from a terminal:</span>'
+                )
+                self.log_line.emit(
+                    '<span style="color:#9399b2;">python narrate.py --from-json '
+                    f'"{html.escape(str(input_json))}"</span>'
+                )
+                return
 
             # Nothing recovered means nothing to write. Stopping here is the
             # honest outcome: the previous behaviour built an empty skeleton,

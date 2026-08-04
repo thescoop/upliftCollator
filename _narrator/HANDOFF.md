@@ -1,7 +1,7 @@
 # Uplift Collator + Narrator — Project Handoff
 
 Concise context for picking up work in a fresh session.
-**Last updated 1 August 2026.**
+**Last updated 4 August 2026.**
 
 ## What this project does
 
@@ -32,7 +32,7 @@ picking the work up needs.
 App version **1.10** (29 April 2026) in `content-data.js`. Simon confirmed on
 1 August 2026 that narrator-only template additions do **not** bump it.
 
-**215 tests**, all passing, none touching the network. Verified on 1 August 2026
+**244 tests**, all passing, none touching the network. Verified on 4 August 2026
 under both WSL *and* Windows Python, with a clean working tree after either:
 
 ```bash
@@ -137,6 +137,41 @@ OCR was designed in full and rejected on 3 August 2026. Three reasons:
 
 A vision model instead of OCR was rejected earlier and separately: OCR fails
 visibly, a VLM fails plausibly, inventing a clean wrong number.
+
+### Partial damage was the hole, and it is now closed
+
+`diagnose()` only ever fired when extraction came back **empty**, so a PDF that
+kept *some* text sailed through. On 4 August 2026 one did: a flattened file
+that Simon had recovered by running it through Acrobat's own OCR. Two labels
+came back damaged — `{` for `(`, and a space lost before a slash — and
+`extract_criteria` did what it had always done, printed a line to stderr and
+carried on. Both criteria were dropped, one of them the Stage 1 and Stage 2
+halves of the same weight-of-documents argument, and the narrative was silently
+a weaker claim than the solicitor had made. The warning went to stderr, which
+the GUI does not show; it was noticed only because that run happened to be
+launched from a terminal.
+
+An unmatched label now **stops the run**, in both the CLI and the GUI. Three
+things about the design are deliberate:
+
+- **It does not repair the label**, obvious though `{`→`(` is. The explanation
+  beneath a mangled label came off the same text layer, so fixing what is
+  visible would leave prose that is equally wrong and no longer looks it.
+- **`narrative-input.json` is written before the stop**, not after. Correcting
+  a label in that file and re-running `--from-json` is the whole recovery path;
+  writing it afterwards would leave nothing to correct. Corrected labels are
+  re-resolved against `content-data.js`, so only an exact match is accepted.
+- **The report echoes a read label only when it closely resembles a known one**
+  (`LABEL_MATCH_FLOOR`). A bulleted line unlike any criterion may be the
+  solicitor's own prose, so only its length is reported. Same rule as
+  `diagnose()`: structure yes, case text never.
+
+`extract_panel` is guarded the same way — a panel membership can be worth more
+than every criterion combined, so a tick lost there is not the lesser problem.
+
+The GUI stops and prints the exact `--from-json` command, but cannot itself
+resume from a JSON file; its file picker takes a PDF. Worth closing if it ever
+becomes a nuisance.
 
 The measurement stands if this is ever revisited: at 300 dpi with Windows'
 on-device OCR, section headers 6/6, criteria 7/7 by fuzzy label match,

@@ -41,10 +41,12 @@ import docx_writer
 import lmstudio
 import polish as polish_mod
 from extract import (
+    describe_unrecognised_criteria,
     diagnose,
     explain_empty_extraction,
     extract_formdata,
     extraction_is_empty,
+    load_formdata_json,
 )
 import prompts as prompts_mod
 from skeleton import build_skeleton
@@ -73,7 +75,18 @@ def _clear_derived(out_dir: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
-    parser.add_argument("pdf", help="Path to the Collator-generated PDF")
+    parser.add_argument(
+        "pdf", nargs="?", help="Path to the Collator-generated PDF"
+    )
+    parser.add_argument(
+        "--from-json",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Re-run from a narrative-input.json instead of a PDF. This is the "
+             "way to resume after a criterion label could not be matched: "
+             "correct the label in that file and point this at it.",
+    )
     parser.add_argument(
         "--out-dir",
         type=Path,
@@ -111,19 +124,48 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    pdf_path = Path(args.pdf).resolve()
-    if not pdf_path.is_file():
-        print(f"narrate: file not found: {pdf_path}", file=sys.stderr)
+    if bool(args.pdf) == bool(args.from_json):
+        print(
+            "narrate: give either a PDF or --from-json, not both and not neither.",
+            file=sys.stderr,
+        )
         return 2
 
-    if args.debug:
-        print(json.dumps(diagnose(pdf_path), indent=2, ensure_ascii=False))
-        return 0
+    if args.from_json:
+        if args.debug:
+            print(
+                "narrate: --debug inspects a PDF; --from-json has none to inspect.",
+                file=sys.stderr,
+            )
+            return 2
+        json_path = args.from_json.resolve()
+        if not json_path.is_file():
+            print(f"narrate: file not found: {json_path}", file=sys.stderr)
+            return 2
+        # Default beside the file itself: a corrected narrative-input.json
+        # already lives in the output directory of the run that produced it.
+        out_dir = (args.out_dir or json_path.parent).resolve()
+        pdf_path = None
+        print(f"narrate: reading {json_path.name}", file=sys.stderr)
+        try:
+            formdata = load_formdata_json(json_path)
+        except (ValueError, json.JSONDecodeError) as exc:
+            print(f"narrate: cannot read {json_path.name}: {exc}", file=sys.stderr)
+            return 2
+    else:
+        pdf_path = Path(args.pdf).resolve()
+        if not pdf_path.is_file():
+            print(f"narrate: file not found: {pdf_path}", file=sys.stderr)
+            return 2
 
-    out_dir = (args.out_dir or _default_out_dir(pdf_path)).resolve()
+        if args.debug:
+            print(json.dumps(diagnose(pdf_path), indent=2, ensure_ascii=False))
+            return 0
 
-    print(f"narrate: reading {pdf_path.name}", file=sys.stderr)
-    formdata = extract_formdata(pdf_path)
+        out_dir = (args.out_dir or _default_out_dir(pdf_path)).resolve()
+
+        print(f"narrate: reading {pdf_path.name}", file=sys.stderr)
+        formdata = extract_formdata(pdf_path)
 
     n_panel = len(formdata.get("panelMembership", {}))
     n_s1 = len(formdata.get("stage1", {}))
@@ -135,11 +177,48 @@ def main(argv: list[str] | None = None) -> int:
         file=sys.stderr,
     )
 
+    # Ordered ahead of the empty check because when every label is damaged both
+    # are true, and a per-label report next to a correctable file is a better
+    # answer than "nothing was extracted".
+    unrecognised = formdata.get("unrecognised") or []
+    if unrecognised:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        _clear_derived(out_dir)
+        # A skeleton and prompt from an earlier run describe a different input.
+        # Left in place beside a stop they would read as this run's output.
+        for stale in ("narrative.md", "narrative-prompt.txt"):
+            (out_dir / stale).unlink(missing_ok=True)
+        input_json = out_dir / "narrative-input.json"
+        input_json.write_text(
+            json.dumps(formdata, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        print("", file=sys.stderr)
+        print(describe_unrecognised_criteria(unrecognised), file=sys.stderr)
+        print(
+            "\nnarrate: stopping. Writing the narrative now would drop a factor "
+            "the solicitor\nticked, and nothing in the finished document would "
+            "show that it was missing.\n\n"
+            "  Everything recovered, unmatched entries included, is in:\n"
+            f"    {input_json}\n"
+            "  Correct each 'label' there to match content-data.js exactly, then:\n"
+            f'    python narrate.py --from-json "{input_json}"',
+            file=sys.stderr,
+        )
+        return 5
+
     # Nothing recovered means nothing to write. Stop at the PDF rather than
     # building an empty skeleton, spending a model call on it, and reporting
     # the result as a citation failure — which says the narrative is wrong
     # when the truth is that there never was one.
     if extraction_is_empty(formdata):
+        if pdf_path is None:
+            print(
+                "\nnarrate: that file holds no ticked criteria — there is "
+                "nothing to write a narrative from.",
+                file=sys.stderr,
+            )
+            return 4
         print("\nnarrate: nothing was extracted from this PDF.\n", file=sys.stderr)
         print(explain_empty_extraction(pdf_path), file=sys.stderr)
         print(

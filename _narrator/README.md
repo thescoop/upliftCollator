@@ -61,6 +61,54 @@ percentage is worse than no narrative at all — the same reasoning that picked
 the default model (see *Choosing a model*). If the original is genuinely gone,
 re-enter the answers in the web app and generate a fresh PDF.
 
+### If you OCR one yourself, expect damaged labels
+
+Putting a flattened PDF through Acrobat's OCR does get the words back, but not
+faithfully. A file recovered that way on 4 August 2026 returned `Exceptional
+weight {docs/issues) (as per Stage 1)` — an opening bracket read as a brace —
+and `documentation volume/ number`, with the space before the slash lost.
+
+A ticked item whose label matches nothing in `content-data.js` **stops the
+run**, and the report names the character that differs:
+
+```
+narrate: 2 ticked items could not be matched to a criterion in content-data.js.
+
+  stage2 — read:    'Exceptional weight {docs/issues) (as per Stage 1)'
+           nearest: 'Exceptional weight (docs/issues) (as per Stage 1)'
+           first difference at character 20: read '{', expected '('
+```
+
+It stops rather than quietly repairing the bracket, because the explanation
+underneath a mangled label came off the same damaged text layer. Correcting
+what you can see would leave prose that is just as wrong and no longer looks
+it. Before this existed the item was skipped with a line on stderr, so a factor
+the solicitor claimed simply disappeared — and a narrative missing an argument
+reads exactly like one that never made it.
+
+The report is safe to paste anywhere: a read label is shown only where it is
+demonstrably a damaged copy of a known one, and the explanation is never
+included. A bulleted line too unlike any criterion is reported by length alone,
+because it may be case text rather than a label at all.
+
+Everything recovered is written to `narrative-input.json` *before* the stop, so
+the way forward is to correct each `label` in that file and re-run without
+going near the PDF again:
+
+```bash
+python narrate.py --from-json ".../narrative-input.json"
+```
+
+Corrected labels are re-resolved against `content-data.js`, so one is accepted
+only if it now matches **exactly**; near enough does not pass. Anything still
+unmatched stops the run again.
+
+**Avoiding the OCR entirely is still better.** Paste the recovered text into
+the web app, proofread it there against the rendered page, and download a fresh
+PDF. That repairs the labels for free, gives a real text layer, and puts the
+proofreading at the point where you are already reading the words — which has
+to happen somewhere either way.
+
 ## What it produces
 
 For an input `case.pdf`, both front-ends write a folder `case-narrative/` next
@@ -152,6 +200,17 @@ python narrate.py path/to/case.pdf --polish [--model NAME] [--no-verify]
 Without `--polish` the CLI stops at the skeleton and the paste-ready prompt.
 The GUI always attempts the polish step, and falls back to the skeleton if
 LM Studio cannot be reached.
+
+To resume a run that stopped on an unmatched label, give the corrected
+`narrative-input.json` instead of the PDF — the two are alternatives, so pass
+one or the other:
+
+```bash
+python narrate.py --from-json ".../narrative-input.json" --polish
+```
+
+Exit codes: `2` bad arguments or an unreadable file, `4` nothing extractable in
+the PDF, `5` a ticked item matched no criterion.
 
 Batch:
 
