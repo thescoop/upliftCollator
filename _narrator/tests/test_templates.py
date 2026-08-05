@@ -31,6 +31,12 @@ class ContentDataTests(unittest.TestCase):
         self.assertIn("question_blocks", data)
         self.assertGreater(len(data["narrative_templates"]), 30)
         # One panel block, three threshold limbs and the seven CAG 12.9 factors.
+        #
+        # Deliberately exact. This is a "has the form changed shape?" tripwire,
+        # not a constraint on what shapes are legal — label_to_key_lookup()
+        # merges several page-1 panel blocks quite happily, and should. If you
+        # split or add a block on purpose, update this number; it is here so
+        # that a block deleted by accident cannot pass unnoticed.
         self.assertEqual(len(data["question_blocks"]), 11)
 
     def test_every_explanation_checkbox_has_a_template(self) -> None:
@@ -82,12 +88,19 @@ class ContentDataTests(unittest.TestCase):
         # would let a typo'd key pass this test as well as the production check,
         # which is how a mirrored assertion stops being a check at all.
         blocks = load_content_data()["question_blocks"]
+        # Mirrors production: every page-1 'panel' block, merged. It asserted
+        # exactly one block until round 9, which contradicted the rule this is
+        # supposed to mirror — the whole point of the round-8 change was that
+        # several are allowed. The exact block count is pinned once, in
+        # test_loads_both_constants, where it belongs.
         panel_blocks = [
             block for block in blocks
             if block.get("page") == 1 and block.get("id") == "panel"
         ]
-        self.assertEqual(len(panel_blocks), 1)
-        panel_keys = {chk["key"] for chk in panel_blocks[0]["checkboxes"]}
+        self.assertGreaterEqual(len(panel_blocks), 1)
+        panel_keys = {
+            chk["key"] for block in panel_blocks for chk in block["checkboxes"]
+        }
         self.assertEqual(len(panel_keys), 3)
         unrenderable = set(aliases.values()) - set(narrative_templates) - panel_keys
         self.assertEqual(unrenderable, set())
@@ -151,18 +164,30 @@ class ContentDataTests(unittest.TestCase):
             templates_module.load_content_data = real_load
             templates_module.legacy_label_aliases = real_alias
 
-    def test_no_panel_block_at_all_stops_rather_than_silently_rejecting(self) -> None:
+    def test_no_page_one_panel_block_stops_rather_than_silently_rejecting(self) -> None:
         """Zero still fails closed. An empty panel-key set would re-reject every
-        legitimate panel alias with a message blaming the alias."""
+        legitimate panel alias with a message blaming the alias.
+
+        The page-2 decoy is load-bearing. Removing blocks by id alone left this
+        test green against an id-only implementation — the very regression the
+        page check exists to prevent — because with no 'panel' block at all both
+        implementations raise. With the decoy present, an id-only lookup finds
+        it, does not raise, and this fails."""
         import templates as templates_module
 
         data = load_content_data()
+        decoy = {
+            "page": 2, "id": "panel", "title": "Not the panel block",
+            "checkboxes": [{"label": "Synthetic page-2 decoy",
+                            "key": "s1_synthetic_decoy", "explanation": False}],
+        }
         real_load = templates_module.load_content_data
         templates_module.load_content_data = lambda: {
             **data,
             "question_blocks": [
-                b for b in data["question_blocks"] if b.get("id") != "panel"
-            ],
+                b for b in data["question_blocks"]
+                if not (b.get("page") == 1 and b.get("id") == "panel")
+            ] + [decoy],
         }
         try:
             with self.assertRaises(ValueError) as ctx:
