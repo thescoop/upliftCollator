@@ -11,6 +11,7 @@ from extract import (  # noqa: E402
     extract_criteria,
     extract_evidence_confirmation,
     extract_formdata,
+    extract_panel,
 )
 from templates import label_to_key_lookup  # noqa: E402
 
@@ -79,13 +80,29 @@ class EvidenceConfirmationTests(unittest.TestCase):
     is the PDF text as ``extract_formdata`` sees it.
     """
 
-    CONFIRMED = (
-        "CASE DETAILS\nFee Earner:  Jane Doe\n"
+    # The section on its own, with no other heading attached. Kept separate
+    # because embedding one in a document to represent a *pasted copy* must
+    # not smuggle in a second CASE DETAILS heading, which would end the
+    # surrounding section by itself and make the test pass or fail for a
+    # reason that has nothing to do with the evidence section.
+    CONFIRMED_BLOCK = (
         "EVIDENCE ON FILE\n"
         "Evidence on file: Confirmed\n"
         "The fee earner confirms that evidence supporting the matters set out "
         "above is held on the case file.\n"
-        "DISCLAIMER\n"
+    )
+    DECLINED_BLOCK = CONFIRMED_BLOCK.replace(
+        "Evidence on file: Confirmed",
+        "Evidence on file: Not confirmed",
+    ).replace(
+        "The fee earner confirms that evidence supporting",
+        "The fee earner has not confirmed that supporting evidence is held on "
+        "the case file. The narrative will not assert that it is. Evidence "
+        "supporting",
+    )
+
+    CONFIRMED = (
+        "CASE DETAILS\nFee Earner:  Jane Doe\n" + CONFIRMED_BLOCK + "DISCLAIMER\n"
     )
     DECLINED = CONFIRMED.replace(
         "Evidence on file: Confirmed",
@@ -199,6 +216,36 @@ class EvidenceConfirmationTests(unittest.TestCase):
             "Evidence on file: Not confirmed", "Evidence on fi1e: Not confirmed"
         )
         self.assertFalse(extract_evidence_confirmation(pasted + damaged_real))
+
+    def test_a_pasted_complete_block_does_not_cut_stage_2_short(self) -> None:
+        """Requiring the status line stopped a bare heading in prose from
+        ending a section — but not a whole block pasted in. That still
+        truncated Stage 2 where it appeared, dropping every criterion below it
+        out of the bill with no warning at all. The genuine section is printed
+        second from last, so the boundary is now its *last* occurrence."""
+        document = (
+            "STAGE 2: LEVEL OF ENHANCEMENT FACTORS\n"
+            "• Evidence marshalled with unusual skill\n"
+            "Care and skill\n"
+            "Explanation: I pasted my usual closing wording, which reads:\n"
+            + self.CONFIRMED_BLOCK
+            + "• Particular care with a vulnerable client\n"
+            "Care and skill\n"
+            "Explanation: The client required substantial adaptations.\n"
+            "PROPOSED UPLIFT\n"
+            "Proposed Uplift Percentage: 40%\n"
+            + self.DECLINED_BLOCK
+            + "DISCLAIMER\n"
+        )
+        unmatched: list[dict] = []
+        criteria = extract_criteria(
+            document, "stage2", label_to_key_lookup(), unmatched
+        )
+        self.assertEqual(len(criteria), 2)
+        self.assertIn("s2_care_vulnerable_client", criteria)
+        self.assertEqual(unmatched, [])
+        # And the confirmation still reads the genuine section, not the paste.
+        self.assertFalse(extract_evidence_confirmation(document))
 
     def test_a_pasted_confirmation_cannot_outrank_the_real_refusal(self) -> None:
         """Boilerplate or a previous summary pasted into an explanation can
@@ -343,6 +390,47 @@ class WrappedLabelTests(unittest.TestCase):
         self.assertEqual(list(result.values())[0]["label"], short)
 
 
+class PanelSectionTests(unittest.TestCase):
+    """Panel membership carries a *guaranteed* 15% (CAG 12.20), not an argued
+    percentage, which makes it the most expensive heading to misread."""
+
+    def test_a_criterion_label_is_not_a_panel_membership(self) -> None:
+        """Accepting one produced "A minimum enhancement of 15% is claimed ...
+        as a member of the Unusually detailed knowledge applied" — a guaranteed
+        entitlement asserted to the LAA on the strength of a factor ticked
+        somewhere else. A damaged Stage 1 heading is enough to leave Stage 1
+        bullets inside this section, so it needs no exotic input."""
+        label_keys = label_to_key_lookup()
+        criterion = next(
+            label for label, key in label_keys.items() if key.startswith("s2_")
+        )
+        unmatched: list[dict] = []
+        result = extract_panel(
+            f"PANEL MEMBERSHIP\n\u2022 {criterion}\nPROPOSED UPLIFT\n",
+            label_keys,
+            unmatched,
+        )
+        self.assertEqual(result, {})
+        self.assertEqual(len(unmatched), 1)
+        self.assertEqual(unmatched[0]["section"], "panelMembership")
+
+    def test_a_real_panel_membership_still_reads(self) -> None:
+        label_keys = label_to_key_lookup()
+        panel = next(
+            label
+            for label, key in label_keys.items()
+            if key.startswith("panel_membership_")
+        )
+        unmatched: list[dict] = []
+        result = extract_panel(
+            f"PANEL MEMBERSHIP\n\u2022 {panel}\nPROPOSED UPLIFT\n",
+            label_keys,
+            unmatched,
+        )
+        self.assertEqual(list(result), [label_keys[panel]])
+        self.assertEqual(unmatched, [])
+
+
 class CourtLineTests(unittest.TestCase):
     def test_a_case_name_containing_court_does_not_supply_the_court(self) -> None:
         """"Court:" is a substring a real matter name can contain. Before the
@@ -428,6 +516,33 @@ class CourtLineTests(unittest.TestCase):
             "In re the application of Fee Earner: Smith and Jones",
         )
         self.assertEqual(details["courtLevel"], "High Court")
+
+    def test_a_missing_field_does_not_take_the_others_with_it(self) -> None:
+        """The regression the ordered walk introduced while fixing another.
+
+        Where a field is missing altogether *and* a later value wraps onto a
+        line imitating it, walking the fields in order and taking the first
+        candidate for each jumped forward to the imitation and lost every
+        genuine field above it — replacing a truncated value with no value at
+        all, in three fields instead of one. Reading the longest run of
+        candidates that appear in the printed order keeps them.
+        """
+        block = (
+            "CASE DETAILS\n"
+            "Matter Type:  Care & Supervision\n"
+            "Case / Matter Name:  In re application of\n"
+            "Fee Earner: Smith and Jones\n"
+            "Court:  High Court\n"
+            "PANEL MEMBERSHIP\n"
+        )
+        details = extract_case_details(block)
+        self.assertEqual(details["matterType"], "Care & Supervision")
+        self.assertEqual(
+            details["caseMatterName"],
+            "In re application of Fee Earner: Smith and Jones",
+        )
+        self.assertEqual(details["courtLevel"], "High Court")
+        self.assertEqual(details["feeEarnerName"], "")
 
     def test_a_pre_v111_case_name_containing_court_yields_no_court(self) -> None:
         block = (

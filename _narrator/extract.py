@@ -121,18 +121,40 @@ def normalise_text(text: str) -> str:
     return text
 
 
+# Sections whose *last* occurrence is the real one, both when locating them and
+# when using them to end the section above.
+#
+# Requiring the status line stopped a bare heading in a solicitor's prose from
+# ending a section, but not a whole block pasted in — boilerplate, or a copy of
+# a previous summary. That still truncated Stage 2 where it appeared, dropping
+# every criterion below it out of the bill with no warning. The genuine section
+# is printed second from last, so taking the last occurrence puts the boundary
+# back where it belongs. Only this section can be treated that way: for the
+# others the first occurrence is all we have.
+_LAST_OCCURRENCE_SECTIONS = frozenset({"evidence_on_file"})
+
+
+def _section_match(text: str, name: str, from_pos: int = 0):
+    pat = SECTION_PATTERNS[name]
+    if name in _LAST_OCCURRENCE_SECTIONS:
+        last = None
+        for m in pat.finditer(text, from_pos):
+            last = m
+        return last
+    return pat.search(text, from_pos)
+
+
 def section_slice(text: str, name: str) -> str:
     """Return the text of *name* section, ending at the next known section."""
-    pat = SECTION_PATTERNS[name]
-    m = pat.search(text)
+    m = _section_match(text, name)
     if not m:
         return ""
     start = m.end()
     next_starts = []
-    for other_name, other_pat in SECTION_PATTERNS.items():
+    for other_name in SECTION_PATTERNS:
         if other_name == name:
             continue
-        m2 = other_pat.search(text, start)
+        m2 = _section_match(text, other_name, start)
         if m2:
             next_starts.append(m2.start())
     end = min(next_starts) if next_starts else len(text)
@@ -153,6 +175,53 @@ _DETAIL_FIELDS: list[tuple[str, str]] = [
 ]
 
 
+def _detail_field_positions(block: str) -> dict[str, tuple[int, int]]:
+    """Pick at most one line per field, keeping the order the PDF prints in.
+
+    Every line that looks like a field label is a candidate, and the right
+    reading is the **longest run of candidates whose fields appear in the
+    printed order** — because that is the only property of this text we can
+    rely on. Walking the fields in order and taking the first candidate for
+    each looks equivalent and is not: where a field is missing altogether and
+    a later value wraps onto a line imitating it, the walk jumps forward to
+    that imitation and loses every genuine field above it. It replaced a
+    truncated value with no value at all, in three fields instead of one.
+
+    The final chosen field then extends to its last candidate, which is what
+    keeps a matter name reading "In the High Court: Re X and Y" whole: the
+    imitation sits above the genuine Court line, and nothing legitimate
+    follows the last field to be confused by.
+    """
+    candidates: list[tuple[int, int, int]] = []   # position, field, end
+    for index, (_key, pattern) in enumerate(_DETAIL_FIELDS):
+        for m in re.finditer(pattern, block, re.MULTILINE):
+            candidates.append((m.start(), index, m.end()))
+    candidates.sort()
+
+    best: list[tuple[int, int, int]] = []
+    chains: list[list[tuple[int, int, int]]] = []
+    for i, candidate in enumerate(candidates):
+        chain = [candidate]
+        for j in range(i):
+            if candidates[j][1] < candidate[1] and len(chains[j]) + 1 > len(chain):
+                chain = chains[j] + [candidate]
+        chains.append(chain)
+        if len(chain) > len(best):
+            best = chain
+
+    if best:
+        last_start, last_field, _ = best[-1]
+        floor = best[-2][2] if len(best) > 1 else 0
+        for start, field, end in reversed(candidates):
+            if field == last_field and start >= floor:
+                best[-1] = (start, field, end)
+                break
+
+    return {
+        _DETAIL_FIELDS[field][0]: (start, end) for start, field, end in best
+    }
+
+
 def extract_case_details(text: str) -> dict:
     """The four case-detail fields, each rejoined if the PDF wrapped it.
 
@@ -167,13 +236,9 @@ def extract_case_details(text: str) -> dict:
 
     **The format is genuinely ambiguous, and no rule reads every case
     correctly.** What is certain is the order: the PDF prints these four
-    fields once each, always in the order below. So each is looked for only
-    *after* the field before it, which is what stops a continuation imitating
-    a field that has already been found — a matter name wrapping onto a line
-    beginning "Fee Earner:" sits below the real fee earner and must not
-    replace it. The final field takes the **last** of its candidates rather
-    than the first, because it is the only one that can be imitated from above
-    with nothing legitimate below it to confuse.
+    fields once each, always in the order below (`script.js`, `generatePdfSummary`).
+    :func:`_detail_field_positions` uses only that, choosing the longest run of
+    candidate lines whose fields appear in the printed order.
 
     What this still does not handle: a value that wraps onto a line beginning
     with the label of the very next field, other than at the end. Value and
@@ -182,19 +247,7 @@ def extract_case_details(text: str) -> dict:
     "unambiguous", which an earlier version of this docstring claimed.
     """
     block = section_slice(text, "case_details")
-    starts: dict[str, tuple[int, int]] = {}
-    search_from = 0
-    for position, (key, pattern) in enumerate(_DETAIL_FIELDS):
-        matches = [
-            m
-            for m in re.finditer(pattern, block, re.MULTILINE)
-            if m.start() >= search_from
-        ]
-        if not matches:
-            continue
-        chosen = matches[-1] if position == len(_DETAIL_FIELDS) - 1 else matches[0]
-        starts[key] = (chosen.start(), chosen.end())
-        search_from = chosen.end()
+    starts = _detail_field_positions(block)
 
     fields: dict[str, str] = {}
     ordered = [key for key, _ in _DETAIL_FIELDS if key in starts]
@@ -332,6 +385,16 @@ def extract_panel(
             continue
         label = stripped.lstrip("•").strip()
         key = label_keys.get(label)
+        # A criterion label read under this heading is not a panel membership,
+        # and this is the most expensive place to get that wrong: panel
+        # membership carries a *guaranteed* 15% (CAG 12.20), so accepting one
+        # produced "A minimum enhancement of 15% is claimed ... as a member of
+        # the Unusually detailed knowledge applied" — a guaranteed entitlement
+        # asserted to the LAA on the strength of a factor the solicitor ticked
+        # somewhere else entirely. A damaged Stage 1 heading is enough to leave
+        # Stage 1 bullets inside this section, so it needs no exotic input.
+        if key and not key.startswith(_SECTION_KEY_PREFIXES["panelMembership"]):
+            key = None
         if not key:
             # A panel membership can be worth more on its own than every
             # other factor combined, so a tick lost here is not the lesser
@@ -388,9 +451,15 @@ def _resolve_wrapped_label(
 
 
 # Which key prefix belongs under which heading. content-data.js names every
-# key for its stage, current and retired alike, so this needs no second list
-# kept in step by hand.
-_SECTION_KEY_PREFIXES = {"stage1": "s1_", "stage2": "s2_"}
+# key for its section, current and retired alike, so this needs no second list
+# kept in step by hand. Panel membership is here for the same reason as the
+# two stages, and is the costliest of the three to get wrong: it carries a
+# guaranteed 15% rather than an argued percentage.
+_SECTION_KEY_PREFIXES = {
+    "stage1": "s1_",
+    "stage2": "s2_",
+    "panelMembership": "panel_membership_",
+}
 
 
 def extract_criteria(
