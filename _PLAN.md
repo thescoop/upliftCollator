@@ -182,7 +182,18 @@ meaning exactly "a Stage 1 label is ticked". The narrator needs no structural ch
 `skeleton.py` already appends Stage 1 and Stage 2 independently and
 `extraction_is_empty` already passes on Stage 2 alone.
 
-**Verified:** 287 tests; each of the three fixes confirmed by reverting it and
+**Known and irreducible, found by the sixth review round.** The new label is a strict
+prefix of the old one, so if the legacy bullet were ever truncated at its first line it
+would now be byte-identical to a real current label and resolve silently, where before
+it matched nothing and stopped the run. It cannot be told apart by any code — the two
+strings are the same string. Two things bound it: **it cannot happen in a PDF this app
+produced** (jsPDF measures the legacy bullet at 336.5pt against a 495pt column, so it
+does not wrap — confirmed in the fixture PDF, which prints it on one line), and the
+only consequence is that a legacy document re-renders without an obsolete restriction.
+It can drop an unsourced qualifier; it cannot add a claim. Same class as the case-details
+ambiguity above: recorded because it is real, not fixed because the fix does not exist.
+
+**Verified:** 288 tests; each of the three fixes confirmed by reverting it and
 watching tests fail (removing the alias fails 8, including the fixture-PDF test).
 Driven end to end in Chromium with all three panels ticked, a 46-character
 fee-earner name and an 85-character case name — both of which wrapped in the PDF —

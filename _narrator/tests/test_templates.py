@@ -75,16 +75,43 @@ class ContentDataTests(unittest.TestCase):
         aliases = legacy_label_aliases()
         narrative_templates = load_content_data()["narrative_templates"]
         self.assertEqual(len(aliases), 41)
-        # Panel keys are the one documented exception: all three render through
-        # the umbrella `panel_membership` template rather than one of their own,
-        # so none of them appears in NARRATIVE_TEMPLATES. templates.py allows
-        # exactly this and nothing else; keep the two rules in step.
-        unrenderable = {
-            key
-            for key in set(aliases.values()) - set(narrative_templates)
-            if not key.startswith("panel_membership_")
+        # Panel keys are the one documented exception: they render through the
+        # umbrella `panel_membership` template rather than one of their own, so
+        # none of them appears in NARRATIVE_TEMPLATES. Resolved from the live
+        # panel block, not from a "panel_membership_" prefix — a prefix here
+        # would let a typo'd key pass this test as well as the production check,
+        # which is how a mirrored assertion stops being a check at all.
+        blocks = load_content_data()["question_blocks"]
+        panel_keys = {
+            chk["key"]
+            for block in blocks
+            if block.get("id") == "panel"
+            for chk in block.get("checkboxes", [])
         }
+        self.assertEqual(len(panel_keys), 3)
+        unrenderable = set(aliases.values()) - set(narrative_templates) - panel_keys
         self.assertEqual(unrenderable, set())
+
+    def test_an_alias_pointing_at_a_key_that_renders_nothing_is_rejected(self) -> None:
+        """The exception for panel keys must not become an exception for
+        anything merely *named* like one. `panel_membership_typo` has no
+        checkbox and no template, so it would render nothing and drop whatever
+        the solicitor ticked."""
+        import templates as templates_module
+
+        # label_to_key_lookup() is deliberately uncached, so patching the alias
+        # loader is enough. If it ever gains an lru_cache, this test starts
+        # reading a stale lookup and passing for the wrong reason — clear the
+        # cache here at that point.
+        real = templates_module.legacy_label_aliases
+        templates_module.legacy_label_aliases = lambda: {
+            "Synthetic retired checkbox": "panel_membership_typo"
+        }
+        try:
+            with self.assertRaises(ValueError):
+                label_to_key_lookup()
+        finally:
+            templates_module.legacy_label_aliases = real
 
     def test_retired_legacy_keys_remain_in_narrative_templates(self) -> None:
         data = load_content_data()

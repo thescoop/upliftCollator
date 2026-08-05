@@ -138,12 +138,18 @@ class TestPanelClaimsNoScopeCondition(unittest.TestCase):
             self.assertNotIn("relates to children", label)
             self.assertNotIn("scope", label.lower())
 
-    def test_a_legacy_pdf_still_reads_back_as_it_was_written(self):
-        """Deliberately NOT normalised, on the same reasoning that keeps the
-        retired narrative templates intact: a PDF sitting in a live matter said
-        what it said, and re-rendering it with today's wording would put words
-        into a document the solicitor already approved. The fixture carries the
-        pre-5-August-2026 label precisely so this stays covered."""
+    def test_a_legacy_label_renders_unnormalised(self):
+        """Rendering only — this does not exercise extraction, and it does not
+        fail if the LEGACY_LABEL_ALIASES entry is removed. That path is covered
+        by test_the_legacy_children_label_still_maps_to_its_key below and by
+        test_a_pre_relabel_panel_membership_still_extracts_and_renders in
+        test_legacy_labels.py, both of which do fail without the alias.
+
+        What it proves is that a legacy label is passed through unchanged rather
+        than rewritten to today's wording — deliberate, on the same reasoning
+        that keeps the retired narrative templates intact: a PDF sitting in a
+        live matter said what it said, and re-rendering it with new words puts
+        text into a document the solicitor already approved."""
         data = formdata(n_stage1=2, n_stage2=1, n_panel=2)
         legacy = data["panelMembership"]["panel_membership_children"]["label"]
         self.assertIn("(and work relates to children)", legacy)
