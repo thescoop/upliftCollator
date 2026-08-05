@@ -123,9 +123,51 @@ class UnevidencedOtherTests(unittest.TestCase):
         script = (Path(__file__).resolve().parents[2] / "script.js").read_text(
             encoding="utf-8"
         )
-        match = re.search(r"MIN_EXPLANATION_WORDS\s*=\s*(\d+)", script)
-        self.assertIsNotNone(match, "MIN_EXPLANATION_WORDS not found in script.js")
-        self.assertEqual(int(match.group(1)), MIN_EXPLANATION_WORDS)
+        # Anchored to a real declaration at the start of a line. A loose search
+        # matched a commented-out `// MIN_EXPLANATION_WORDS = 10` sitting above
+        # `const MIN_EXPLANATION_WORDS = 12;`, and passed while the browser used
+        # 12. Exactly one declaration must exist, so a second one cannot hide
+        # behind the first either.
+        matches = re.findall(
+            r"^\s*const\s+MIN_EXPLANATION_WORDS\s*=\s*(\d+)\s*;",
+            script,
+            re.MULTILINE,
+        )
+        self.assertEqual(
+            len(matches), 1,
+            "expected exactly one `const MIN_EXPLANATION_WORDS = <number>;` in "
+            f"script.js, found {len(matches)}",
+        )
+        self.assertEqual(int(matches[0]), MIN_EXPLANATION_WORDS)
+
+    def test_the_word_count_agrees_with_the_browser_on_odd_whitespace(self) -> None:
+        """Python's idea of whitespace is not JavaScript's.
+
+        `str.split()` treats U+001C-U+001F and U+0085 as separators and U+FEFF
+        as an ordinary character; ECMAScript's \\s does the reverse. A
+        zero-width no-break space between words therefore counted as ten words
+        in the form and one in the narrator, so an explanation the form accepted
+        could be refused afterwards."""
+        from extract import _count_words_as_the_browser_does as count
+
+        ten = "one two three four five six seven eight nine ten"
+        self.assertEqual(count(ten), 10)
+        self.assertEqual(count(ten.replace(" ", "\ufeff")), 10)
+        self.assertEqual(count("a\x85b\x85c"), 1)
+        self.assertEqual(count("a\x1cb\x1cc"), 1)
+        self.assertEqual(count("  spaced   out  "), 2)
+        self.assertEqual(count("   "), 0)
+
+    def test_a_carrier_whose_checked_flag_is_not_true_does_not_satisfy_it(self) -> None:
+        """`is not True`, not "anything but False": None, 0, "" and the string
+        "false" all read as ticked under the looser test this replaced."""
+        words = "one two three four five six seven eight nine ten"
+        for flag in (None, 0, "", "false", [], {}):
+            with self.subTest(checked=flag):
+                gaps = unevidenced_other_factors(_formdata(S1_OTHER, {
+                    "s2_complexity_other": {"checked": flag, "explanation": words}
+                }))
+                self.assertEqual(len(gaps), 1)
 
     def test_a_named_threshold_label_needs_no_carrier(self) -> None:
         """Only the "other" labels are guarded. A named one says something on

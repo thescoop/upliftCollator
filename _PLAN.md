@@ -300,8 +300,9 @@ covers exceptional circumstances *or* complexity, and CAG 12.9 has no general
 "circumstances" level factor. The default carrier is Complexity because 12.9(c)(iii)
 refers back to the discussion at 12.8(c) — but a circumstance may really bear on weight,
 speed, care or responsibility. Both the Stage 1 "what counts?" panel and the Stage 2
-example now say so and tell the solicitor to tick that factor too, and the gate above
-accepts any carrier, so following that advice does not trip it.
+example say so and tell the solicitor to tick that factor too — **as well as**, never
+instead of, the box that carried forward. That box is the only one that discharges the
+gate.
 
 **Verified:** structural audit passes at 16 Stage 1 / 40 live keys / 81 labels, and its
 three invariants (`explanation: false`, `what_counts`, `stage2_factor`, a Stage 2 carrier)

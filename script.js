@@ -633,10 +633,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     "document never gives.\n\n" +
                     "Either tick " + (g.carrier || "the matching Stage 2 factor") +
                     " and explain it there, or go back to Stage 1 and untick it.\n\n" +
-                    "If the circumstances also bear on another Stage 2 factor — weight, " +
-                    "speed, care or responsibility — tick that one as well and explain " +
-                    "it too. That is worth doing, but it is in addition to the box above, " +
-                    "not instead of it."
+                    "If the work also bears on any of the other Stage 2 factors, tick " +
+                    "those as well and explain them there. That is worth doing — but it " +
+                    "is in addition to the box above, not instead of it."
                 );
                 isValid = false;
             }

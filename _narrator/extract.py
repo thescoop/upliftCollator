@@ -812,8 +812,27 @@ def unevidenced_other_factors(formdata: dict) -> list[str]:
 
 # The form's MIN_EXPLANATION_WORDS. Duplicated rather than parsed out of
 # script.js, which has no structure worth scraping — test_unevidenced_other.py
-# asserts the two agree, so the copy cannot drift silently.
+# reads the constant back out of the browser source and asserts the two agree.
 MIN_EXPLANATION_WORDS = 10
+
+# ECMAScript's \s, which is NOT Python's. Python's `str.split()` and `re.\s`
+# treat U+001C–U+001F and U+0085 as whitespace and U+FEFF as an ordinary
+# character; JavaScript does the reverse. The disagreement is reachable: a
+# zero-width no-break space between words counts as ten words in the browser and
+# one in Python, so an explanation the form accepted could be refused by the
+# narrator afterwards. Spelled out rather than approximated.
+_JS_WHITESPACE = re.compile(
+    "[\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680"
+    "\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+"
+)
+
+
+def _count_words_as_the_browser_does(text: str) -> int:
+    """Mirror `value.trim().split(/\\s+/).filter(Boolean).length` in script.js."""
+    stripped = _JS_WHITESPACE.sub(" ", text).strip()
+    if not stripped:
+        return 0
+    return len([token for token in stripped.split(" ") if token])
 
 
 def _carrier_evidences(entry: object) -> bool:
@@ -831,12 +850,15 @@ def _carrier_evidences(entry: object) -> bool:
     """
     if not isinstance(entry, dict):
         return False
-    if entry.get("checked") is False:
+    # `is True`, not "anything but False". The form always writes a real boolean,
+    # so anything else here is a hand-edited or damaged file — and `None`, `0`,
+    # `""` and the string `"false"` all read as ticked under a looser test.
+    if entry.get("checked") is not True:
         return False
     explanation = entry.get("explanation")
     if not isinstance(explanation, str):
         return False
-    return len(explanation.split()) >= MIN_EXPLANATION_WORDS
+    return _count_words_as_the_browser_does(explanation) >= MIN_EXPLANATION_WORDS
 
 
 def explain_empty_extraction(pdf_path: str | Path) -> str:
