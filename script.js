@@ -434,8 +434,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (currentPageIndex === 1) {
             if (!isAnyStage1ThresholdTrulyMet()) {
-                const panelBlock = QUESTION_BLOCKS.find(b => b.id === 'panel');
-                const panelKeys = panelBlock ? panelBlock.checkboxes.map(cb => cb.key) : [];
+                // `page === 1 &&` and a filter rather than a find, to match
+                // savePanelMembershipFromDom and buildQuestionnaire. This read
+                // the first block with id 'panel' whatever page it sat on, so
+                // it was order-dependent and would have looked at the wrong
+                // block if a page-2 one were ever named the same.
+                const panelKeys = QUESTION_BLOCKS
+                    .filter(b => b.page === 1 && b.id === 'panel')
+                    .flatMap(b => b.checkboxes.map(cb => cb.key));
                 let isPanelMember = false;
                 if (feeEarnerNameEl && feeEarnerNameEl.value.trim() !== "") {
                     for (const key of panelKeys) {

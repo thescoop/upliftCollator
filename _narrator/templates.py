@@ -130,22 +130,27 @@ def label_to_key_lookup() -> dict[str, str]:
     # template-less Stage 1 key waved through here is a criterion that renders
     # as nothing at all.
     #
-    # Zero or several matches raise rather than yielding an empty or merged set,
-    # so a renamed, deleted or duplicated block fails closed. An empty set would
-    # quietly re-reject every legitimate panel alias; a merged one would quietly
-    # widen the exemption. Both are worse than stopping.
+    # Several matching blocks are merged, not rejected. savePanelMembershipFromDom
+    # uses filter().forEach() and so already reads every page-1 'panel' block —
+    # splitting the panel questions in two is a legitimate edit, and an earlier
+    # version of this code raised on it, which would have failed every narration
+    # run in the app rather than the one thing that was wrong. None at all still
+    # raises: an empty set silently re-rejects every legitimate panel alias, and
+    # a repo with no panel block is broken in a way worth stopping for.
     panel_blocks = [
         block for block in blocks
         if block.get("page") == 1 and block.get("id") == "panel"
     ]
-    if len(panel_blocks) != 1:
+    if not panel_blocks:
         raise ValueError(
-            f"Expected exactly one page-1 'panel' block in QUESTION_BLOCKS, "
-            f"found {len(panel_blocks)}. Panel keys render through the umbrella "
-            "panel_membership template, so the alias check cannot be resolved "
-            "without knowing which block owns them."
+            "No page-1 'panel' block in QUESTION_BLOCKS. Panel keys render "
+            "through the umbrella panel_membership template rather than one of "
+            "their own, so the alias check cannot be resolved without the block "
+            "that owns them."
         )
-    panel_keys = {chk["key"] for chk in panel_blocks[0].get("checkboxes", [])}
+    panel_keys = {
+        chk["key"] for block in panel_blocks for chk in block.get("checkboxes", [])
+    }
     for label, key in legacy_label_aliases().items():
         live_key = lookup.get(label)
         if live_key is not None and live_key != key:

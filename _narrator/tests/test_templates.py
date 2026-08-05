@@ -119,6 +119,58 @@ class ContentDataTests(unittest.TestCase):
         finally:
             templates_module.legacy_label_aliases = real
 
+    def test_a_second_panel_block_is_merged_rather_than_rejected(self) -> None:
+        """Splitting the panel questions across two blocks is a legitimate edit,
+        and the browser already reads them all (savePanelMembershipFromDom uses
+        filter().forEach()). An earlier version raised here, which would have
+        failed every narration run over one repo-shape change."""
+        import templates as templates_module
+
+        data = load_content_data()
+        extra = {
+            "page": 1, "id": "panel", "title": "More panels",
+            "checkboxes": [{"label": "Synthetic second-block panel",
+                            "key": "panel_membership_synthetic",
+                            "explanation": False}],
+        }
+        real_load = templates_module.load_content_data
+        real_alias = templates_module.legacy_label_aliases
+        templates_module.load_content_data = lambda: {
+            **data, "question_blocks": data["question_blocks"] + [extra]
+        }
+        templates_module.legacy_label_aliases = lambda: {
+            "Synthetic legacy second-block label": "panel_membership_synthetic"
+        }
+        try:
+            lookup = templates_module.label_to_key_lookup()
+            self.assertEqual(
+                lookup["Synthetic legacy second-block label"],
+                "panel_membership_synthetic",
+            )
+        finally:
+            templates_module.load_content_data = real_load
+            templates_module.legacy_label_aliases = real_alias
+
+    def test_no_panel_block_at_all_stops_rather_than_silently_rejecting(self) -> None:
+        """Zero still fails closed. An empty panel-key set would re-reject every
+        legitimate panel alias with a message blaming the alias."""
+        import templates as templates_module
+
+        data = load_content_data()
+        real_load = templates_module.load_content_data
+        templates_module.load_content_data = lambda: {
+            **data,
+            "question_blocks": [
+                b for b in data["question_blocks"] if b.get("id") != "panel"
+            ],
+        }
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                templates_module.label_to_key_lookup()
+            self.assertIn("No page-1 'panel' block", str(ctx.exception))
+        finally:
+            templates_module.load_content_data = real_load
+
     def test_a_bogus_panel_key_would_manufacture_a_fifteen_percent_claim(self) -> None:
         """Why the rejection above matters, shown rather than asserted.
 
@@ -147,6 +199,10 @@ class ContentDataTests(unittest.TestCase):
         narrative = build_skeleton(data)
         self.assertIn("Synthetic retired checkbox", narrative)
         self.assertIn("guaranteed minimum enhancement", narrative)
+        # The figure itself, because the figure is the harm. Without this the
+        # test passed while the templates said 10% — it was named after a claim
+        # it never checked.
+        self.assertIn("A minimum enhancement of 15% is claimed", narrative)
 
     def test_retired_legacy_keys_remain_in_narrative_templates(self) -> None:
         data = load_content_data()
