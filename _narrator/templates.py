@@ -131,7 +131,12 @@ def label_to_key_lookup() -> dict[str, str]:
                 f"label maps to {live_key!r}. Fix LEGACY_LABEL_ALIASES in "
                 "content-data.js."
             )
-        if key not in templates:
+        # Panel keys are the documented exception. The three panel_membership_*
+        # keys are rendered together through the umbrella `panel_membership`
+        # template (see the QUESTION_BLOCKS panel block in content-data.js), so
+        # none of them has an entry of its own and requiring one here would
+        # reject a legitimate alias. Every other key must render on its own.
+        if key not in templates and not key.startswith("panel_membership_"):
             raise ValueError(
                 f"Legacy checkbox label {label!r} maps to {key!r}, but that key "
                 "has no NARRATIVE_TEMPLATES entry in content-data.js."

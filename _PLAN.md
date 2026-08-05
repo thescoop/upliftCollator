@@ -120,6 +120,75 @@ court question.
 page breaks walked across the new section, and every fix checked by reverting it to
 confirm a test fails.
 
+### Panel membership — settled 5 August 2026
+
+Sol's finding 6 was researched to primary sources and applied. Both extra conditions
+are gone, and the answer was not "no source" but "the source says the opposite".
+
+**The paragraph that decided it was missing from our own citation file.**
+`_cag-section-12-verbatim.md` ran 12.20 straight to 12.22. CAG **12.21** says:
+
+> Where the fee-earner is a member of the accredited specialist panel of Resolution,
+> the Law Society Children Panel or the Law Society Panel Advanced, the enhancement
+> is applied to **all work done in any family case**.
+
+Verified from the guidance PDF in this repo, not from a search result. It is now in
+the verbatim file with a note. **Treat a gap in that file as a defect**: the tool
+asserted a restriction the guidance contradicts, for want of a paragraph nobody had
+extracted because nobody had needed it yet.
+
+- **"the work undertaken falls within the scope of this accreditation"** — no source.
+  Absent from the 2024 General Specification (6.12–6.17), the 2024 Family Category
+  Specific Rules (7.20–7.24), their 2018 equivalents, and the Remuneration
+  Regulations 2013. Removed from both narrative templates.
+- **"(and work relates to children)"** — a *real* term, but of the **2013** Family
+  Specification (para 7.24(b), limiting the Children Panel to work "under a
+  Certificate which includes proceedings relating to children"). Dropped in the 2018
+  rules; the operative 2024 rules name the scheme bare (7.24(c)). The tool was
+  enforcing a contract term that expired eight years ago. Removed from the label,
+  and the old string added to `LEGACY_LABEL_ALIASES` — it is printed into every PDF
+  produced before this date and is the only thing keeping those matters extractable.
+
+**The operative contract is the 2024 Standard Civil Contract** (General Specification
+May 2025, Family Rules August 2024), extended to 30 June 2028. `content-data.js`
+already cites 2024; no change needed. The 2018 contract governs legacy matters only.
+
+**Specification 7.23(a) — recorded, deliberately not relied on.** The same paragraph
+that sets the 15% floor also provides that where the work is done by a panel member
+"**the threshold test at Paragraph 6.13 shall be deemed to be satisfied** in respect
+of that work". CAG Section 12 never mentions this; it exists only in the contract.
+Read strictly, a panel member cannot fail Stage 1, and `script.js` was stopping them
+there with "the threshold test (CAG 12.4) is not met... there is nothing further to
+do in this tool."
+
+**Simon's call: the tool still requires at least one Stage 1 tick.** His reasoning —
+anyone with substantial Stage 2 material will have a Stage 1 hook, and panel
+membership already guarantees 15% before the form is opened, so this tool is only
+ever about beating 15%. The counter-argument, kept because an assessor could make it:
+**Responsibility and Weight are Stage 2 orphans**, so a panel member who ran a heavy
+case without counsel may genuinely have nothing to tick at Stage 1 while having a
+strong claim above 15%.
+
+What changed instead is the message. It no longer states the threshold "is not met"
+(which 7.23(a) contradicts), no longer implies the solicitor is finished, and now
+points at the two orphans by name. **It also said "the twelve" — Stage 1 has been
+thirteen labels since the tactic/better-result split.** The count is now derived from
+`QUESTION_BLOCKS` so it cannot go stale again.
+
+If 7.23(a) is ever relied on, the work is: a `isThresholdSatisfied()` alongside
+`isAnyStage1ThresholdTrulyMet()` — **do not overload the existing one**, the PDF's
+`No Stage 1 threshold factors selected.` sentinel and the narrator both depend on it
+meaning exactly "a Stage 1 label is ticked". The narrator needs no structural change:
+`skeleton.py` already appends Stage 1 and Stage 2 independently and
+`extraction_is_empty` already passes on Stage 2 alone.
+
+**Verified:** 287 tests; each of the three fixes confirmed by reverting it and
+watching tests fail (removing the alias fails 8, including the fixture-PDF test).
+Driven end to end in Chromium with all three panels ticked, a 46-character
+fee-earner name and an 85-character case name — both of which wrapped in the PDF —
+then round-tripped through `extract.py` with every field and label recovered and
+nothing unrecognised.
+
 ### Still outstanding
 
 1. The merged editable narrative page, and `.docx` output. Untouched.
@@ -150,12 +219,8 @@ confirm a test fails.
   **or** complexity", and 12.8's headings are demonstrably loose — the same paragraph
   cites "the three limbs of 6.15" where 12.4 puts the threshold at 6.13. Recorded
   because it is the argument an assessor could make back.
-- **Sol's finding 6 was never applied.** The panel checkboxes add conditions CAG 12.20
-  does not: "(and work relates to children)" and "the work undertaken falls within the
-  scope of this accreditation". 12.20 requires only that the work was carried out by a
-  fee-earner on a named panel. These may well be real contractual conditions from
-  outside Section 12 — but if they are not, they are two more under-claiming
-  restrictions. **Needs Simon, not a model.**
+- ~~**Sol's finding 6 was never applied.**~~ **CLOSED 5 August 2026 — both conditions
+  removed.** See "Panel membership" below.
 
 ### Known, deliberate, do not "fix"
 

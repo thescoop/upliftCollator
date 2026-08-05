@@ -40,7 +40,9 @@ def _stage_text(stage: str, labels: list[tuple[str, str]]) -> str:
 class LegacyPdfCompatibilityTests(unittest.TestCase):
     def test_every_pre_v111_label_extracts_and_renders(self) -> None:
         aliases = legacy_label_aliases()
-        self.assertEqual(len(aliases), 40, "the historical contract was truncated")
+        # 41 since 5 August 2026: the pre-relabel Children Panel string joined
+        # the contract when "(and work relates to children)" was dropped.
+        self.assertEqual(len(aliases), 41, "the historical contract was truncated")
 
         label_keys = label_to_key_lookup()
         unrecognised: list[dict] = []
@@ -87,12 +89,61 @@ class LegacyPdfCompatibilityTests(unittest.TestCase):
         # because their keys no longer appear in QUESTION_BLOCKS.
         narrative_templates = load_content_data()["narrative_templates"]
         for key in aliases.values():
+            # Panel keys are excluded here and covered by the test below
+            # instead: they are not Stage 1/Stage 2 criteria, they never appear
+            # in these two sections, and all three render through the umbrella
+            # `panel_membership` template rather than one of their own.
+            if key.startswith("panel_membership_"):
+                continue
             expected = narrative_templates[key].replace(
                 "{USER_EXPLANATION}",
                 f"\n\n> Synthetic explanation for {key}.\n",
             )
             with self.subTest(key=key):
                 self.assertIn(expected.strip(), narrative)
+
+    def test_a_pre_relabel_panel_membership_still_extracts_and_renders(self) -> None:
+        """The Children Panel label lost "(and work relates to children)" on
+        5 August 2026. That parenthetical is printed into every PDF produced
+        before then, so it has to survive the whole path — not just resolve to a
+        key, but come back out in the narrative as the solicitor's document
+        stated it."""
+        from extract import extract_panel  # local: mirrors the module under test
+
+        legacy_label = (
+            "Fee earner is on Law Society Children Panel "
+            "(and work relates to children)"
+        )
+        text = (
+            "PANEL MEMBERSHIP\n"
+            f"•  {legacy_label}\n"
+            "STAGE 1: THRESHOLD TEST SELECTIONS\n"
+        )
+        unrecognised: list[dict] = []
+        panel = extract_panel(text, label_to_key_lookup(), unrecognised)
+
+        self.assertEqual(unrecognised, [])
+        self.assertIn("panel_membership_children", panel)
+        self.assertEqual(panel["panel_membership_children"]["label"], legacy_label)
+
+        narrative = build_skeleton({
+            "caseDetails": {
+                "feeEarnerName": "Synthetic Fee Earner",
+                "matterType": "Synthetic family matter",
+                "caseMatterName": "Synthetic case",
+            },
+            "panelMembership": panel,
+            "stage1": {},
+            "stage2": {},
+            "finalUpliftPercent": "50",
+        })
+        self.assertIn(
+            "member of the Law Society Children Panel "
+            "(and work relates to children)",
+            narrative,
+        )
+        # The unsourced scope qualifier must not reappear even on this path.
+        self.assertNotIn("falls within the scope", narrative)
 
 
 if __name__ == "__main__":

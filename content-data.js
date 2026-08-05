@@ -63,8 +63,23 @@ const NARRATIVE_TEMPLATES = {
     // count; see _pick_by_count().
     "intro": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factors, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2024 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
     "intro_singular": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factor, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2024 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
-    "panel_membership": "**Panel Membership (CAG Section 12.20-12.23):**\nA minimum enhancement of 15% is claimed as the fee earner ({FEE_EARNER_NAME}) is a member of the {PANEL_NAME}, and the work undertaken falls within the scope of this accreditation. This is a guaranteed minimum enhancement.",
-    "panel_membership_plural": "**Panel Membership (CAG Section 12.20-12.23):**\nA minimum enhancement of 15% is claimed as the fee earner ({FEE_EARNER_NAME}) is a member of the {PANEL_NAME}, and the work undertaken falls within the scope of those accreditations. This is a guaranteed minimum enhancement.",
+    // The scope qualifier these two templates used to carry — "and the work
+    // undertaken falls within the scope of this accreditation" — was removed on
+    // 5 August 2026. It has no source. It is absent from the 2024 General
+    // Specification (6.12–6.17), the 2024 Family Category Specific Rules
+    // (7.20–7.24), their 2018 equivalents and the Remuneration Regulations 2013,
+    // and CAG 12.21 says the opposite: "Where the fee-earner is a member of the
+    // accredited specialist panel of Resolution, the Law Society Children Panel
+    // or the Law Society Panel Advanced, the enhancement is applied to all work
+    // done in any family case." A qualifier the guidance contradicts, volunteered
+    // in a narrative to the LAA, invites a challenge nothing requires.
+    "panel_membership": "**Panel Membership (CAG Section 12.20-12.23):**\nA minimum enhancement of 15% is claimed as the fee earner ({FEE_EARNER_NAME}) is a member of the {PANEL_NAME}. This is a guaranteed minimum enhancement.",
+    // Now identical to the singular, because "this accreditation" / "those
+    // accreditations" was the only thing that differed. Deliberately kept rather
+    // than deleted: skeleton.py asks for it by name via _pick_by_count(), and a
+    // membership count is still the right axis if the wording ever diverges
+    // again. Do not "tidy" this away without changing that call.
+    "panel_membership_plural": "**Panel Membership (CAG Section 12.20-12.23):**\nA minimum enhancement of 15% is claimed as the fee earner ({FEE_EARNER_NAME}) is a member of the {PANEL_NAME}. This is a guaranteed minimum enhancement.",
 
     // --- Stage 1: the threshold test -------------------------------------------
     // Stage 1 is pass/fail (CAG 12.4) and earns nothing, so its contribution to the
@@ -188,6 +203,15 @@ const QUESTION_BLOCKS = [
     // enhancement". From v1.11 it no longer feeds any calculation: the guaranteed
     // 15% (12.20) is applied at bill-drafting and is NOT payable in addition to the
     // general enhancement (12.23), so it is a floor, not an ingredient.
+    //
+    // 5 August 2026: the Children Panel label lost its "(and work relates to
+    // children)" qualifier. It was a genuine term of the 2013 Family
+    // Specification (para 7.24(b)), removed in 2018 and absent from the
+    // operative 2024 Family Category Specific Rules (para 7.24(c) names the
+    // scheme bare). CAG 12.21 puts it beyond doubt: the enhancement "is applied
+    // to all work done in any family case". The old string is in
+    // LEGACY_LABEL_ALIASES and must stay there — it is printed into every PDF
+    // produced before that date.
     {
         page: 1,
         id: "panel",
@@ -197,7 +221,7 @@ const QUESTION_BLOCKS = [
         // memberships read as one natural sentence rather than three duplicates.
         checkboxes: [
             { label: "Fee earner is on Resolution Accredited Specialist Panel", key: "panel_membership_resolution", explanation: false },
-            { label: "Fee earner is on Law Society Children Panel (and work relates to children)", key: "panel_membership_children", explanation: false },
+            { label: "Fee earner is on Law Society Children Panel", key: "panel_membership_children", explanation: false },
             { label: "Fee earner is on Law Society Family Law Panel Advanced", key: "panel_membership_advanced", explanation: false },
         ],
         columns_for_sub_options: 1
@@ -591,7 +615,17 @@ const LEGACY_LABEL_ALIASES = {
     "Exceptionally complex legal, expert or evidential issues": "s2_complexity_legal_issues",
     "Exceptional difficulty in taking instructions": "s2_complexity_difficult_instructions",
     "Significant analysis and planning without counsel": "s2_resp_no_counsel_analysis",
-    "Complex drafting without counsel": "s2_resp_no_counsel_drafting"
+    "Complex drafting without counsel": "s2_resp_no_counsel_drafting",
+    // Panel membership. The parenthetical was dropped on 5 August 2026: it
+    // enforced a condition from the *2013* Family Specification (para 7.24(b),
+    // limiting the Children Panel to work "under a Certificate which includes
+    // proceedings relating to children"), which was removed in the 2018 rules
+    // and is absent from the operative 2024 rules (para 7.24(c) names the scheme
+    // with no qualifier). Every PDF produced before that date still carries the
+    // long label, so this alias is the only thing keeping those matters
+    // extractable. Panel keys render through the umbrella `panel_membership`
+    // template rather than one of their own — templates.py allows that.
+    "Fee earner is on Law Society Children Panel (and work relates to children)": "panel_membership_children"
 };
 
 
@@ -753,11 +787,15 @@ Sections labelled **Quoted guidance** reproduce words from the LAA's Costs Asses
 
    **Drafting note:** Apply the published comparison, rather than comparing only with other family cases or with work normal for a fee earner at the same level.
 
-### 4. Panel membership (CAG 12.20 and 12.23)
+### 4. Panel membership (CAG 12.20, 12.21 and 12.23)
 
    **Quoted guidance:**
 
    > "A guaranteed minimum enhancement of 15% is payable in respect of work carried out by a fee-earner on the Resolution Accredited Specialist Panel, the Law Society’s Children Panel or the Law Society Family Law Panel Advanced."
+
+   CAG 12.21 sets out how widely it applies:
+
+   > "Where the fee-earner is a member of the accredited specialist panel of Resolution, the Law Society Children Panel or the Law Society Panel Advanced, the enhancement is applied to all work done in any family case."
 
    CAG 12.23 also says:
 
@@ -768,6 +806,7 @@ Sections labelled **Quoted guidance** reproduce words from the LAA's Costs Asses
    *   Treat the 15% as a minimum, not an additional bonus.
    *   The useful way to think about it: **you already have 15%. This tool is about whether the case justifies more.**
    *   The panel question is still asked because CAG 12.22 requires the bill narrative to "clearly state the fee-earner for whom the enhancement is claimed and the basis for the enhancement".
+   *   **It applies to all work done in any family case** (12.21). Do not narrow it yourself — there is no requirement that the work fall "within the scope of" the accreditation, and none that Children Panel work relate to children. That condition was a term of the *2013* Family Specification; it was dropped in 2018 and is absent from the operative 2024 Family Category Specific Rules, which name the scheme with no qualifier at all (para 7.24(c)). This tool asserted it until 5 August 2026.
 
 ### 5. Each claim stands on its own facts (CAG 12.11)
 

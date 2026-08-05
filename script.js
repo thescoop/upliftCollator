@@ -445,11 +445,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
+                // Counted rather than written out. It read "the twelve" until
+                // 5 August 2026, having been drafted before the
+                // tactic/better-result label was split into two, so the screen
+                // that tells a solicitor to go back and read them all named the
+                // wrong number of them.
+                const stage1Count = QUESTION_BLOCKS
+                    .filter(b => b.page === 2)
+                    .reduce((n, b) => n + b.checkboxes.length, 0);
+
                 if (isPanelMember) {
-                    alert("Nothing is ticked at Stage 1, so the threshold test (CAG 12.4) is not met and there is no enhancement to determine the level of.\n\nPanel membership is indicated, so the guaranteed 15% minimum (CAG 12.20) is applied by Woodruff Billing Ltd. at bill-drafting in any event. Note that it is not payable in addition to a general enhancement (CAG 12.23).\n\nIf any of the threshold factors do apply to this case, go back and tick them.");
+                    // This alert used to open "the threshold test (CAG 12.4) is
+                    // not met and there is no enhancement to determine the level
+                    // of". For a panel member that overstates what an empty
+                    // Stage 1 proves: Paragraph 7.23(a) of the 2024 Standard
+                    // Civil Contract Family Category Specific Rules provides
+                    // that where the work is done by a member of a relevant
+                    // panel "the threshold test at Paragraph 6.13 shall be
+                    // deemed to be satisfied in respect of that work". The tool
+                    // still asks for a tick before it will build a claim above
+                    // 15% (Simon's call, 5 August 2026: anyone with real Stage 2
+                    // material will have a Stage 1 hook, and skipping the
+                    // threshold produces a weak narrative) — but it no longer
+                    // tells them a thing that is not so, and it no longer ends
+                    // by implying they are finished.
+                    alert("Nothing is ticked at Stage 1.\n\nPanel membership is indicated, so the guaranteed 15% minimum (CAG 12.20) is applied at bill-drafting whatever this form says. That much is already safe. It is a floor, not an addition — it is not payable on top of a general enhancement (CAG 12.23), so this tool is about whether the case justifies more than 15%.\n\nTo claim more, tick at least one of the " + stage1Count + " threshold factors. Before deciding none fits: if what makes this case worth more is the work you did without counsel, or the sheer volume of it, those are the two things Stage 2 asks about that Stage 1 does not — so look again rather than assuming Stage 1 has nothing for you.\n\nIf none of them genuinely applies, the claim stays at the guaranteed 15%.");
                     return;
                 } else {
-                    alert("Nothing is ticked at Stage 1, so the threshold test (CAG 12.4) is not met, and no panel membership is indicated either.\n\nAn enhancement claim needs at least one threshold factor. Read the twelve on the previous page against this case: the test is whether the work was unusual or out of the ordinary compared with legally aided work generally — not compared with other family cases.\n\nIf none of them genuinely applies, there is nothing further to do in this tool.");
+                    alert("Nothing is ticked at Stage 1, so the threshold test (CAG 12.4) is not met, and no panel membership is indicated either.\n\nAn enhancement claim needs at least one threshold factor. Read the " + stage1Count + " on the previous page against this case: the test is whether the work was unusual or out of the ordinary compared with legally aided work generally — not compared with other family cases.\n\nIf none of them genuinely applies, there is nothing further to do in this tool.");
                     return;
                 }
             }

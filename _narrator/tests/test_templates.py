@@ -68,14 +68,23 @@ class ContentDataTests(unittest.TestCase):
     def test_labels_are_unique(self) -> None:
         # label_to_key_lookup raises if a label collides; this just exercises it.
         lookup = label_to_key_lookup()
-        # 34 live labels plus 40 distinct historical labels.
-        self.assertEqual(len(lookup), 74)
+        # 34 live labels plus 41 distinct historical labels.
+        self.assertEqual(len(lookup), 75)
 
     def test_all_legacy_aliases_are_loaded_and_renderable(self) -> None:
         aliases = legacy_label_aliases()
         narrative_templates = load_content_data()["narrative_templates"]
-        self.assertEqual(len(aliases), 40)
-        self.assertEqual(set(aliases.values()) - set(narrative_templates), set())
+        self.assertEqual(len(aliases), 41)
+        # Panel keys are the one documented exception: all three render through
+        # the umbrella `panel_membership` template rather than one of their own,
+        # so none of them appears in NARRATIVE_TEMPLATES. templates.py allows
+        # exactly this and nothing else; keep the two rules in step.
+        unrenderable = {
+            key
+            for key in set(aliases.values()) - set(narrative_templates)
+            if not key.startswith("panel_membership_")
+        }
+        self.assertEqual(unrenderable, set())
 
     def test_retired_legacy_keys_remain_in_narrative_templates(self) -> None:
         data = load_content_data()

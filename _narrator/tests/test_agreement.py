@@ -82,13 +82,85 @@ class TestFactorCountSpansBothStages(unittest.TestCase):
 
 
 class TestPanelPluralisation(unittest.TestCase):
-    def test_one_panel_reads_this_accreditation(self):
-        md = build_skeleton(formdata(n_stage1=2, n_stage2=1, n_panel=1))
-        self.assertIn("scope of this accreditation", md)
+    """What these two used to assert was the singular/plural split between
+    "scope of this accreditation" and "scope of those accreditations". That
+    clause was removed on 5 August 2026 as unsourced — see the comment above
+    `panel_membership` in content-data.js — so the pluralisation now shows up
+    only in how the panel names themselves are joined. That is the thing worth
+    testing, because a mis-join is what a reader would actually notice."""
 
-    def test_two_panels_read_those_accreditations(self):
+    def test_one_panel_names_it_alone(self):
+        md = build_skeleton(formdata(n_stage1=2, n_stage2=1, n_panel=1))
+        self.assertIn("is a member of the Resolution Accredited Specialist Panel.", md)
+
+    def test_two_panels_are_joined_with_and(self):
         md = build_skeleton(formdata(n_stage1=2, n_stage2=1, n_panel=2))
-        self.assertIn("scope of those accreditations", md)
+        self.assertIn(
+            "Resolution Accredited Specialist Panel and Law Society Children Panel",
+            md,
+        )
+
+
+class TestPanelClaimsNoScopeCondition(unittest.TestCase):
+    """A regression guard, not a style check.
+
+    CAG 12.21 says the panel enhancement "is applied to all work done in any
+    family case". The narrative used to volunteer the opposite — that the work
+    "falls within the scope of this accreditation" — which is a restriction no
+    contract term imposes and an invitation to a challenge nothing requires.
+    Absence is the whole point of these assertions, so they must stay even
+    though they look like they test nothing."""
+
+    def test_no_scope_qualifier_for_one_panel(self):
+        md = build_skeleton(formdata(n_stage1=2, n_stage2=1, n_panel=1))
+        self.assertNotIn("scope of this accreditation", md)
+        self.assertNotIn("falls within the scope", md)
+
+    def test_no_scope_qualifier_for_several_panels(self):
+        md = build_skeleton(formdata(n_stage1=2, n_stage2=1, n_panel=2))
+        self.assertNotIn("scope of those accreditations", md)
+        self.assertNotIn("falls within the scope", md)
+
+    def test_the_live_children_panel_label_carries_no_condition(self):
+        """The condition lived in the *label*, so this is the load-bearing check.
+
+        "(and work relates to children)" was a real term of the 2013 Family
+        Specification, dropped in 2018 and absent from the operative 2024 rules.
+        A new claim must not reimpose it."""
+        labels = [
+            chk["label"]
+            for block in templates.load_content_data()["question_blocks"]
+            if block.get("id") == "panel"
+            for chk in block["checkboxes"]
+        ]
+        self.assertIn("Fee earner is on Law Society Children Panel", labels)
+        for label in labels:
+            self.assertNotIn("relates to children", label)
+            self.assertNotIn("scope", label.lower())
+
+    def test_a_legacy_pdf_still_reads_back_as_it_was_written(self):
+        """Deliberately NOT normalised, on the same reasoning that keeps the
+        retired narrative templates intact: a PDF sitting in a live matter said
+        what it said, and re-rendering it with today's wording would put words
+        into a document the solicitor already approved. The fixture carries the
+        pre-5-August-2026 label precisely so this stays covered."""
+        data = formdata(n_stage1=2, n_stage2=1, n_panel=2)
+        legacy = data["panelMembership"]["panel_membership_children"]["label"]
+        self.assertIn("(and work relates to children)", legacy)
+        self.assertIn("(and work relates to children)", build_skeleton(data))
+
+    def test_the_legacy_children_label_still_maps_to_its_key(self):
+        """Without the LEGACY_LABEL_ALIASES entry added alongside the relabel,
+        every PDF produced before 5 August 2026 stops extracting."""
+        lookup = templates.label_to_key_lookup()
+        self.assertEqual(
+            lookup["Fee earner is on Law Society Children Panel (and work relates to children)"],
+            "panel_membership_children",
+        )
+        self.assertEqual(
+            lookup["Fee earner is on Law Society Children Panel"],
+            "panel_membership_children",
+        )
 
 
 class TestMultiFactorIsUnchanged(unittest.TestCase):

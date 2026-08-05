@@ -109,6 +109,12 @@ Also confirmed by that check, and each one contradicts something the tool used t
 
 > A guaranteed minimum enhancement of 15% is payable in respect of work carried out by a fee-earner on the Resolution Accredited Specialist Panel, the Law Society’s Children Panel or the Law Society Family Law Panel Advanced.
 
+### 12.21
+
+> Where the fee-earner is a member of the accredited specialist panel of Resolution, the Law Society Children Panel or the Law Society Panel Advanced, the enhancement is applied to all work done in any family case.
+
+> [note: Added 5 August 2026. This file previously ran 12.20 straight to 12.22, and the omission was not harmless: 12.21 is the paragraph that decides whether the panel enhancement may be restricted to work "within the scope of" the accreditation, and the tool asserted exactly that restriction in its bill narrative for want of this text. Extracted from the same PDF as the rest of this file — Section 12, PDF/printed page 55 — and read back character by character against the rendered page. Treat a gap in this file as a defect, not a shortcut: the paragraphs here are the ones that were needed at the time, and the next question will be about one that was not.]
+
 ### 12.22
 
 > The minimum guaranteed enhancement is not available for supervision or to work done by other fee-earners. When preparing the bill for assessment, the narrative must clearly state the fee-earner for whom the enhancement is claimed and the basis for the enhancement.
