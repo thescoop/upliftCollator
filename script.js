@@ -754,7 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── STAGE 1 ─────────────────────────────────────────────────────────────
     //
-    // Twelve labels, tick only, all of them visible.
+    // Thirteen labels, tick only, all of them visible.
     //
     // Stage 1 is a pass/fail threshold (CAG 12.4) that earns nothing by itself,
     // so it must not consume the solicitor's effort. The previous version
@@ -764,7 +764,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // two at Stage 2. That is a structural fault, not a personal one.
     //
     // The limb-level toggle that used to hide each group is gone too. A
-    // collapsed list of twelve is help nobody reads, and the labels themselves
+    // collapsed list of thirteen is help nobody reads, and the labels themselves
     // are what the solicitor is being asked to recognise: they have to be on
     // the screen. The limb question is now a heading rather than a gate.
     //
@@ -813,8 +813,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // "what counts?" — expands CAG 12.8's own examples in place.
         //
         // In place, and not in a modal: the existing CONTEXTUAL_HELP_TEXTS
-        // modal covers the list and loses the solicitor's place, which twelve
-        // times over is intolerable. Collapsed by default, because twelve
+        // modal covers the list and loses the solicitor's place, which thirteen
+        // times over is intolerable. Collapsed by default, because thirteen
         // expanded panels is a wall of text that recreates the fatigue this
         // redesign exists to remove — but with the trigger always visible,
         // because helptext nobody can see is help nobody reads.
@@ -863,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // of features can be identified, and each claim is considered on its merits.
     // It has to appear wherever the solicitor is reading, or the quoted examples
     // above it read as the complete set of qualifying situations. But repeating
-    // it under all twelve panels would be noise, so there is exactly one of it
+    // it under all thirteen panels would be noise, so there is exactly one of it
     // and it moves to sit beneath the lowest panel currently open.
     let whatCountsCaveatEl = null;
     function placeWhatCountsCaveat() {

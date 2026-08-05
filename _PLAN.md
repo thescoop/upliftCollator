@@ -167,8 +167,9 @@ do in this tool."
 
 **Simon's call: the tool still requires at least one Stage 1 tick.** His reasoning —
 anyone with substantial Stage 2 material will have a Stage 1 hook, and panel
-membership already guarantees 15% before the form is opened, so this tool is only
-ever about beating 15%. The counter-argument, kept because an assessor could make it:
+membership already carries a guaranteed 15% for that fee-earner's own work before the
+form is opened — not for supervision or another fee-earner's work (CAG 12.22) — so this
+tool is only ever about beating 15%. The counter-argument, kept because an assessor could make it:
 **Responsibility and Weight are Stage 2 orphans**, so a panel member who ran a heavy
 case without counsel may genuinely have nothing to tick at Stage 1 while having a
 strong claim above 15%.
@@ -210,9 +211,17 @@ new label. Bumping the version mid-redesign would have made it cleaner.
 **The same false statement was in three places; the first pass fixed one.** The Stage 1
 alert said the threshold "is not met" and there was "no enhancement to determine the
 level of". So did the static Stage 2 banner (`index.html`) and the main help ("to qualify
-for *any* enhancement"). All three are corrected. The main help also still said "Tick the
-main question for a category" — there is no such checkbox; the limb headings stopped being
-tickable in the redesign. **When you correct a claim, grep for it.**
+for *any* enhancement"). All three are corrected. The main help also told the solicitor to
+"tick the main question for a category" — there is no such checkbox; the limb headings
+stopped being tickable in the redesign. **When you correct a claim, grep for it.** Written
+after fixing the first occurrence of that instruction and missing the second one, four
+lines further down the same string, which the eleventh round found.
+
+**And correcting an understatement is not a licence to overstate.** The first version of
+that fix said the 15% applies "whatever else applies" / "either way". It does not: CAG
+12.22 excludes supervision and work done by other fee-earners. Both now carry the
+carve-out. The help also implied the Stage 1 tick requirement was what the rules demand;
+it is the tool's own choice, and it now says so.
 
 **`structural_audit.py` was broken by this work and nobody would have noticed.** It is a
 standalone release check over the extraction contracts, and its alias branch had no panel
@@ -230,7 +239,8 @@ is not exhaustive while the form insists it is. The fix would be an "other" opti
 limb with a free-text box, which reopens the tick-only decision deliberately taken in the
 redesign. **Not changed. Simon's call.**
 
-**Verified:** 292 tests, plus the structural audit; each fix confirmed by reverting it and
+**Verified:** 292 tests — which now include the structural audit, rather than it being
+a 293rd thing run separately; each fix confirmed by reverting it and
 watching tests fail (removing the alias fails 8, including the fixture-PDF test). Driven
 end to end in Chromium with all three panels ticked, a 46-character fee-earner name and an
 85-character case name — both of which wrapped in the PDF — then round-tripped through

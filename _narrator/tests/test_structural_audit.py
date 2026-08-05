@@ -16,8 +16,10 @@ If this fails, run it directly for the readable report:
     PYTHONPATH=_narrator python3 _narrator/tests/structural_audit.py
 """
 
+import io
 import sys
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -27,11 +29,26 @@ from structural_audit import main  # noqa: E402
 
 
 class StructuralAuditTests(unittest.TestCase):
-    def test_the_audit_passes(self) -> None:
-        # main() asserts its way through and prints a report; a failure surfaces
-        # as the AssertionError with its own message, which is what we want to
-        # read. Nothing is captured or reinterpreted here.
-        main()
+    def test_the_audit_runs_and_passes(self) -> None:
+        """Asserts on the report, not merely on the absence of an exception.
+
+        This called `main()` and checked nothing when it was written, so
+        replacing the body of `main()` with `return` left it green — a wiring
+        test that could stop testing the wiring. The audit's own summary lines
+        are the evidence that it actually walked the contracts, so they are what
+        is checked. It also keeps the report out of the test output."""
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            main()
+        report = buffer.getvalue()
+
+        self.assertIn("STRUCTURAL AUDIT PASS", report)
+        # One line per contract the audit covers. If one is dropped, the audit
+        # stopped checking something and this notices.
+        self.assertIn("Stage 1:", report)
+        self.assertIn("Template coverage:", report)
+        self.assertIn("Label uniqueness:", report)
+        self.assertIn("Changed-label aliases:", report)
 
 
 if __name__ == "__main__":

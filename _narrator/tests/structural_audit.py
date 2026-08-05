@@ -38,6 +38,24 @@ def main() -> None:
     blocks = data["question_blocks"]
     aliases = legacy_label_aliases()
 
+    # The template exemption belongs to keys that are *actually in* the page-1
+    # panel block, not to three strings that merely look familiar. Checked
+    # against PANEL_KEYS rather than replacing it, so moving one of the three
+    # out of the panel block, or renaming a panel, trips the audit instead of
+    # quietly carrying its exemption to wherever the key ended up.
+    live_panel_keys = {
+        checkbox["key"]
+        for block in blocks
+        if block.get("page") == 1 and block.get("id") == "panel"
+        for checkbox in block.get("checkboxes", [])
+    }
+    assert live_panel_keys == PANEL_KEYS, (
+        "the page-1 panel block no longer holds exactly the keys this audit "
+        f"exempts from the template check. Block has {sorted(live_panel_keys)}, "
+        f"audit expects {sorted(PANEL_KEYS)}. If a panel was added, renamed or "
+        "moved, update PANEL_KEYS here and check templates.py agrees."
+    )
+
     stage1 = [
         checkbox
         for block in blocks

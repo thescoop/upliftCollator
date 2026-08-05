@@ -670,7 +670,9 @@ This tool helps solicitors provide structured information for claiming an enhanc
 ## The LAA's Two-Stage Process for Enhancements:
 
 ### Stage 1: Threshold Test (CAG Section 12.4)
-First, the work must meet **at least ONE** of these primary criteria. Panel members are the exception: a guaranteed 15% is payable under CAG 12.20 whatever else applies, so for them the threshold is about claiming *more* than 15%, not about qualifying at all.
+First, the work must meet **at least ONE** of these primary criteria.
+
+Panel membership sits outside that test. A guaranteed minimum of 15% is payable for work carried out by a fee-earner on one of the three panels (CAG 12.20) — though **not** for supervision, and not for work done by other fee-earners (CAG 12.22). Paragraph 7.23(a) of the 2024 Family Category Specific Rules also deems the Paragraph 6.13 threshold satisfied for that fee-earner's work. This tool nonetheless asks a panel member to tick at least one factor before it will build a claim above 15%: that is how the tool is set up, not what the rules require, and it is there because a claim worth more than the minimum will almost always have a threshold factor behind it.
 
 Tick whichever of the thirteen factors apply. Stage 1 is tick-only; explanations are collected at Stage 2, where they count. The three headings below are the limbs of Spec Para 6.13 — they group the factors and are not themselves tickable. The factors are the guidance's own examples and are **not** an exhaustive list (CAG 12.7).
 
@@ -727,7 +729,7 @@ Once the threshold is met, the CAG 12.9 factors determine the amount of enhancem
 ---
 ## Using this Tool:
 1.  Complete **Page 1: Case Details & Panel Membership**.
-2.  Proceed to **Page 2: Stage 1 - Threshold Test**. Tick the main category if it applies, then select the specific reasons. Stage 1 is tick-only.
+2.  Proceed to **Page 2: Stage 1 - Threshold Test**. Tick whichever factors apply. The three category headings are not tickable. Stage 1 is tick-only — no explanations here.
 3.  If the Stage 1 threshold is met, you will proceed to **Page 3: Stage 2 - Level of Enhancement**. Provide explanations for each factor selected.
 4.  On **Page 4: Statement Review**, review your selections and explanations.
 5.  Proceed to **Page 5: Finalise & Download**. Enter your **Proposed Uplift %**.
