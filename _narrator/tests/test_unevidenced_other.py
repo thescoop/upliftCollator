@@ -65,10 +65,67 @@ class UnevidencedOtherTests(unittest.TestCase):
             "s2_complexity_other": {
                 "checked": True,
                 "label": "Exceptional circumstances or complexity of some other kind",
-                "explanation": "Three sets of concurrent proceedings ran in two jurisdictions.",
+                "explanation": (
+                    "Three sets of concurrent proceedings ran in two jurisdictions "
+                    "with an unrepresented father participating from abroad."
+                ),
             }
         }))
         self.assertEqual(gaps, [])
+
+    def test_a_token_explanation_does_not_satisfy_it(self) -> None:
+        """The form demands ten words; this path must not be the soft way in.
+
+        A hand-edited `--from-json` file whose explanation was "." satisfied
+        this until 5 August 2026, while the form would have refused it."""
+        for token in (".", "one", "far too short to count"):
+            with self.subTest(explanation=token):
+                gaps = unevidenced_other_factors(_formdata(S1_OTHER, {
+                    "s2_complexity_other": {"checked": True, "explanation": token}
+                }))
+                self.assertEqual(len(gaps), 1)
+
+    def test_an_unchecked_carrier_does_not_satisfy_it(self) -> None:
+        """`checked: false` with prose left behind is a factor the solicitor
+        withdrew. Nothing looked at the flag until review found it."""
+        gaps = unevidenced_other_factors(_formdata(S1_OTHER, {
+            "s2_complexity_other": {
+                "checked": False,
+                "explanation": (
+                    "Three sets of concurrent proceedings ran in two jurisdictions "
+                    "with an unrepresented father participating from abroad."
+                ),
+            }
+        }))
+        self.assertEqual(len(gaps), 1)
+
+    def test_malformed_entries_stop_rather_than_throw(self) -> None:
+        """`load_formdata_json` checks the sections are objects, not their
+        values. A null or a bare string used to raise AttributeError out of a
+        function whose whole job is to report a problem cleanly."""
+        for stage1, stage2 in (
+            ({"s1_circ_other": None}, {}),
+            ({"s1_circ_other": "x"}, {}),
+            (S1_OTHER, {"s2_complexity_other": "x"}),
+            (S1_OTHER, {"s2_complexity_other": None}),
+        ):
+            with self.subTest(stage1=stage1, stage2=stage2):
+                gaps = unevidenced_other_factors(_formdata(stage1, stage2))
+                self.assertEqual(len(gaps), 1)
+
+    def test_the_word_threshold_matches_the_form(self) -> None:
+        """Two copies of the same rule, in two languages. If script.js changes
+        MIN_EXPLANATION_WORDS and this does not, the narrator silently becomes
+        the lenient end again."""
+        import re
+        from extract import MIN_EXPLANATION_WORDS
+
+        script = (Path(__file__).resolve().parents[2] / "script.js").read_text(
+            encoding="utf-8"
+        )
+        match = re.search(r"MIN_EXPLANATION_WORDS\s*=\s*(\d+)", script)
+        self.assertIsNotNone(match, "MIN_EXPLANATION_WORDS not found in script.js")
+        self.assertEqual(int(match.group(1)), MIN_EXPLANATION_WORDS)
 
     def test_a_named_threshold_label_needs_no_carrier(self) -> None:
         """Only the "other" labels are guarded. A named one says something on

@@ -270,12 +270,25 @@ Stage 1 "other" could then reach the PDF, the review page and the narrative with
 explaining it — over a solicitor's name, to the LAA, promising detail the document never
 gives. `--from-json` had no check at all.
 
-Now enforced in three places, all data-driven from a `requires_stage2` flag on the label
-rather than hardcoded keys: forward navigation from Stage 2 onwards, the download button,
-and `extract.unevidenced_other_factors()` which stops the narrator run. **Any** Stage 2
-factor carrying the key satisfies it, not only the default carrier — see the limb (c)
-note below for why that matters. Verified by reproducing the untick in Chromium and by
-running `--from-json` on a hand-written file; both stop.
+Now enforced in three places, driven by a `requires_stage2` flag on the label rather
+than hardcoded keys: forward navigation from Stage 2 onwards, the download button, and
+`extract.unevidenced_other_factors()` which stops the narrator run. Verified by
+reproducing the untick in Chromium and by running `--from-json` on a hand-written file;
+both stop.
+
+**The flag is not automatic — a fourth "other" must be given it.** The mechanism reads
+the flag; it does not detect an "other". `test_every_other_label_is_flagged_in_content_data`
+catches the omission by matching the label text "in some other way", which works only
+while that phrasing holds. An earlier note here said a fourth would "inherit it"; it
+would not.
+
+**Only the default carrier discharges it.** It was written to accept any Stage 2 factor
+carrying the key, and the alert told the solicitor to "tick whichever Stage 2 factor the
+circumstances really bear on" — but nothing except `s2_complexity_other` carries
+`s1_circ_other`, so anyone following that instruction stayed blocked with no way of
+knowing why. The wording was corrected rather than the rule: accepting *any* explained
+Stage 2 factor would gut the check in the ordinary case, where someone ticking an "other"
+plus three named factors would satisfy it without ever explaining the "other".
 
 **What is still not enforced, and cannot be:** word count is not substance. "The
 circumstances were exceptional and dealing with them required exceptional skill
@@ -503,10 +516,16 @@ currently demands 10+ words on all 17 boxes and then presents 11 more to someone
 has nothing left. That is the cause of the six-Stage-1-versus-two-Stage-2
 submission, and it is structural rather than personal.
 
-Fully generic wording is safe **because** of the carry-forward below: no ticked point
-is ever left unevidenced, so the document as a whole is never boilerplate. Stage 1's
-contribution to the narrative should be deliberately brief — it is the claim; Stage 2
-is the evidence. CAG 12.7 expects exactly that overlap.
+Fully generic wording is safe **because** of the carry-forward below: every ticked
+point reappears at Stage 2 to be evidenced there. Stage 1's contribution to the
+narrative should be deliberately brief — it is the claim; Stage 2 is the evidence.
+CAG 12.7 expects exactly that overlap.
+
+**This paragraph read "no ticked point is ever left unevidenced" and that was never
+true** — the Stage 2 box carries forward pre-ticked but can be unticked, and nothing
+puts it back. For the thirteen named labels that is a legitimate choice, since each
+states something on its own. For the three "other" labels it is not, and they are
+separately enforced. See the 5 August 2026 section above.
 
 ### The Stage 1 labels — DRAFT, 4 August 2026
 
@@ -578,9 +597,9 @@ two or three lines **in place**, collapsed by default.
 - **Not inside the label.** Label text becomes narrative text and forms the
   extraction contract, so it stays short and stable. Help text is neither.
 - **Not a modal.** The tool's existing `CONTEXTUAL_HELP_TEXTS` pattern covers the
-  list and loses the solicitor's place — thirteen times over. Expand in place instead.
-- **Collapsed by default, but the trigger always visible.** All thirteen expanded is a
-  wall of text, which recreates the fatigue the redesign exists to fix; all thirteen
+  list and loses the solicitor's place — sixteen times over. Expand in place instead.
+- **Collapsed by default, but the trigger always visible.** All sixteen expanded is a
+  wall of text, which recreates the fatigue the redesign exists to fix; all sixteen
   hidden behind a modal is help nobody reads.
 - **Write each string once and use it in both stages.** The example that justified
   ticking at Stage 1 is the context needed to write the consequence at Stage 2.

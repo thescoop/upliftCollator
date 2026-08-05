@@ -802,13 +802,41 @@ def unevidenced_other_factors(formdata: dict) -> list[str]:
             for chk in block.get("checkboxes", [])
             if key in (chk.get("carried_from") or [])
         }
-        satisfied = any(
-            (stage2.get(carrier) or {}).get("explanation", "").strip()
-            for carrier in carriers
-        )
+        satisfied = any(_carrier_evidences(stage2.get(carrier)) for carrier in carriers)
         if not satisfied:
-            unevidenced.append(stage1[key].get("label", key))
+            entry = stage1.get(key)
+            label = entry.get("label", key) if isinstance(entry, dict) else key
+            unevidenced.append(label)
     return unevidenced
+
+
+# The form's MIN_EXPLANATION_WORDS. Duplicated rather than parsed out of
+# script.js, which has no structure worth scraping — test_unevidenced_other.py
+# asserts the two agree, so the copy cannot drift silently.
+MIN_EXPLANATION_WORDS = 10
+
+
+def _carrier_evidences(entry: object) -> bool:
+    """True when a Stage 2 entry actually says something.
+
+    Held to the same ten words the form requires. This tested only that the
+    explanation was non-blank until review on 5 August 2026, so a hand-edited
+    `--from-json` file whose explanation was "." satisfied the narrator while
+    the form would have refused it — and an entry with `"checked": false` did
+    too, because nothing looked. Neither is parity, and this path exists
+    precisely for files the form did not produce.
+
+    Ten words is not substance and never was; it is the form's rule, and the
+    point here is that both ends apply the same one.
+    """
+    if not isinstance(entry, dict):
+        return False
+    if entry.get("checked") is False:
+        return False
+    explanation = entry.get("explanation")
+    if not isinstance(explanation, str):
+        return False
+    return len(explanation.split()) >= MIN_EXPLANATION_WORDS
 
 
 def explain_empty_extraction(pdf_path: str | Path) -> str:

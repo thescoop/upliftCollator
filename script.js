@@ -520,9 +520,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // review on 5 August 2026, after this had been reported as safe on the
     // strength of testing the box ticked-but-empty and never unticked.
     //
-    // Satisfied by ANY Stage 2 factor carrying the key, not only the default
-    // one: limb (c) covers "exceptional circumstances **or** complexity", and a
-    // circumstance may belong under weight, speed or responsibility instead.
+    // Satisfied only by a Stage 2 factor whose `carried_from` names this key —
+    // in practice its one default carrier.
+    //
+    // This was written to accept any carrier, and described in the alert and in
+    // _PLAN.md as accepting whichever Stage 2 factor the circumstances really
+    // bear on. It never did: nothing but `s2_complexity_other` carries
+    // `s1_circ_other`, so a solicitor who followed that instruction stayed
+    // blocked with no way of knowing why. Two ways out were possible, and the
+    // wording was corrected rather than the rule, because the alternative —
+    // accepting *any* explained Stage 2 factor — guts the check in the ordinary
+    // case: someone ticking an "other" plus three named factors would satisfy
+    // it without ever explaining the "other". Filing a limb (c) circumstance
+    // under Complexity is defensible in the meantime, since CAG 12.9(c)(iii)
+    // refers back to the whole of 12.8(c).
     function unevidencedOtherFactors() {
         const gaps = [];
         QUESTION_BLOCKS.filter(b => b.page === 2).forEach(block => {
@@ -621,9 +632,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     "an assessor can weigh, and the narrative would promise detail the " +
                     "document never gives.\n\n" +
                     "Either tick " + (g.carrier || "the matching Stage 2 factor") +
-                    " and explain it — or tick whichever Stage 2 factor the circumstances " +
-                    "really bear on, and explain it there — or go back to Stage 1 and " +
-                    "untick it."
+                    " and explain it there, or go back to Stage 1 and untick it.\n\n" +
+                    "If the circumstances also bear on another Stage 2 factor — weight, " +
+                    "speed, care or responsibility — tick that one as well and explain " +
+                    "it too. That is worth doing, but it is in addition to the box above, " +
+                    "not instead of it."
                 );
                 isValid = false;
             }
