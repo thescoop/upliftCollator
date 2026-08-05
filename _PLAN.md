@@ -1,6 +1,6 @@
 # Agreed programme — settled 4 August 2026
 
-## BUILD STATUS — updated 4 August 2026, end of session
+## BUILD STATUS — updated 5 August 2026, end of session
 
 Work is on branch **`redesign/stage1-labels`**. **Nothing is on `main`, so nothing is
 live.** Only a merge to `main` publishes to solicitors.
@@ -77,20 +77,21 @@ Both are the same lesson: **the PDF is a text layer with a line width, and anyth
 that wraps needs rejoining.** If a future change adds a long string to the PDF, test
 it at length, not just for correctness.
 
-**And three more, from a Sol pass over the fixes themselves** — each one an edge the
-first fix did not reach:
+**And more, from four further Sol passes over the fixes themselves** — each one an
+edge the round before it did not reach:
 
 - A wrapped matter name whose second line opens `Court:` is indistinguishable from
-  the real Court field. Case details are now parsed **in the order the PDF prints
-  them**, each field looked for only after the one before it, and the last field
-  taking the last of its candidates. **The format stays ambiguous in principle** —
-  a value wrapping onto a line beginning with the label of the very next field is
-  still read as that field. It loses no text; the order handles everything else.
+  the real Court field. Case details are now read as the **longest run of candidate
+  lines whose fields appear in the order the PDF prints them** — the only property
+  of this text that is reliable. **The format stays ambiguous in principle**: a
+  value wrapping onto a line beginning with the label of the very next field is
+  still read as that field.
 - A solicitor pasting boilerplate containing a whole confirmation block into an
   explanation could have outranked their own refusal. The **last heading** now
   marks the real section — found first, read second, so a genuine section whose
   status line is damaged answers "no" instead of deferring to an intact copy
-  higher up the document.
+  higher up the document. Its *last* occurrence is also what ends the section
+  above it, or a pasted block still truncated Stage 2 where it appeared.
 - **Exact label matching is not the same as safety.** Damage can turn one real label
   into a *different* real label: drop the parenthetical from the legacy Stage 1
   "Difficulty in taking instructions (client/witnesses)" and what remains is the
@@ -98,14 +99,26 @@ first fix did not reach:
   factor as a level factor and reported a clean run. The key must now belong to the
   section it was read from — **in the `--from-json` recovery path too**, which
   initially bypassed the check, so the file the stop had just written could be
-  re-run unedited and accepted.
+  re-run unedited and accepted, **and under `PANEL MEMBERSHIP`**, which had no
+  guard at all. That last one was the worst of the whole session: panel membership
+  carries a *guaranteed* 15% (CAG 12.20), so a criterion label read there produced
+  "A minimum enhancement of 15% is claimed … as a member of the Unusually detailed
+  knowledge applied" — a guaranteed entitlement asserted to the LAA on the strength
+  of a factor ticked somewhere else. A damaged Stage 1 heading is enough to cause it.
+
+**Five review rounds, and every round found defects in the round before it.** Four
+of the five found something in the *previous fixes* rather than the original code,
+including one fix that introduced the very regression it was written to remove. The
+practice that caught them: send the fixes back, not just the original change, and
+verify each test by reverting its fix to confirm the test actually fails.
 
 **4. `extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`,
 anchored to line start so a matter named "High Court: Re X and Y" cannot answer the
 court question.
 
-**277 tests pass.** Verified against ten generated PDFs, seven of them with the page
-breaks walked across the new section.
+**281 tests pass.** Verified against eleven generated PDFs, seven of them with the
+page breaks walked across the new section, and every fix checked by reverting it to
+confirm a test fails.
 
 ### Still outstanding
 
@@ -117,15 +130,16 @@ breaks walked across the new section.
 3. Judgement call made, reversible in one line: a **ticked** item in the optional
    Responsibility section still requires its explanation. Only an untouched section is
    exempt. Change it if you would rather ticks there stood alone.
-4. **Every section header is matched as the first bare occurrence anywhere in the
-   document**, so a solicitor who pastes a working note containing a line reading
-   `DISCLAIMER` or `PROPOSED UPLIFT` into an explanation would truncate the section
-   they are in. The new `EVIDENCE ON FILE` pattern is immune — it requires its own
-   status line to follow, and the confirmation is read from the last such block —
-   but the older ones are not, and were deliberately left
-   alone: tightening them changes how PDFs already sitting in live matters are read,
-   which is not a change to make in passing. Worth doing properly one day, with the
-   legacy fixtures in front of you.
+4. **The older section headers are still matched as the first bare occurrence
+   anywhere in the document**, so a solicitor who pastes a working note containing a
+   line reading `DISCLAIMER` or `PROPOSED UPLIFT` into an explanation truncates the
+   section they are in, silently. `EVIDENCE ON FILE` is now the only one that is
+   safe — it requires its own status line *and* is taken at its last occurrence.
+   The others were deliberately left alone: tightening them changes how PDFs already
+   sitting in live matters are read, which is not a change to make in passing. Worth
+   doing properly one day, with the legacy fixtures in front of you. **Do not
+   describe the others as handled** — an earlier version of this file called the
+   evidence pattern "immune" while a pasted block still truncated Stage 2.
 
 ### Two things to decide next session
 

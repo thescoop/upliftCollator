@@ -158,13 +158,26 @@ impossible.
     format is ambiguous and no rule reads every case** — a value wrapping onto a line
     that begins with the label of the very next field is still read as that field.
     It loses no text, and the order handles everything else.
-- **A label read under the wrong heading is now rejected.** Exact matching stops a
-  damaged label being repaired into something *like* it, but not from *being*
-  something else — drop the parenthetical from the legacy Stage 1 "Difficulty in
-  taking instructions (client/witnesses)" and what remains is the current Stage 2
-  label word for word. Accepted, it would have filed a threshold factor as a level
-  factor, under a heading the solicitor never wrote, and reported a clean run.
-- **277 tests** pass (was 253). The new ones pin the reading of the confirmation in the
+- **A label read under the wrong heading is now rejected**, in all three sections and
+  on both the PDF and `--from-json` paths. Exact matching stops a damaged label being
+  repaired into something *like* it, but not from *being* something else — drop the
+  parenthetical from the legacy Stage 1 "Difficulty in taking instructions
+  (client/witnesses)" and what remains is the current Stage 2 label word for word.
+  Accepted, it would have filed a threshold factor as a level factor, under a heading
+  the solicitor never wrote, and reported a clean run. **`PANEL MEMBERSHIP` was the
+  costliest gap**: it carries a *guaranteed* 15% (CAG 12.20) rather than an argued
+  percentage, so a criterion label read there produced "A minimum enhancement of 15%
+  is claimed … as a member of the Unusually detailed knowledge applied" — a
+  guaranteed entitlement asserted to the LAA on the strength of a factor ticked
+  somewhere else entirely. A damaged Stage 1 heading is enough to cause it.
+- **A pasted block no longer truncates the section it sits in.** Requiring the status
+  line stopped a bare `EVIDENCE ON FILE` heading in a solicitor's prose from ending a
+  section, but not a whole block pasted in — boilerplate, or a copy of a previous
+  summary — which still dropped every criterion below it out of the bill with no
+  warning. That section is now taken at its *last* occurrence for boundary purposes
+  too. **The other section headings still have this weakness** and were left alone
+  deliberately; see `_PLAN.md`.
+- **281 tests** pass (was 253). The new ones pin the reading of the confirmation in the
   direction that matters: "Not confirmed" contains the word "confirmed", so a looser
   search would read a refusal as a confirmation. The status line and the sentence
   beneath it must now agree — two strings that fail in opposite directions — and the

@@ -1,7 +1,7 @@
 # Uplift Collator + Narrator — Project Handoff
 
 Concise context for picking up work in a fresh session.
-**Last updated 4 August 2026.**
+**Last updated 5 August 2026.**
 
 ## What this project does
 
@@ -74,11 +74,23 @@ picking the work up needs.
 >   parenthetical from the legacy Stage 1 "Difficulty in taking instructions
 >   (client/witnesses)" and what remains is the current Stage 2 label word for word.
 >   `extract_criteria` therefore also checks the key belongs to the section it was
->   reading (`s1_`/`s2_`, the convention `content-data.js` already follows) — and
->   **so does `load_formdata_json`.** Guarding only the PDF reader left the guard
->   undoing itself: the rejected file could be re-run through `--from-json`
->   unedited and accepted, with the report naming the offending label as its own
->   closest match, so nothing looked as though it needed correcting.
+>   reading (`s1_`/`s2_`/`panel_membership_`, the convention `content-data.js`
+>   already follows) — and so do `extract_panel` and `load_formdata_json`. Each
+>   was added only after a review found the gap, so **treat `_SECTION_KEY_PREFIXES`
+>   as something every reading path must consult, not a check on one of them.**
+>   Guarding only `extract_criteria` left the guard undoing itself: the rejected
+>   file could be re-run through `--from-json` unedited and accepted, with the
+>   report naming the offending label as its own closest match. And `extract_panel`
+>   had no guard at all — the costliest of the three, because panel membership
+>   carries a *guaranteed* 15% (CAG 12.20), so a criterion label read there made
+>   the narrative claim that entitlement outright.
+> - **`EVIDENCE ON FILE` is taken at its LAST occurrence**, both when read and when
+>   used to end the section above it (`_LAST_OCCURRENCE_SECTIONS`). A solicitor can
+>   paste a whole confirmation block into an explanation — boilerplate, or a copy of
+>   a previous summary — and it would otherwise both outrank their real answer and
+>   truncate Stage 2 where it sat, dropping every criterion below it. **The other
+>   section headings still have that weakness**, deliberately: tightening them
+>   changes how PDFs already in live matters are read.
 > - **`extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`.
 >   Nothing computes with it — the tool proposes no figure — but the ceiling under
 >   CAG 12.2 now reaches `narrative-input.json` instead of being visible only to a
@@ -97,8 +109,8 @@ App version **1.11** (4 August 2026) in `content-data.js`. Simon confirmed on
 1 August 2026 that narrator-only template additions do **not** bump it; this
 version moved because the Collator itself changed.
 
-**277 tests**, all passing (was 244 before the redesign), none touching the
-network. The 277 figure was verified under **WSL Python on 4 August 2026**;
+**281 tests**, all passing (was 244 before the redesign), none touching the
+network. The 281 figure was verified under **WSL Python on 5 August 2026**;
 **Windows Python has not been re-run since the redesign** — do that before
 trusting a Windows launcher. Command:
 
