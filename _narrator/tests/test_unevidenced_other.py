@@ -181,7 +181,12 @@ class UnevidencedOtherTests(unittest.TestCase):
         The GUI is what both launchers run (_Generate_Uplift_Narrative.bat and
         _narrator.sh), so the guard protected the path almost nobody uses while
         the advertised one went straight through. Checked at source level
-        because importing narrate_gui needs Qt, which the suite does not."""
+        because importing narrate_gui needs Qt, which the suite does not.
+
+        A source-level check is a smoke test, not proof: it establishes that the
+        guard is called and its result branched on, not that the branch does
+        anything useful. The behaviour itself is covered by the tests above,
+        which exercise `unevidenced_other_factors` directly."""
         root = Path(__file__).resolve().parents[1]
         for name in ("narrate.py", "narrate_gui.py"):
             source = (root / name).read_text(encoding="utf-8")
@@ -196,6 +201,12 @@ class UnevidencedOtherTests(unittest.TestCase):
                 self.assertRegex(
                     source, r"=\s*unevidenced_other_factors\(",
                     f"{name} imports the guard but never calls it",
+                )
+                # And branches on the result. Assigning it and dropping it on
+                # the floor would otherwise satisfy the line above.
+                self.assertRegex(
+                    source, r"if\s+unevidenced\s*:",
+                    f"{name} calls the guard but never acts on what it returns",
                 )
 
     def test_a_named_threshold_label_needs_no_carrier(self) -> None:

@@ -229,9 +229,10 @@ class NarrateWorker(QThread):
                 )
                 self.log_line.emit(
                     '<span style="color:#9399b2;">Add the Stage 2 explanation in '
-                    f'{html.escape(input_json.name)} — or remove the Stage 1 factor, '
-                    'but only if it does not apply — then re-run from a '
-                    'terminal:</span>'
+                    f'{html.escape(input_json.name)} — or delete that factor&rsquo;s whole '
+                    'entry from &quot;stage1&quot;, but only if it does not apply. Setting '
+                    '&quot;checked&quot;: false does not remove it: every reader here treats '
+                    'the key being present as ticked. Then re-run from a terminal:</span>'
                 )
                 self.log_line.emit(
                     '<span style="color:#9399b2;">python narrate.py --from-json '

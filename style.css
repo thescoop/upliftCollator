@@ -619,7 +619,7 @@ textarea.explanation-input.needs-attention { border: 2px solid orange !important
     border: 0;
 }
 
-/* The Stage 1 threshold banner. It governs all thirteen ticks below it, so it is
+/* The Stage 1 threshold banner. It governs all sixteen ticks below it, so it is
    sized to be read rather than skipped — this is the sentence that stops a
    solicitor ticking everything that was merely above average. */
 .threshold-banner {

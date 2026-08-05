@@ -246,9 +246,10 @@ def main(argv: list[str] | None = None) -> int:
             "change or the\n  JSON was edited by hand.\n\n"
             "  Everything recovered is in:\n"
             f"    {input_json}\n"
-            "  Add the Stage 2 explanation there — or remove the Stage 1 factor, but "
-            "only if\n  it does not apply, and not merely to get the run through — "
-            "then:\n"
+            "  Add the Stage 2 explanation there — or delete that factor's whole entry "
+            "from\n  \"stage1\", but only if it does not apply, and not merely to get "
+            "the run\n  through. Setting \"checked\": false does not remove it: every "
+            "reader here treats\n  the key being present as ticked.\n\n  Then:\n"
             f'    python narrate.py --from-json "{input_json}"',
             file=sys.stderr,
         )

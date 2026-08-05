@@ -59,7 +59,7 @@ impossible.
   figure — could no longer move the number. Both are the same failure: the number
   authored the answer. A better-calibrated number is still a number. Under-claiming is
   silent and permanent; over-claiming is visible and gets argued.
-- Stage 1 becomes thirteen tickable labels with no typing — twelve were drafted, and
+- Stage 1 becomes sixteen tickable labels with no typing — twelve were drafted, and
   the tactic/better-result label was then split in two, because one disjunctive
   checkbox generated a narrative asserting both halves. It is a pass/fail threshold
   (CAG 12.4) that earns nothing, so it should not consume the solicitor's effort — yet

@@ -10,7 +10,7 @@ live.** Only a merge to `main` publishes to solicitors.
 | Commit | What |
 |---|---|
 | `bc57575` | Last open question closed: novelty and weight stay out of Stage 1 |
-| `e1a5557` | Stage 1 → 13 tick-only labels; Stage 2 → 7 CAG 12.9 factor blocks; all citation and benchmark fixes; invented bands deleted; `APP_VERSION` 1.11 |
+| `e1a5557` | Stage 1 → 13 tick-only labels (16 since the limb "other" options); Stage 2 → 7 CAG 12.9 factor blocks; all citation and benchmark fixes; invented bands deleted; `APP_VERSION` 1.11 |
 | `603dfbb` | Legacy label aliases wired; `_narrator/` green at 251 tests |
 | `44a6c94` | Sol's review applied — the narrowing qualifiers we had invented, removed; 253 tests |
 
@@ -305,13 +305,13 @@ instead of, the box that carried forward. That box is the only one that discharg
 gate.
 
 **Verified:** structural audit passes at 16 Stage 1 / 40 live keys / 81 labels, and its
-three invariants (`explanation: false`, `what_counts`, `stage2_factor`, a Stage 2 carrier)
+four invariants (`explanation: false`, `what_counts`, `stage2_factor`, a Stage 2 carrier)
 were each confirmed by stripping them from a new label and watching the audit catch it.
 Driven end to end in Chromium: ticked limb (c) other, wrote the explanation, downloaded
 the PDF, and round-tripped it through `extract.py` and `build_skeleton` with nothing
 unrecognised.
 
-**Verified:** 292 tests — which now include the structural audit, rather than it being
+**Verified:** 305 tests — which now include the structural audit, rather than it being
 a 293rd thing run separately; each fix confirmed by reverting it and
 watching tests fail (removing the alias fails 8, including the fixture-PDF test). Driven
 end to end in Chromium with all three panels ticked, a 46-character fee-earner name and an

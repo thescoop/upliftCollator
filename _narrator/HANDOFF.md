@@ -35,7 +35,8 @@ picking the work up needs.
 > `main`, so nothing is live). **`_PLAN.md` in the repo root carries the accurate
 > build status — read it before this file.** In short:
 >
-> - **Stage 1 collects no prose.** It is now 13 tick-only labels; explanations are
+> - **Stage 1 collects no prose.** It is now 16 tick-only labels — 13 from CAG 12.8's
+>   examples plus one "in some other way" per limb; explanations are
 >   collected at Stage 2 only. `skeleton.py` formats an explanation only where the
 >   template actually contains `{USER_EXPLANATION}`.
 > - **Stage 2 is seven blocks**, one per CAG 12.9 factor, with ticks carried
