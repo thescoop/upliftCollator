@@ -182,16 +182,26 @@ meaning exactly "a Stage 1 label is ticked". The narrator needs no structural ch
 `skeleton.py` already appends Stage 1 and Stage 2 independently and
 `extraction_is_empty` already passes on Stage 2 alone.
 
-**Known and irreducible, found by the sixth review round.** The new label is a strict
-prefix of the old one, so if the legacy bullet were ever truncated at its first line it
-would now be byte-identical to a real current label and resolve silently, where before
-it matched nothing and stopped the run. It cannot be told apart by any code — the two
-strings are the same string. Two things bound it: **it cannot happen in a PDF this app
-produced** (jsPDF measures the legacy bullet at 336.5pt against a 495pt column, so it
-does not wrap — confirmed in the fixture PDF, which prints it on one line), and the
-only consequence is that a legacy document re-renders without an obsolete restriction.
-It can drop an unsourced qualifier; it cannot add a claim. Same class as the case-details
-ambiguity above: recorded because it is real, not fixed because the fix does not exist.
+**Known, bounded, not fixed — found by the sixth review round, corrected by the
+seventh.** The new label is a strict prefix of the old one, so if the legacy bullet were
+ever truncated at its first line it would be byte-identical to a real current label and
+resolve silently, where before it matched nothing and stopped the run.
+
+Two things bound it. **It cannot happen in a PDF this app produced**: the legacy bullet
+measures 336.5pt against an effective column of 495.28pt, so `splitTextToSize()` returns
+one line — measured against the vendored jsPDF in the generator's own Helvetica 10pt
+state, and visible in the fixture PDF, which prints it whole. And the only consequence is
+that a legacy document re-renders without an obsolete restriction: it can drop an
+unsourced qualifier, it cannot add a claim.
+
+**An earlier version of this paragraph said the two strings "cannot be told apart by any
+code". That was wrong** and is the kind of overstatement that stops someone looking. They
+cannot be told apart *from the label alone* — but the PDF prints its own generation
+stamp, so a compatibility rule keyed on the tool version is available if this ever needs
+fixing. The trap to remember if you build it: **`APP_VERSION` did not bump for this label
+change.** It is 1.11 on both sides of it, and 1.11 is unreleased — so today the rule is
+"v1.10 or earlier ⇒ legacy label set", and it only stays true if 1.11 ships carrying the
+new label. Bumping the version mid-redesign would have made it cleaner.
 
 **Verified:** 288 tests; each of the three fixes confirmed by reverting it and
 watching tests fail (removing the alias fails 8, including the fixture-PDF test).

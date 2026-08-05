@@ -123,12 +123,29 @@ def label_to_key_lookup() -> dict[str, str]:
             lookup[label] = key
 
     templates = data["narrative_templates"]
-    panel_keys = {
-        chk["key"]
-        for block in blocks
-        if block.get("id") == "panel"
-        for chk in block.get("checkboxes", [])
-    }
+    # The browser's identity rule for this block is `page === 1 && id === "panel"`
+    # (savePanelMembershipFromDom in script.js). Match it exactly. Keying on the
+    # id alone would hand the template exemption to any *other* block that
+    # happened to be called "panel" — a page-2 block is Stage 1, and a
+    # template-less Stage 1 key waved through here is a criterion that renders
+    # as nothing at all.
+    #
+    # Zero or several matches raise rather than yielding an empty or merged set,
+    # so a renamed, deleted or duplicated block fails closed. An empty set would
+    # quietly re-reject every legitimate panel alias; a merged one would quietly
+    # widen the exemption. Both are worse than stopping.
+    panel_blocks = [
+        block for block in blocks
+        if block.get("page") == 1 and block.get("id") == "panel"
+    ]
+    if len(panel_blocks) != 1:
+        raise ValueError(
+            f"Expected exactly one page-1 'panel' block in QUESTION_BLOCKS, "
+            f"found {len(panel_blocks)}. Panel keys render through the umbrella "
+            "panel_membership template, so the alias check cannot be resolved "
+            "without knowing which block owns them."
+        )
+    panel_keys = {chk["key"] for chk in panel_blocks[0].get("checkboxes", [])}
     for label, key in legacy_label_aliases().items():
         live_key = lookup.get(label)
         if live_key is not None and live_key != key:
@@ -144,10 +161,16 @@ def label_to_key_lookup() -> dict[str, str]:
         # alias. Every other key must render on its own.
         #
         # Checked against the live panel block rather than a "panel_membership_"
-        # prefix: a prefix would wave through `panel_membership_typo`, which has
-        # neither a checkbox nor a template and so renders nothing at all. The
-        # point of this loop is to catch exactly that, and an exception wide
-        # enough to swallow it defeats it.
+        # prefix. A prefix would wave through `panel_membership_typo`, which has
+        # neither a checkbox nor a template — and the consequence is not that it
+        # renders nothing. extract_panel accepts any key with the panel section
+        # prefix, and skeleton.py renders every panel value through the umbrella
+        # template without looking at its key, so the label attached to that
+        # alias comes out as "A minimum enhancement of 15% is claimed as the fee
+        # earner ... is a member of the <whatever the label said>". That is the
+        # guaranteed 15% of CAG 12.20 asserted to the LAA on the strength of a
+        # typo — the same failure as the PANEL MEMBERSHIP section guard, which
+        # was the worst defect found in this codebase.
         if key not in templates and key not in panel_keys:
             raise ValueError(
                 f"Legacy checkbox label {label!r} maps to {key!r}, but that key "

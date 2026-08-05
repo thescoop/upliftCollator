@@ -82,21 +82,27 @@ class ContentDataTests(unittest.TestCase):
         # would let a typo'd key pass this test as well as the production check,
         # which is how a mirrored assertion stops being a check at all.
         blocks = load_content_data()["question_blocks"]
-        panel_keys = {
-            chk["key"]
-            for block in blocks
-            if block.get("id") == "panel"
-            for chk in block.get("checkboxes", [])
-        }
+        panel_blocks = [
+            block for block in blocks
+            if block.get("page") == 1 and block.get("id") == "panel"
+        ]
+        self.assertEqual(len(panel_blocks), 1)
+        panel_keys = {chk["key"] for chk in panel_blocks[0]["checkboxes"]}
         self.assertEqual(len(panel_keys), 3)
         unrenderable = set(aliases.values()) - set(narrative_templates) - panel_keys
         self.assertEqual(unrenderable, set())
 
-    def test_an_alias_pointing_at_a_key_that_renders_nothing_is_rejected(self) -> None:
+    def test_an_alias_named_like_a_panel_key_is_still_rejected(self) -> None:
         """The exception for panel keys must not become an exception for
-        anything merely *named* like one. `panel_membership_typo` has no
-        checkbox and no template, so it would render nothing and drop whatever
-        the solicitor ticked."""
+        anything merely *named* like one.
+
+        `panel_membership_typo` has no checkbox and no template. It does not
+        render nothing — that was this comment's first, wrong reading. It
+        renders through the umbrella panel template like any other panel value,
+        so its label is asserted to the LAA as a panel the fee-earner sits on,
+        carrying the guaranteed 15% of CAG 12.20. See
+        test_a_bogus_panel_key_would_manufacture_a_fifteen_percent_claim below
+        for the rendering itself."""
         import templates as templates_module
 
         # label_to_key_lookup() is deliberately uncached, so patching the alias
@@ -112,6 +118,35 @@ class ContentDataTests(unittest.TestCase):
                 label_to_key_lookup()
         finally:
             templates_module.legacy_label_aliases = real
+
+    def test_a_bogus_panel_key_would_manufacture_a_fifteen_percent_claim(self) -> None:
+        """Why the rejection above matters, shown rather than asserted.
+
+        skeleton.py renders every value under panelMembership through the
+        umbrella template without inspecting its key, so anything that reaches
+        that dict is stated to the LAA as a panel the fee-earner belongs to —
+        and CAG 12.20 makes that a *guaranteed* 15%. This test records the
+        behaviour that makes a permissive alias check dangerous. If it ever
+        starts failing because skeleton.py learned to filter unknown panel keys,
+        that is an improvement: tighten it, do not delete it."""
+        import json
+        from pathlib import Path
+
+        from skeleton import build_skeleton
+
+        fixture = (
+            Path(__file__).resolve().parent / "fixtures" / "sample_formdata.json"
+        )
+        data = json.loads(fixture.read_text(encoding="utf-8"))
+        data["panelMembership"] = {
+            "panel_membership_typo": {
+                "checked": True,
+                "label": "Synthetic retired checkbox",
+            }
+        }
+        narrative = build_skeleton(data)
+        self.assertIn("Synthetic retired checkbox", narrative)
+        self.assertIn("guaranteed minimum enhancement", narrative)
 
     def test_retired_legacy_keys_remain_in_narrative_templates(self) -> None:
         data = load_content_data()
