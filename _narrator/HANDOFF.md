@@ -62,11 +62,14 @@ picking the work up needs.
 >   for one line matched nothing and *stopped the run* (every case ticking the
 >   vulnerable-client factor), and a long Case / Matter name reached the narrative
 >   truncated to its first line. `_resolve_wrapped_label` rejoins a label; the case
->   details are parsed **in the order the PDF prints them**, each field looked for
->   only after the one before it, because a wrapped value whose second line opens
->   "Court:" is otherwise indistinguishable from the real Court field. The format
->   stays ambiguous in principle and the code says so — do not "tidy" that caveat
->   away. If you add a long string to the PDF, test it at length.
+>   details are read as the **longest run of candidate lines whose fields appear in
+>   the order the PDF prints them** (`_detail_field_positions`), because a wrapped
+>   value whose second line opens "Court:" is otherwise indistinguishable from the
+>   real Court field. Walking the fields in order and taking the first candidate
+>   each time looks equivalent and is not — where a field is missing *and* a later
+>   value imitates it, the walk jumps forward and loses every genuine field above.
+>   The format stays ambiguous in principle and the code says so; do not "tidy"
+>   that caveat away. If you add a long string to the PDF, test it at length.
 > - **Exact matching is not the same as safety, and the comment that said so was
 >   wrong.** Rejoining a label is accepted only on an exact match against
 >   `content-data.js`, so it cannot be repaired into something *like* it — but
