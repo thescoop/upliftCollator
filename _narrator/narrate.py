@@ -46,6 +46,7 @@ from extract import (
     explain_empty_extraction,
     extract_formdata,
     extraction_is_empty,
+    unevidenced_other_factors,
     load_formdata_json,
 )
 import prompts as prompts_mod
@@ -203,6 +204,33 @@ def main(argv: list[str] | None = None) -> int:
             f"    {input_json}\n"
             "  Correct each 'label' there to match content-data.js exactly, then:\n"
             f'    python narrate.py --from-json "{input_json}"',
+            file=sys.stderr,
+        )
+        return 5
+
+    # A limb "other" with nothing evidencing it. Ordered after the unrecognised
+    # check (a damaged label is the more likely cause and the better report) and
+    # before the empty check (this file is not empty — it is worse than empty,
+    # because it asserts a threshold factor and then never says what it was).
+    unevidenced = unevidenced_other_factors(formdata)
+    if unevidenced:
+        print("", file=sys.stderr)
+        print(
+            "narrate: stopping. These threshold factors were ticked, but nothing "
+            "at Stage 2\nexplains them:\n",
+            file=sys.stderr,
+        )
+        for label in unevidenced:
+            print(f"    - {label}", file=sys.stderr)
+        print(
+            "\nUnlike the other threshold labels, these say only that the work was "
+            "exceptional\nin a respect the guidance's examples do not cover. The "
+            "Stage 2 explanation is the\nonly place that says what it was, so the "
+            "narrative would tell the LAA the detail\nfollows and then not give it.\n\n"
+            "  The form no longer produces this, so the PDF either predates that "
+            "change or the\n  JSON was edited by hand. Either add the Stage 2 "
+            "explanation, or remove the Stage 1\n  factor — but only if it does not "
+            "apply, and not merely to get the run through.",
             file=sys.stderr,
         )
         return 5

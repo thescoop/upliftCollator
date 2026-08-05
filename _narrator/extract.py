@@ -755,6 +755,62 @@ def extraction_is_empty(formdata: dict) -> bool:
     return not (formdata.get("stage1") or formdata.get("stage2"))
 
 
+def unevidenced_other_factors(formdata: dict) -> list[str]:
+    """Stage 1 "other" keys with no explained Stage 2 factor carrying them.
+
+    The three limb "other" labels assert that the work was exceptional in a
+    respect the guidance's examples do not cover — and nothing else. The Stage 2
+    paragraph is the only place saying what that respect was, so without it the
+    narrative promises detail it never gives, over a solicitor's name, to the
+    LAA. A named threshold label needs no such guard: it states something on its
+    own.
+
+    The form now refuses to produce such a PDF, but this path does not go
+    through the form. `--from-json` reads a file the user may have hand-edited,
+    and a PDF may have been produced before the form learned to stop it. Both
+    reach the narrative directly.
+
+    Which Stage 1 keys demand this, and which Stage 2 keys satisfy them, are
+    read from `content-data.js` (`requires_stage2` and `carried_from`) rather
+    than hardcoded, so adding a fourth "other" needs no change here.
+    """
+    stage1 = formdata.get("stage1") or {}
+    if not stage1:
+        return []
+
+    from templates import load_content_data
+
+    blocks = load_content_data()["question_blocks"]
+    demanding = {
+        chk["key"]
+        for block in blocks
+        if block.get("page") == 2
+        for chk in block.get("checkboxes", [])
+        if chk.get("requires_stage2")
+    }
+    ticked = [key for key in stage1 if key in demanding]
+    if not ticked:
+        return []
+
+    stage2 = formdata.get("stage2") or {}
+    unevidenced = []
+    for key in ticked:
+        carriers = {
+            chk["key"]
+            for block in blocks
+            if block.get("page") == 3
+            for chk in block.get("checkboxes", [])
+            if key in (chk.get("carried_from") or [])
+        }
+        satisfied = any(
+            (stage2.get(carrier) or {}).get("explanation", "").strip()
+            for carrier in carriers
+        )
+        if not satisfied:
+            unevidenced.append(stage1[key].get("label", key))
+    return unevidenced
+
+
 def explain_empty_extraction(pdf_path: str | Path) -> str:
     """Plain-English reason an extraction came back empty.
 

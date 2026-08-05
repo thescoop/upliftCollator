@@ -261,11 +261,34 @@ not here. The Stage 1 narrative line asserts the limb and points forward; the St
 carrier holds the substance. Nothing about the redesign's no-typing-at-Stage-1 principle
 changes.
 
-**A tick cannot be left empty.** Each carries forward pre-ticked to a Stage 2 box with
-`explanation: true`, and the form refuses to continue without ~10 words — verified in
-Chromium, which rejected the empty box by name. The stems are written to force specifics
-("what made it exceptional rather than merely competent"), because a free box under a
-generic label is where "the case was very difficult" would otherwise go.
+**A tick cannot be left unevidenced — but the first version of this guard was wrong.**
+Each "other" carries forward pre-ticked to a Stage 2 box requiring ~10 words, and that
+much was verified by leaving the box blank. **It was not verified with the box unticked**,
+and the carry-forward box is an ordinary checkbox: untick it and, because
+`carriedForwardApplied` stays true, nothing ever puts it back. Review found that the
+Stage 1 "other" could then reach the PDF, the review page and the narrative with nothing
+explaining it — over a solicitor's name, to the LAA, promising detail the document never
+gives. `--from-json` had no check at all.
+
+Now enforced in three places, all data-driven from a `requires_stage2` flag on the label
+rather than hardcoded keys: forward navigation from Stage 2 onwards, the download button,
+and `extract.unevidenced_other_factors()` which stops the narrator run. **Any** Stage 2
+factor carrying the key satisfies it, not only the default carrier — see the limb (c)
+note below for why that matters. Verified by reproducing the untick in Chromium and by
+running `--from-json` on a hand-written file; both stop.
+
+**What is still not enforced, and cannot be:** word count is not substance. "The
+circumstances were exceptional and dealing with them required exceptional skill
+throughout" is twelve words and says nothing. The stems ask for particulars — they do not
+compel them. An earlier version of this file claimed they "force specifics"; they do not.
+
+**Limb (c) defaults to Complexity, which is defensible rather than always right.** 6.13(c)
+covers exceptional circumstances *or* complexity, and CAG 12.9 has no general
+"circumstances" level factor. The default carrier is Complexity because 12.9(c)(iii)
+refers back to the discussion at 12.8(c) — but a circumstance may really bear on weight,
+speed, care or responsibility. Both the Stage 1 "what counts?" panel and the Stage 2
+example now say so and tell the solicitor to tick that factor too, and the gate above
+accepts any carrier, so following that advice does not trip it.
 
 **Verified:** structural audit passes at 16 Stage 1 / 40 live keys / 81 labels, and its
 three invariants (`explanation: false`, `what_counts`, `stage2_factor`, a Stage 2 carrier)

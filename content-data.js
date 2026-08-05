@@ -202,7 +202,7 @@ const NARRATIVE_TEMPLATES = {
 const STAGE1_THRESHOLD_BANNER = "Tick only where this was unusual or out of the ordinary — not merely above average — compared with legally aided work generally. No category of case is exceptional in itself.";
 
 // Rendered once beneath any expanded "what counts?" panel, rather than repeated in
-// all thirteen strings. CAG 12.7, verbatim.
+// all sixteen strings. CAG 12.7, verbatim.
 const WHAT_COUNTS_CAVEAT = "CAG 12.7: \"In neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits\". These examples are the guidance's own. They are not a complete list, and your case does not have to match one of them.";
 
 const QUESTION_BLOCKS = [
@@ -331,6 +331,10 @@ const QUESTION_BLOCKS = [
                 label: "The work showed exceptional competence, skill or expertise in some other way",
                 key: "s1_cse_other",
                 explanation: false,
+                // Says nothing on its own, so script.js refuses to produce a PDF
+                // unless some Stage 2 factor carrying this key is ticked and
+                // explained. See unevidencedOtherFactors().
+                requires_stage2: true,
                 stage2_factor: "care",
                 what_counts: "The examples above are the guidance's own, and CAG 12.7 says they are not a complete list: \"in neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits\". The test you are asserting here is the limb itself — Spec Para 6.13(a), that the work was done with exceptional competence, skill or expertise. Tick this only if that is true and none of the examples above fits; you will be asked to say what it was at Stage 2."
             },
@@ -364,6 +368,10 @@ const QUESTION_BLOCKS = [
                 label: "The work was done with exceptional speed in some other way",
                 key: "s1_speed_other",
                 explanation: false,
+                // Says nothing on its own, so script.js refuses to produce a PDF
+                // unless some Stage 2 factor carrying this key is ticked and
+                // explained. See unevidencedOtherFactors().
+                requires_stage2: true,
                 stage2_factor: "speed",
                 what_counts: "The examples above are the guidance's own, and CAG 12.7 says they are not a complete list: \"in neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits\". The test you are asserting here is the limb itself — Spec Para 6.13(b), that the work was done with exceptional speed. Tick this only if that is true and neither example above fits; you will be asked to say what it was at Stage 2."
             },
@@ -419,8 +427,12 @@ const QUESTION_BLOCKS = [
                 label: "The case involved exceptional circumstances or complexity in some other way",
                 key: "s1_circ_other",
                 explanation: false,
+                // Says nothing on its own, so script.js refuses to produce a PDF
+                // unless some Stage 2 factor carrying this key is ticked and
+                // explained. See unevidencedOtherFactors().
+                requires_stage2: true,
                 stage2_factor: "complexity",
-                what_counts: "The examples above are the guidance's own, and CAG 12.7 says they are not a complete list: \"in neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits\". The test you are asserting here is the limb itself — Spec Para 6.13(c), that the case involved exceptional circumstances or complexity. Tick this only if that is true and none of the examples above fits; you will be asked to say what it was at Stage 2."
+                what_counts: "The examples above are the guidance's own, and CAG 12.7 says they are not a complete list: \"in neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits\". The test you are asserting here is the limb itself — Spec Para 6.13(c), that the case involved exceptional circumstances or complexity. Tick this only if that is true and none of the examples above fits; you will be asked to say what it was at Stage 2. It carries forward to **Complexity**, because CAG 12.9(c)(iii) refers back to the discussion at 12.8(c) — but this limb covers circumstances *as well as* complexity, and CAG 12.9 has no general \"circumstances\" factor. If what makes the case worth more is really its weight, the speed it demanded, the care it took or the responsibility carried, tick that factor at Stage 2 as well and explain it there."
             },
         ],
         columns_for_sub_options: 1
@@ -547,7 +559,7 @@ const QUESTION_BLOCKS = [
         checkboxes: [
             { label: "Complexity relating to legal, expert or evidential issues", key: "s2_complexity_legal_issues", explanation: true, carried_from: ["s1_circ_legal_issues"], stem: "The complexity lay in… and dealing with it required…", example: "e.g., The case involved interplay between [legal area 1] and [legal area 2], specifically concerning [the difficult point of law], which required research into..." },
             { label: "Difficulty in taking instructions", key: "s2_complexity_difficult_instructions", explanation: true, carried_from: ["s1_circ_difficult_instructions"], stem: "Taking instructions was difficult because… and so…", example: "e.g., The client's [e.g., trauma / learning disability / distrust of authority] affected obtaining a coherent history and instructions, requiring multiple attendances and..." },
-            { label: "Exceptional circumstances or complexity of some other kind", key: "s2_complexity_other", explanation: true, carried_from: ["s1_circ_other"], stem: "The circumstances were… and dealing with them required…", example: "e.g., Set out what the circumstances were and what they demanded of the fee earner. \"Exceptional\" has its normal meaning of unusual or out of the ordinary (CAG 12.8), so say what made this case unlike the run of legally aided work." },
+            { label: "Exceptional circumstances or complexity of some other kind", key: "s2_complexity_other", explanation: true, carried_from: ["s1_circ_other"], stem: "The circumstances were… and dealing with them required…", example: "e.g., Set out what the circumstances were and what they demanded of the fee earner. \"Exceptional\" has its normal meaning of unusual or out of the ordinary (CAG 12.8), so say what made this case unlike the run of legally aided work. If the circumstances bear on weight, speed, care or responsibility rather than on complexity, tick that factor too and explain it there — this box files the claim under CAG 12.9(c)(iii)." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -714,7 +726,9 @@ First, the work must meet **at least ONE** of these primary criteria.
 
 Panel membership sits outside that test. A guaranteed minimum of 15% is payable for work carried out by a fee-earner on one of the three panels (CAG 12.20) — though **not** for supervision, and not for work done by other fee-earners (CAG 12.22). Paragraph 7.23(a) of the 2024 Family Category Specific Rules also deems the Paragraph 6.13 threshold satisfied for that fee-earner's work. This tool nonetheless asks a panel member to tick at least one factor before it will build a claim above 15%. **That is how the tool is set up, not what the rules require.** If your case justifies more than 15% on responsibility or weight alone — neither of which has a Stage 1 equivalent — say so to Woodruff Billing directly rather than treating this form as the limit of what you can claim.
 
-Tick whichever of the thirteen factors apply. Stage 1 is tick-only; explanations are collected at Stage 2, where they count. The three headings below are the limbs of Spec Para 6.13 — they group the factors and are not themselves tickable. The factors are the guidance's own examples and are **not** an exhaustive list (CAG 12.7).
+Tick whichever factors apply. Stage 1 is tick-only; explanations are collected at Stage 2, where they count. The three headings are the limbs of Spec Para 6.13 — they group the factors and are not themselves tickable.
+
+Thirteen of the factors are the guidance's own examples, and CAG 12.7 says they are **not** an exhaustive list. Each limb therefore ends with an "in some other way" option, which claims the limb itself rather than one of the examples. Tick one of those only where the limb genuinely applies and none of the examples fits — you will have to say what it was at Stage 2, and the form will not produce a PDF until you do.
 
 1.  **Exceptional competence, skill, or expertise:**
     *   The fee earner demonstrates unusually detailed knowledge.

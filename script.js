@@ -506,6 +506,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // Stage 1 items flagged `requires_stage2` say nothing on their own — the
+    // three limb "other" labels assert that the work was exceptional in a way
+    // the guidance's examples do not cover, and the Stage 2 paragraph is the
+    // only place that says how. A named label survives losing its Stage 2 box:
+    // "Unusually detailed knowledge was applied" is still a statement. "The
+    // case was exceptional in some other respect, set out below" with nothing
+    // below is a promise to the LAA that the document then breaks.
+    //
+    // The carry-forward pre-ticks the Stage 2 box, but it is an ordinary
+    // checkbox and the solicitor can untick it — and `carriedForwardApplied`
+    // means returning to Stage 2 will not put it back. That was found by
+    // review on 5 August 2026, after this had been reported as safe on the
+    // strength of testing the box ticked-but-empty and never unticked.
+    //
+    // Satisfied by ANY Stage 2 factor carrying the key, not only the default
+    // one: limb (c) covers "exceptional circumstances **or** complexity", and a
+    // circumstance may belong under weight, speed or responsibility instead.
+    function unevidencedOtherFactors() {
+        const gaps = [];
+        QUESTION_BLOCKS.filter(b => b.page === 2).forEach(block => {
+            block.checkboxes.forEach(chk => {
+                if (!chk.requires_stage2) return;
+                const s1El = formElements[chk.key];
+                if (!s1El || !s1El.checkbox.checked) return;
+
+                let satisfied = false;
+                let carrierLabel = "";
+                QUESTION_BLOCKS.filter(b => b.page === 3).forEach(s2Block => {
+                    s2Block.checkboxes.forEach(s2Chk => {
+                        if (!(s2Chk.carried_from || []).includes(chk.key)) return;
+                        if (!carrierLabel) carrierLabel = `"${s2Chk.label}" under "${s2Block.title}"`;
+                        const s2El = formElements[s2Chk.key];
+                        if (!s2El || !s2El.checkbox.checked) return;
+                        const words = s2El.explanationInput
+                            ? s2El.explanationInput.value.trim().split(/\s+/).filter(Boolean).length
+                            : 0;
+                        if (words >= MIN_EXPLANATION_WORDS) satisfied = true;
+                    });
+                });
+                if (!satisfied) gaps.push({ stage1: chk.label, carrier: carrierLabel });
+            });
+        });
+        return gaps;
+    }
+
     function validateCurrentPage() {
         let isValid = true;
         if (currentPageIndex === 0) {
@@ -556,6 +601,31 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else if (explInput) { explInput.classList.remove('needs-attention'); }
                     }
                 }
+            }
+        }
+
+        // Checked from Stage 2 onwards rather than only on the page that owns
+        // the box, because the gap is created by unticking on Stage 2 and would
+        // otherwise not be noticed until the download button silently stayed
+        // disabled with no explanation of why.
+        if (isValid && currentPageIndex >= 2) {
+            const gaps = unevidencedOtherFactors();
+            if (gaps.length) {
+                const g = gaps[0];
+                alert(
+                    "This needs an explanation before you can go on.\n\n" +
+                    "At Stage 1 you ticked:\n\"" + g.stage1 + "\"\n\n" +
+                    "Unlike the other threshold factors, that one does not say what was " +
+                    "exceptional — it says the reason is not among the examples in the " +
+                    "guidance. Without the Stage 2 explanation the claim states nothing " +
+                    "an assessor can weigh, and the narrative would promise detail the " +
+                    "document never gives.\n\n" +
+                    "Either tick " + (g.carrier || "the matching Stage 2 factor") +
+                    " and explain it — or tick whichever Stage 2 factor the circumstances " +
+                    "really bear on, and explain it there — or go back to Stage 1 and " +
+                    "untick it."
+                );
+                isValid = false;
             }
         }
 
@@ -764,13 +834,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // two at Stage 2. That is a structural fault, not a personal one.
     //
     // The limb-level toggle that used to hide each group is gone too. A
-    // collapsed list of thirteen is help nobody reads, and the labels themselves
+    // collapsed list of sixteen is help nobody reads, and the labels themselves
     // are what the solicitor is being asked to recognise: they have to be on
     // the screen. The limb question is now a heading rather than a gate.
     //
     // Generic wording is safe here BECAUSE of carry-forward: every ticked label
-    // reappears at Stage 2 and is evidenced there in the solicitor's own words,
-    // so no ticked point is ever left bare.
+    // reappears at Stage 2 pre-selected, to be evidenced there in the
+    // solicitor's own words.
+    //
+    // "So no ticked point is ever left bare" is what this comment used to say,
+    // and it was not true: the Stage 2 box is an ordinary checkbox and can be
+    // unticked, after which nothing asks for it again. For the thirteen named
+    // labels that is a legitimate choice — the threshold is met on a factor the
+    // solicitor does not press for the level, and the Stage 1 line still states
+    // something. For the three "other" labels it is not, because they state
+    // nothing on their own; those carry `requires_stage2` and are enforced in
+    // unevidencedOtherFactors(), on this side, and in the narrator.
 
     function buildStage1Block(block, targetContainer) {
         const blockDiv = createBlockShell(block);
@@ -813,8 +892,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // "what counts?" — expands CAG 12.8's own examples in place.
         //
         // In place, and not in a modal: the existing CONTEXTUAL_HELP_TEXTS
-        // modal covers the list and loses the solicitor's place, which thirteen
-        // times over is intolerable. Collapsed by default, because thirteen
+        // modal covers the list and loses the solicitor's place, which sixteen
+        // times over is intolerable. Collapsed by default, because sixteen
         // expanded panels is a wall of text that recreates the fatigue this
         // redesign exists to remove — but with the trigger always visible,
         // because helptext nobody can see is help nobody reads.
@@ -863,7 +942,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // of features can be identified, and each claim is considered on its merits.
     // It has to appear wherever the solicitor is reading, or the quoted examples
     // above it read as the complete set of qualifying situations. But repeating
-    // it under all thirteen panels would be noise, so there is exactly one of it
+    // it under all sixteen panels would be noise, so there is exactly one of it
     // and it moves to sit beneath the lowest panel currently open.
     let whatCountsCaveatEl = null;
     function placeWhatCountsCaveat() {
@@ -1160,9 +1239,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // The same gate as validateCurrentPage, so a solicitor who reaches the
+        // last page by any route — a restored draft, going back and forward —
+        // cannot download a PDF asserting a threshold factor that the document
+        // never explains.
+        const otherGaps = unevidencedOtherFactors();
+        if (otherGaps.length) allValid = false;
+
         if (generatePdfSummaryButton) {
             generatePdfSummaryButton.disabled = !allValid;
-            generatePdfSummaryButton.title = allValid ? "Generate PDF Summary of your selections." : "Complete all Case Details (including the court), enter your Proposed Uplift %, and make sure every ticked Stage 2 factor has an explanation of roughly 10+ words.";
+            generatePdfSummaryButton.title = allValid
+                ? "Generate PDF Summary of your selections."
+                : (otherGaps.length
+                    ? "“" + otherGaps[0].stage1 + "” is ticked at Stage 1 but nothing at Stage 2 explains it. Go back and either explain it or untick it."
+                    : "Complete all Case Details (including the court), enter your Proposed Uplift %, and make sure every ticked Stage 2 factor has an explanation of roughly 10+ words.");
         }
     }
 
@@ -1199,7 +1289,14 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryHtml += "<h3>Stage 1: Threshold Test Selections:</h3>";
         let s1Selected = Object.values(formData.stage1).some(item => item.checked);
         if (s1Selected) {
-            summaryHtml += "<p class=\"review-note\"><em>These are the threshold factors you say apply (CAG 12.4). Each one is evidenced at Stage 2 below.</em></p>";
+            // Said "Each one is evidenced at Stage 2 below" until 5 August 2026.
+            // That was not true and the review page is the last place a
+            // solicitor checks before sending: a Stage 2 factor can be unticked
+            // after it carries forward, so a threshold factor can appear here
+            // with nothing under it. The three limb "other" labels are now
+            // separately barred from that state; the named ones may legitimately
+            // stand alone, since they say something on their own.
+            summaryHtml += "<p class=\"review-note\"><em>These are the threshold factors you say apply (CAG 12.4). Check that each one you are relying on for the amount claimed also appears at Stage 2 below, with its explanation.</em></p>";
             for (const key in formData.stage1) {
                 if (formData.stage1[key].checked) {
                     summaryHtml += `<p><strong>${escapeHtml(formData.stage1[key].label)}</strong> (<em>${escapeHtml(formData.stage1[key].categoryTitle)}</em>)</p>`;

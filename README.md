@@ -10,7 +10,7 @@ All processing happens in the browser. No data is sent to any server and nothing
 
 ## Current version
 
-`APP_VERSION = "1.8"` (defined once in `content-data.js`). To release a new version, change that single constant — it propagates everywhere.
+`APP_VERSION = "1.11"` (defined once in `content-data.js`). To release a new version, change that single constant — it propagates everywhere.
 
 The bundled LAA reference is *Costs Assessment Guidance, Version 1a, 23 September 2024* (`Costs_Assessment_Guidance_2024_SCC_-_Version_1a-_23_September_2024.pdf`).
 
