@@ -416,10 +416,11 @@ Delete the invented bands and state only what the guidance actually says:
 - The ceiling is **50%**, or **100%** in the High Court, Upper Tribunal, Court of
   Appeal or Supreme Court (12.2). **Ask which court** — the tool currently never
   does, so it silently halves the ceiling for anyone above the County Court.
-- Panel members already have a guaranteed **15%** floor (12.20), applied
-  automatically at bill-drafting and **not payable in addition** to the general
-  enhancement (12.23). Useful framing: *"you already have 15% — this tool is about
-  whether the case justifies more."*
+- Panel members already have a guaranteed **15%** floor (12.20) on their *own* work,
+  applied automatically at bill-drafting and **not payable in addition** to the general
+  enhancement (12.23). It does not cover supervision or work done by other fee-earners
+  (12.22) — a floor under part of the bill, not all of it. Useful framing: *"that work
+  already carries 15% — this tool is about whether the case justifies more."*
 - **"A maximum enhancement could be payable on the basis of one factor alone where
   it is particularly strong"** (12.10, verbatim). This is the sentence that does the
   work the invented bands were presumably meant to do, and it is real.
@@ -519,9 +520,9 @@ two or three lines **in place**, collapsed by default.
 - **Not inside the label.** Label text becomes narrative text and forms the
   extraction contract, so it stays short and stable. Help text is neither.
 - **Not a modal.** The tool's existing `CONTEXTUAL_HELP_TEXTS` pattern covers the
-  list and loses the solicitor's place — twelve times over. Expand in place instead.
-- **Collapsed by default, but the trigger always visible.** All twelve expanded is a
-  wall of text, which recreates the fatigue the redesign exists to fix; all twelve
+  list and loses the solicitor's place — thirteen times over. Expand in place instead.
+- **Collapsed by default, but the trigger always visible.** All thirteen expanded is a
+  wall of text, which recreates the fatigue the redesign exists to fix; all thirteen
   hidden behind a modal is help nobody reads.
 - **Write each string once and use it in both stages.** The example that justified
   ticking at Stage 1 is the context needed to write the consequence at Stage 2.

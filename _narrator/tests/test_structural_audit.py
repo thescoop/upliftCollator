@@ -43,12 +43,17 @@ class StructuralAuditTests(unittest.TestCase):
         report = buffer.getvalue()
 
         self.assertIn("STRUCTURAL AUDIT PASS", report)
-        # One line per contract the audit covers. If one is dropped, the audit
-        # stopped checking something and this notices.
-        self.assertIn("Stage 1:", report)
-        self.assertIn("Template coverage:", report)
-        self.assertIn("Label uniqueness:", report)
-        self.assertIn("Changed-label aliases:", report)
+        # The *numbers*, not just the labels. Asserting the four line prefixes
+        # alone still passed when a Stage 1 checkbox was deleted from the loaded
+        # data — the audit reported "Stage 1: 12 checkboxes" and this was happy
+        # with it. A report whose labels survive while its counts collapse is
+        # exactly the failure this wrapper exists to catch, so the counts are
+        # what it reads. Update these deliberately when the form changes; that
+        # is the point of them.
+        self.assertIn("Stage 1: 13 checkboxes", report)
+        self.assertIn("Template coverage: 34 live keys and 41 legacy labels", report)
+        self.assertIn("Label uniqueness: 75 live/legacy labels", report)
+        self.assertIn("Changed-label aliases: 12 previous live labels", report)
 
 
 if __name__ == "__main__":

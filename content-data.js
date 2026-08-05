@@ -672,7 +672,7 @@ This tool helps solicitors provide structured information for claiming an enhanc
 ### Stage 1: Threshold Test (CAG Section 12.4)
 First, the work must meet **at least ONE** of these primary criteria.
 
-Panel membership sits outside that test. A guaranteed minimum of 15% is payable for work carried out by a fee-earner on one of the three panels (CAG 12.20) — though **not** for supervision, and not for work done by other fee-earners (CAG 12.22). Paragraph 7.23(a) of the 2024 Family Category Specific Rules also deems the Paragraph 6.13 threshold satisfied for that fee-earner's work. This tool nonetheless asks a panel member to tick at least one factor before it will build a claim above 15%: that is how the tool is set up, not what the rules require, and it is there because a claim worth more than the minimum will almost always have a threshold factor behind it.
+Panel membership sits outside that test. A guaranteed minimum of 15% is payable for work carried out by a fee-earner on one of the three panels (CAG 12.20) — though **not** for supervision, and not for work done by other fee-earners (CAG 12.22). Paragraph 7.23(a) of the 2024 Family Category Specific Rules also deems the Paragraph 6.13 threshold satisfied for that fee-earner's work. This tool nonetheless asks a panel member to tick at least one factor before it will build a claim above 15%. **That is how the tool is set up, not what the rules require.** If your case justifies more than 15% on responsibility or weight alone — neither of which has a Stage 1 equivalent — say so to Woodruff Billing directly rather than treating this form as the limit of what you can claim.
 
 Tick whichever of the thirteen factors apply. Stage 1 is tick-only; explanations are collected at Stage 2, where they count. The three headings below are the limbs of Spec Para 6.13 — they group the factors and are not themselves tickable. The factors are the guidance's own examples and are **not** an exhaustive list (CAG 12.7).
 
@@ -790,7 +790,7 @@ Sections labelled **Quoted guidance** reproduce words from the LAA's Costs Asses
 
    **Drafting note:** Apply the published comparison, rather than comparing only with other family cases or with work normal for a fee earner at the same level.
 
-### 4. Panel membership (CAG 12.20, 12.21 and 12.23)
+### 4. Panel membership (CAG 12.20 to 12.23)
 
    **Quoted guidance:**
 
@@ -800,6 +800,10 @@ Sections labelled **Quoted guidance** reproduce words from the LAA's Costs Asses
 
    > "Where the fee-earner is a member of the accredited specialist panel of Resolution, the Law Society Children Panel or the Law Society Panel Advanced, the enhancement is applied to all work done in any family case."
 
+   CAG 12.22 sets the two limits on it:
+
+   > "The minimum guaranteed enhancement is not available for supervision or to work done by other fee-earners. When preparing the bill for assessment, the narrative must clearly state the fee-earner for whom the enhancement is claimed and the basis for the enhancement."
+
    CAG 12.23 also says:
 
    > "As indicated in paragraph 12.3 above, the Panel Membership enhancement is a guaranteed minimum enhancement, and is not payable in addition to any enhancement allowed under the general Specification."
@@ -807,7 +811,7 @@ Sections labelled **Quoted guidance** reproduce words from the LAA's Costs Asses
    **Drafting note:**
 
    *   Treat the 15% as a minimum, not an additional bonus.
-   *   The useful way to think about it: **you already have 15%. This tool is about whether the case justifies more.**
+   *   The useful way to think about it: **the panel member's own work already carries 15%. This tool is about whether the case justifies more.** It does not carry it for supervision, or for work done by anyone not on a panel (12.22) — so it is a floor under part of the bill, not all of it.
    *   The panel question is still asked because CAG 12.22 requires the bill narrative to "clearly state the fee-earner for whom the enhancement is claimed and the basis for the enhancement".
    *   **It applies to all work done in any family case** (12.21). Do not narrow it yourself — there is no requirement that the work fall "within the scope of" the accreditation, and none that Children Panel work relate to children. That condition was a term of the *2013* Family Specification; it was dropped in 2018 and is absent from the operative 2024 Family Category Specific Rules, which name the scheme with no qualifier at all (para 7.24(c)). This tool asserted it until 5 August 2026.
 
