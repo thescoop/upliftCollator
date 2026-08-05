@@ -214,6 +214,21 @@ def main(argv: list[str] | None = None) -> int:
     # because it asserts a threshold factor and then never says what it was).
     unevidenced = unevidenced_other_factors(formdata)
     if unevidenced:
+        # Same recovery artifact as the unrecognised stop above, and for the
+        # same reason: this run is telling the user to edit something, so it has
+        # to leave them the file to edit. It printed and returned when it was
+        # written, which left a --from-json instruction with nothing to point
+        # at, and any narrative.md from an earlier run sitting beside a stop
+        # where it reads as this run's output.
+        out_dir.mkdir(parents=True, exist_ok=True)
+        _clear_derived(out_dir)
+        for stale in ("narrative.md", "narrative-prompt.txt"):
+            (out_dir / stale).unlink(missing_ok=True)
+        input_json = out_dir / "narrative-input.json"
+        input_json.write_text(
+            json.dumps(formdata, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         print("", file=sys.stderr)
         print(
             "narrate: stopping. These threshold factors were ticked, but nothing "
@@ -228,9 +243,13 @@ def main(argv: list[str] | None = None) -> int:
             "Stage 2 explanation is the\nonly place that says what it was, so the "
             "narrative would tell the LAA the detail\nfollows and then not give it.\n\n"
             "  The form no longer produces this, so the PDF either predates that "
-            "change or the\n  JSON was edited by hand. Either add the Stage 2 "
-            "explanation, or remove the Stage 1\n  factor — but only if it does not "
-            "apply, and not merely to get the run through.",
+            "change or the\n  JSON was edited by hand.\n\n"
+            "  Everything recovered is in:\n"
+            f"    {input_json}\n"
+            "  Add the Stage 2 explanation there — or remove the Stage 1 factor, but "
+            "only if\n  it does not apply, and not merely to get the run through — "
+            "then:\n"
+            f'    python narrate.py --from-json "{input_json}"',
             file=sys.stderr,
         )
         return 5

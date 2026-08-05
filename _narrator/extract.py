@@ -829,10 +829,12 @@ _JS_WHITESPACE = re.compile(
 
 def _count_words_as_the_browser_does(text: str) -> int:
     """Mirror `value.trim().split(/\\s+/).filter(Boolean).length` in script.js."""
-    stripped = _JS_WHITESPACE.sub(" ", text).strip()
-    if not stripped:
-        return 0
-    return len([token for token in stripped.split(" ") if token])
+    # `.strip()` here would use Python's whitespace set, which is the very
+    # difference this function exists to remove: a trailing U+0085 was stripped
+    # as whitespace and the token before it lost, so ten browser words counted
+    # as nine. Everything is done through the ECMAScript class or not at all.
+    tokens = [token for token in _JS_WHITESPACE.split(text) if token]
+    return len(tokens)
 
 
 def _carrier_evidences(entry: object) -> bool:

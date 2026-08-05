@@ -155,6 +155,12 @@ class UnevidencedOtherTests(unittest.TestCase):
         self.assertEqual(count(ten.replace(" ", "\ufeff")), 10)
         self.assertEqual(count("a\x85b\x85c"), 1)
         self.assertEqual(count("a\x1cb\x1cc"), 1)
+        # At the boundary, not only mid-token. A trailing U+0085 was stripped by
+        # a bare .strip() and took the token before it with it, so ten browser
+        # words counted as nine — the same divergence, one layer down.
+        self.assertEqual(count(ten.rsplit(" ", 1)[0] + " \x85"), 10)
+        self.assertEqual(count("\x85 " + ten), 11)
+        self.assertEqual(count("\ufeff" + ten + "\ufeff"), 10)
         self.assertEqual(count("  spaced   out  "), 2)
         self.assertEqual(count("   "), 0)
 
@@ -168,6 +174,29 @@ class UnevidencedOtherTests(unittest.TestCase):
                     "s2_complexity_other": {"checked": flag, "explanation": words}
                 }))
                 self.assertEqual(len(gaps), 1)
+
+    def test_both_narrator_entry_points_call_the_guard(self) -> None:
+        """narrate.py had it; narrate_gui.py did not.
+
+        The GUI is what both launchers run (_Generate_Uplift_Narrative.bat and
+        _narrator.sh), so the guard protected the path almost nobody uses while
+        the advertised one went straight through. Checked at source level
+        because importing narrate_gui needs Qt, which the suite does not."""
+        root = Path(__file__).resolve().parents[1]
+        for name in ("narrate.py", "narrate_gui.py"):
+            source = (root / name).read_text(encoding="utf-8")
+            with self.subTest(module=name):
+                self.assertIn(
+                    "unevidenced_other_factors", source,
+                    f"{name} never calls unevidenced_other_factors, so that path "
+                    "can still write a narrative asserting a threshold factor "
+                    "nothing explains",
+                )
+                # Imported *and* called, not merely mentioned in a comment.
+                self.assertRegex(
+                    source, r"=\s*unevidenced_other_factors\(",
+                    f"{name} imports the guard but never calls it",
+                )
 
     def test_a_named_threshold_label_needs_no_carrier(self) -> None:
         """Only the "other" labels are guarded. A named one says something on

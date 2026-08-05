@@ -52,6 +52,7 @@ from extract import (
     explain_empty_extraction,
     extract_formdata,
     extraction_is_empty,
+    unevidenced_other_factors,
 )
 from skeleton import build_skeleton
 
@@ -185,6 +186,52 @@ class NarrateWorker(QThread):
                     '<span style="color:#9399b2;">Correct each label in '
                     f'{html.escape(input_json.name)} to match content-data.js, '
                     'then re-run from a terminal:</span>'
+                )
+                self.log_line.emit(
+                    '<span style="color:#9399b2;">python narrate.py --from-json '
+                    f'"{html.escape(str(input_json))}"</span>'
+                )
+                return
+
+            # The same guard as narrate.py. This file is what both launchers
+            # actually run (_Generate_Uplift_Narrative.bat and _narrator.sh), so
+            # a check that exists only in the CLI protects almost nobody — which
+            # is how this one shipped, gated on the terminal path while the
+            # advertised one went straight through to a narrative asserting a
+            # threshold factor it never explained.
+            unevidenced = unevidenced_other_factors(formdata)
+            if unevidenced:
+                out_dir = Path(self._out_dir)
+                out_dir.mkdir(parents=True, exist_ok=True)
+                for stale in ("narrative.md", "narrative-prompt.txt",
+                              "narrative-polished.docx", "narrative-polished.md",
+                              "citation-check.txt"):
+                    (out_dir / stale).unlink(missing_ok=True)
+                input_json = out_dir / "narrative-input.json"
+                input_json.write_text(
+                    json.dumps(formdata, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+                self.log_line.emit(
+                    '<span style="color:#ff6b6b;">Stopping — a threshold factor '
+                    'was ticked that nothing at Stage 2 explains.</span>'
+                )
+                for label in unevidenced:
+                    self.log_line.emit(
+                        f'<span style="color:#fab387;">    {html.escape(label)}</span>'
+                    )
+                self.log_line.emit(
+                    '<span style="color:#9399b2;">These labels say only that the '
+                    'work was exceptional in a respect the guidance&rsquo;s examples do '
+                    'not cover. The Stage 2 explanation is the only place that says '
+                    'what it was, so the narrative would promise detail the document '
+                    'never gives.</span>'
+                )
+                self.log_line.emit(
+                    '<span style="color:#9399b2;">Add the Stage 2 explanation in '
+                    f'{html.escape(input_json.name)} — or remove the Stage 1 factor, '
+                    'but only if it does not apply — then re-run from a '
+                    'terminal:</span>'
                 )
                 self.log_line.emit(
                     '<span style="color:#9399b2;">python narrate.py --from-json '
