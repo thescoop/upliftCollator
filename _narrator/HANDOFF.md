@@ -41,6 +41,19 @@ picking the work up needs.
 >   template actually contains `{USER_EXPLANATION}`.
 > - **Stage 2 is seven blocks**, one per CAG 12.9 factor, with ticks carried
 >   forward from Stage 1.
+> - **There is a second stop path, added 5 August 2026.** The three Stage 1 "in some
+>   other way" labels assert only that the work was exceptional in a respect CAG 12.8's
+>   examples do not cover — the Stage 2 explanation is the only place that says what it
+>   was. `extract.unevidenced_other_factors()` stops the run when one is ticked with no
+>   explained carrier, because otherwise the narrative promises the LAA detail the
+>   document never gives. It is driven by `requires_stage2` on the label in
+>   `content-data.js`, not by hardcoded keys — **but a fourth "other" must be given that
+>   flag; nothing detects one.** The guard must stay in **both** `narrate.py` and
+>   `narrate_gui.py`: it went into the CLI first, and the GUI is what both launchers run.
+> - **`MIN_EXPLANATION_WORDS` exists twice**, in `script.js` and `extract.py`, and the
+>   Python side counts words through an explicit ECMAScript-`\s` class because Python's
+>   whitespace set is not JavaScript's. A test reads the constant out of `script.js` so
+>   the two cannot drift apart silently.
 > - **`LEGACY_LABEL_ALIASES` in `content-data.js` is load-bearing.** `extract.py`
 >   matches by label *text*, and since `2ba3adb` an unmatched label stops the run.
 >   The redesign reworded every label, so without this map **every PDF already
