@@ -670,8 +670,9 @@ This tool helps solicitors provide structured information for claiming an enhanc
 ## The LAA's Two-Stage Process for Enhancements:
 
 ### Stage 1: Threshold Test (CAG Section 12.4)
-First, the work must meet **at least ONE** of these primary criteria to qualify for *any* enhancement:
-Tick the main question for a category if it applies, then select the specific reasons below it. Stage 1 is tick-only; explanations are collected at Stage 2.
+First, the work must meet **at least ONE** of these primary criteria. Panel members are the exception: a guaranteed 15% is payable under CAG 12.20 whatever else applies, so for them the threshold is about claiming *more* than 15%, not about qualifying at all.
+
+Tick whichever of the thirteen factors apply. Stage 1 is tick-only; explanations are collected at Stage 2, where they count. The three headings below are the limbs of Spec Para 6.13 — they group the factors and are not themselves tickable. The factors are the guidance's own examples and are **not** an exhaustive list (CAG 12.7).
 
 1.  **Exceptional competence, skill, or expertise:**
     *   The fee earner demonstrates unusually detailed knowledge.

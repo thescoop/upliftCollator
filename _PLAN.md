@@ -120,10 +120,14 @@ court question.
 page breaks walked across the new section, and every fix checked by reverting it to
 confirm a test fails.
 
-### Panel membership — settled 5 August 2026
+### Panel membership — the two invented conditions settled, 5 August 2026
 
 Sol's finding 6 was researched to primary sources and applied. Both extra conditions
 are gone, and the answer was not "no source" but "the source says the opposite".
+
+**"Settled" means the two textual conditions, not every panel question.** The workflow
+restriction — a panel member cannot pass Stage 1 without ticking a factor — is still
+there, by decision rather than by oversight. See below.
 
 **The paragraph that decided it was missing from our own citation file.**
 `_cag-section-12-verbatim.md` ran 12.20 straight to 12.22. CAG **12.21** says:
@@ -203,12 +207,34 @@ change.** It is 1.11 on both sides of it, and 1.11 is unreleased — so today th
 "v1.10 or earlier ⇒ legacy label set", and it only stays true if 1.11 ships carrying the
 new label. Bumping the version mid-redesign would have made it cleaner.
 
-**Verified:** 288 tests; each of the three fixes confirmed by reverting it and
-watching tests fail (removing the alias fails 8, including the fixture-PDF test).
-Driven end to end in Chromium with all three panels ticked, a 46-character
-fee-earner name and an 85-character case name — both of which wrapped in the PDF —
-then round-tripped through `extract.py` with every field and label recovered and
-nothing unrecognised.
+**The same false statement was in three places; the first pass fixed one.** The Stage 1
+alert said the threshold "is not met" and there was "no enhancement to determine the
+level of". So did the static Stage 2 banner (`index.html`) and the main help ("to qualify
+for *any* enhancement"). All three are corrected. The main help also still said "Tick the
+main question for a category" — there is no such checkbox; the limb headings stopped being
+tickable in the redesign. **When you correct a claim, grep for it.**
+
+**`structural_audit.py` was broken by this work and nobody would have noticed.** It is a
+standalone release check over the extraction contracts, and its alias branch had no panel
+exemption where the live branch beside it did — so the first legacy alias pointing at a
+panel key failed it. Three review rounds missed it because they were reading diffs and
+that file was in none of them. It is now run by `test_structural_audit.py`: a check
+nobody runs is not a check.
+
+**Still open, and it needs Simon.** Sol's last pass argues the thirteen Stage 1 labels
+function as an exhaustive gate, which CAG 12.7 says they are not ("in neither case can an
+exhaustive list of features of a case be identified"). The limb headings are prose, not
+checkboxes, so a solicitor whose case satisfies a 6.13 limb for a reason outside the
+thirteen has no truthful control to tick — the `WHAT_COUNTS_CAVEAT` tells them the list
+is not exhaustive while the form insists it is. The fix would be an "other" option per
+limb with a free-text box, which reopens the tick-only decision deliberately taken in the
+redesign. **Not changed. Simon's call.**
+
+**Verified:** 292 tests, plus the structural audit; each fix confirmed by reverting it and
+watching tests fail (removing the alias fails 8, including the fixture-PDF test). Driven
+end to end in Chromium with all three panels ticked, a 46-character fee-earner name and an
+85-character case name — both of which wrapped in the PDF — then round-tripped through
+`extract.py` with every field and label recovered and nothing unrecognised.
 
 ### Still outstanding
 

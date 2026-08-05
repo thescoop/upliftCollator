@@ -71,7 +71,13 @@ def main() -> None:
         for checkbox in block.get("checkboxes", [])
     }
     missing_live_templates = live_keys - PANEL_KEYS - set(templates)
-    missing_alias_templates = set(aliases.values()) - set(templates)
+    # PANEL_KEYS is subtracted here too. It was not until 5 August 2026, when
+    # the Children Panel label lost "(and work relates to children)" and the old
+    # string became the first *legacy* alias pointing at a panel key. Panel keys
+    # render through the umbrella panel_membership template rather than one of
+    # their own, so they have never had an entry here — the live branch above
+    # already allowed for that and this one simply had not needed to yet.
+    missing_alias_templates = set(aliases.values()) - PANEL_KEYS - set(templates)
     assert not missing_live_templates, (
         f"live keys without templates: {sorted(missing_live_templates)}"
     )

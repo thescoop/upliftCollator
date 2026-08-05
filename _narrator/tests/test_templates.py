@@ -32,11 +32,13 @@ class ContentDataTests(unittest.TestCase):
         self.assertGreater(len(data["narrative_templates"]), 30)
         # One panel block, three threshold limbs and the seven CAG 12.9 factors.
         #
-        # Deliberately exact. This is a "has the form changed shape?" tripwire,
-        # not a constraint on what shapes are legal — label_to_key_lookup()
-        # merges several page-1 panel blocks quite happily, and should. If you
-        # split or add a block on purpose, update this number; it is here so
-        # that a block deleted by accident cannot pass unnoticed.
+        # Deliberately exact, but it is only a *net count* tripwire. It does not
+        # constrain block identity, order, the number of panel blocks or their
+        # checkbox composition, so a count-neutral edit — one block removed while
+        # another is split — passes it unnoticed. It catches a block deleted and
+        # nothing put back. If you change the form's shape on purpose, update the
+        # number. What shapes are legal is a separate question:
+        # label_to_key_lookup() merges several page-1 panel blocks quite happily.
         self.assertEqual(len(data["question_blocks"]), 11)
 
     def test_every_explanation_checkbox_has_a_template(self) -> None:
@@ -171,8 +173,13 @@ class ContentDataTests(unittest.TestCase):
         The page-2 decoy is load-bearing. Removing blocks by id alone left this
         test green against an id-only implementation — the very regression the
         page check exists to prevent — because with no 'panel' block at all both
-        implementations raise. With the decoy present, an id-only lookup finds
-        it, does not raise, and this fails."""
+        implementations raise, and the assertion could not tell which had.
+
+        With the decoy present, an id-only lookup finds it and does not raise
+        here. It still raises further down, because the genuine legacy alias
+        maps to `panel_membership_children`, which is neither a template nor the
+        decoy's key — so the discriminating part is `assertIn`, not
+        `assertRaises`. Check the message, not just the exception."""
         import templates as templates_module
 
         data = load_content_data()
