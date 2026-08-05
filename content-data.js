@@ -211,7 +211,8 @@ const QUESTION_BLOCKS = [
     // scheme bare). CAG 12.21 puts it beyond doubt: the enhancement "is applied
     // to all work done in any family case". The old string is in
     // LEGACY_LABEL_ALIASES and must stay there — it is printed into every PDF
-    // produced before that date.
+    // produced before that date *on which the Children Panel was ticked*. Not
+    // every PDF: an unticked panel prints nothing, or "None selected.".
     {
         page: 1,
         id: "panel",

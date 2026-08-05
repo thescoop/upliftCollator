@@ -151,7 +151,9 @@ extracted because nobody had needed it yet.
   rules; the operative 2024 rules name the scheme bare (7.24(c)). The tool was
   enforcing a contract term that expired eight years ago. Removed from the label,
   and the old string added to `LEGACY_LABEL_ALIASES` — it is printed into every PDF
-  produced before this date and is the only thing keeping those matters extractable.
+  produced before this date **on which the Children Panel was ticked**, and is the only
+  thing keeping those matters extractable. (Not every earlier PDF: a panel left unticked
+  prints nothing for it.)
 
 **The operative contract is the 2024 Standard Civil Contract** (General Specification
 May 2025, Family Rules August 2024), extended to 30 June 2028. `content-data.js`
@@ -177,8 +179,9 @@ strong claim above 15%.
 What changed instead is the message. It no longer states the threshold "is not met"
 (which 7.23(a) contradicts), no longer implies the solicitor is finished, and now
 points at the two orphans by name. **It also said "the twelve" — Stage 1 has been
-thirteen labels since the tactic/better-result split.** The count is now derived from
-`QUESTION_BLOCKS` so it cannot go stale again.
+thirteen labels since the tactic/better-result split.** Both alerts now derive the count
+from `QUESTION_BLOCKS`. A later edit reintroduced a hardcoded `13` into the same string
+and the fourteenth review round caught it, which is the whole argument for deriving it.
 
 If 7.23(a) is ever relied on, the work is: a `isThresholdSatisfied()` alongside
 `isAnyStage1ThresholdTrulyMet()` — **do not overload the existing one**, the PDF's
