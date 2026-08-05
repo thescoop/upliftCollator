@@ -50,9 +50,9 @@ class StructuralAuditTests(unittest.TestCase):
         # exactly the failure this wrapper exists to catch, so the counts are
         # what it reads. Update these deliberately when the form changes; that
         # is the point of them.
-        self.assertIn("Stage 1: 13 checkboxes", report)
-        self.assertIn("Template coverage: 34 live keys and 41 legacy labels", report)
-        self.assertIn("Label uniqueness: 75 live/legacy labels", report)
+        self.assertIn("Stage 1: 16 checkboxes", report)
+        self.assertIn("Template coverage: 40 live keys and 41 legacy labels", report)
+        self.assertIn("Label uniqueness: 81 live/legacy labels", report)
         self.assertIn("Changed-label aliases: 12 previous live labels", report)
 
 

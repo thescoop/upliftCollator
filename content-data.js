@@ -97,14 +97,21 @@ const NARRATIVE_TEMPLATES = {
     "s1_cse_better_result_current": "    - The case was conducted so well that the client obtained a better result than might usually have been expected.",
     "s1_cse_less_time": "    - The work required less time than would have been expected of a notional reasonable fee-earner.",
     "s1_cse_vulnerable_client": "    - Instructions were taken from, and effective representation provided for, a client who was a child, seriously mentally unwell or otherwise very vulnerable, requiring unusual skill.",
+    // The three limb "other" templates. They assert the limb — which is the
+    // operative test at Spec 6.13 — and defer the substance to Stage 2, where
+    // the solicitor writes it. CAG 12.7 is cited because it is the paragraph
+    // that makes asserting the limb without one of 12.8's examples legitimate.
+    "s1_cse_other": "    - The work was done with exceptional competence, skill or expertise in a respect other than the examples given at CAG 12.8(a), which are expressly not exhaustive (CAG 12.7). The circumstances are set out below.",
     "s1_exceptional_speed_header_narrative": "  The work was done with **exceptional speed** (Spec Para 6.13(b) / CAG Section 12.8(b)):",
     "s1_speed_proactive_pursuit": "    - A resolution of the client's problem was proactively obtained with unusual speed.",
     "s1_speed_urgent_deadlines": "    - Substantial work was carried out at short notice to meet an urgent deadline or hearing.",
+    "s1_speed_other": "    - The work was done with exceptional speed in a respect other than the examples given at CAG 12.8(b), which are expressly not exhaustive (CAG 12.7). The circumstances are set out below.",
     "s1_exceptional_circumstances_complexity_header_narrative": "  The case involved **exceptional circumstances or complexity** (Spec Para 6.13(c) / CAG Section 12.8(c)):",
     "s1_circ_legal_issues": "    - The legal, expert or other evidential issues were exceptionally complex.",
     "s1_circ_difficult_instructions": "    - Taking instructions from the client or other witnesses was exceptionally difficult.",
     "s1_circ_client_impact": "    - The issues affecting the client gave rise to exceptional circumstances.",
     "s1_circ_out_of_hours": "    - The case required substantial out-of-hours work.",
+    "s1_circ_other": "    - The case involved exceptional circumstances or complexity in a respect other than the examples given at CAG 12.8(c), which are expressly not exhaustive (CAG 12.7). The circumstances are set out below.",
 
     // --- Stage 2: the level of enhancement --------------------------------------
     // One header per factor in CAG 12.9. There are exactly seven, which 12.10
@@ -118,10 +125,12 @@ const NARRATIVE_TEMPLATES = {
     "s2_care_effective_tactic": "    - A particularly effective tactic was adopted.{USER_EXPLANATION}",
     "s2_care_better_result": "    - The case was conducted so well that the client obtained a better result than might usually have been expected.{USER_EXPLANATION}",
     "s2_care_vulnerable_client": "    - Particular care was required and shown in dealing with a vulnerable client.{USER_EXPLANATION}",
+    "s2_care_other": "    - Exceptional competence, skill or expertise was shown in the following respect.{USER_EXPLANATION}",
 
     "s2_speed_header_narrative": "  **Speed** (CAG 12.9(b)(ii)):",
     "s2_speed_proactive_pursuit": "    - The case was proactively pursued, obtaining a resolution with unusual speed.{USER_EXPLANATION}",
     "s2_speed_urgent_deadlines": "    - Substantial work was carried out at short notice to meet an urgent deadline or hearing.{USER_EXPLANATION}",
+    "s2_speed_other": "    - Exceptional speed was achieved in the following respect.{USER_EXPLANATION}",
     "s2_speed_out_of_hours": "    - Substantial out-of-hours work was required.{USER_EXPLANATION}",
 
     "s2_efficiency_header_narrative": "  **Efficiency** (CAG 12.9(b)(iii)):",
@@ -137,6 +146,7 @@ const NARRATIVE_TEMPLATES = {
     "s2_complexity_header_narrative": "  **Complexity** (CAG 12.9(c)(iii)):",
     "s2_complexity_legal_issues": "    - Complexity related to legal issues, questions of expert evidence or other evidential issues.{USER_EXPLANATION}",
     "s2_complexity_difficult_instructions": "    - Complexity arose from difficulty in taking instructions from the client or other witnesses.{USER_EXPLANATION}",
+    "s2_complexity_other": "    - The case involved exceptional circumstances or complexity in the following respect.{USER_EXPLANATION}",
 
     // Degree of Responsibility closes the narrative. It is the only factor in 12.9
     // describing the shape of the whole retainer rather than a single event, and
@@ -315,6 +325,15 @@ const QUESTION_BLOCKS = [
                 stage2_factor: "care",
                 what_counts: "CAG 12.8(a): \"Another example of unusual skill may be taking instructions and providing effective representation for a client who is a child, is seriously mentally ill or is otherwise very vulnerable.\""
             },
+            // The "other" option, added 5 August 2026. See the note above
+            // LIMB_OTHER_RATIONALE below for why all three exist.
+            {
+                label: "The work showed exceptional competence, skill or expertise in some other way",
+                key: "s1_cse_other",
+                explanation: false,
+                stage2_factor: "care",
+                what_counts: "The examples above are the guidance's own, and CAG 12.7 says they are not a complete list: \"in neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits\". The test you are asserting here is the limb itself — Spec Para 6.13(a), that the work was done with exceptional competence, skill or expertise. Tick this only if that is true and none of the examples above fits; you will be asked to say what it was at Stage 2."
+            },
         ],
         columns_for_sub_options: 1
     },
@@ -340,6 +359,13 @@ const QUESTION_BLOCKS = [
                 explanation: false,
                 stage2_factor: "speed",
                 what_counts: "CAG 12.8(b): it \"may also be justified if the fee-earner carries out substantial work at short notice because of urgent deadlines\"."
+            },
+            {
+                label: "The work was done with exceptional speed in some other way",
+                key: "s1_speed_other",
+                explanation: false,
+                stage2_factor: "speed",
+                what_counts: "The examples above are the guidance's own, and CAG 12.7 says they are not a complete list: \"in neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits\". The test you are asserting here is the limb itself — Spec Para 6.13(b), that the work was done with exceptional speed. Tick this only if that is true and neither example above fits; you will be asked to say what it was at Stage 2."
             },
         ],
         columns_for_sub_options: 1
@@ -389,6 +415,13 @@ const QUESTION_BLOCKS = [
                 stage2_factor: "speed",
                 what_counts: "CAG 12.8(c): \"A case requiring substantial out of hours work may also be considered to fall under this limb or particular work may be considered under 6.15(b) of the Specification\". This carries forward to speed at Stage 2."
             },
+            {
+                label: "The case involved exceptional circumstances or complexity in some other way",
+                key: "s1_circ_other",
+                explanation: false,
+                stage2_factor: "complexity",
+                what_counts: "The examples above are the guidance's own, and CAG 12.7 says they are not a complete list: \"in neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits\". The test you are asserting here is the limb itself — Spec Para 6.13(c), that the case involved exceptional circumstances or complexity. Tick this only if that is true and none of the examples above fits; you will be asked to say what it was at Stage 2."
+            },
         ],
         columns_for_sub_options: 1
     },
@@ -428,6 +461,10 @@ const QUESTION_BLOCKS = [
             { label: "Particularly effective tactic", key: "s2_care_effective_tactic", explanation: true, carried_from: ["s1_cse_effective_tactic"], stem: "The tactic adopted was… and it was particularly effective because…", example: "e.g., Instead of [standard approach], we strategically opted for [specific tactic, e.g., an early without prejudice offer / a specific type of application], which led to..." },
             { label: "Better result than might usually have been expected", key: "s2_care_better_result", explanation: true, carried_from: ["s1_cse_better_result_current"], stem: "The result obtained was… and the way the case was conducted contributed by…", example: "e.g., The client obtained [specific result], rather than [result that would usually have been expected], because the case was conducted by..." },
             { label: "Particular care with a vulnerable client", key: "s2_care_vulnerable_client", explanation: true, carried_from: ["s1_cse_vulnerable_client"], stem: "The client's circumstances required… and so the work involved…", example: "e.g., Dealing with a client who [specific vulnerability, e.g., had severe anxiety / was a non-English speaker requiring an interpreter for every meeting] necessitated [specific adaptations, e.g., shorter, more frequent meetings / using visual aids] to ensure effective instructions..." },
+            // Carries the limb (a) "other". The stem does the work the fixed
+            // labels do elsewhere: without it this box invites "the case was
+            // very difficult", which asserts nothing an assessor can weigh.
+            { label: "Exceptional competence, skill or expertise shown in some other way", key: "s2_care_other", explanation: true, carried_from: ["s1_cse_other"], stem: "What the fee earner did was… and what made it exceptional rather than merely competent was…", example: "e.g., Set out the specific thing done, and why it went beyond what a reasonable fee earner would ordinarily have done on a legally aided case — not why the case was hard, but what the fee earner brought to it." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -444,6 +481,7 @@ const QUESTION_BLOCKS = [
             { label: "Case proactively pursued to a rapid resolution", key: "s2_speed_proactive_pursuit", explanation: true, carried_from: ["s1_speed_proactive_pursuit"], stem: "The urgency arose because… and as a result…", example: "e.g., Given the imminent risk of [e.g., eviction/child removal], we proactively [action, e.g., issued an emergency application] within [timeframe, e.g., 24 hours of instruction], resulting in..." },
             { label: "Substantial work at short notice for an urgent deadline", key: "s2_speed_urgent_deadlines", explanation: true, carried_from: ["s1_speed_urgent_deadlines"], stem: "The deadline was… and meeting it required…", example: "e.g., Urgent instructions were received on [date] requiring [specific work, e.g., preparation for a short-notice hearing] by [deadline date/time] due to [reason for urgency], necessitating immediate and focused work..." },
             { label: "Substantial out-of-hours work", key: "s2_speed_out_of_hours", explanation: true, carried_from: ["s1_circ_out_of_hours"], stem: "The out-of-hours work was necessary because…", example: "e.g., Substantial work was unavoidably performed outside normal hours on [e.g., weekend of date / evenings of dates] to [reason, e.g., prepare for an emergency hearing / meet an unexpected court deadline]..." },
+            { label: "Exceptional speed achieved in some other way", key: "s2_speed_other", explanation: true, carried_from: ["s1_speed_other"], stem: "The speed was exceptional because… and it was achieved by…", example: "e.g., Set out what was done, how quickly, and what the ordinary timescale would have been — the comparison is with legally aided proceedings generally, not with other family cases." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -509,6 +547,7 @@ const QUESTION_BLOCKS = [
         checkboxes: [
             { label: "Complexity relating to legal, expert or evidential issues", key: "s2_complexity_legal_issues", explanation: true, carried_from: ["s1_circ_legal_issues"], stem: "The complexity lay in… and dealing with it required…", example: "e.g., The case involved interplay between [legal area 1] and [legal area 2], specifically concerning [the difficult point of law], which required research into..." },
             { label: "Difficulty in taking instructions", key: "s2_complexity_difficult_instructions", explanation: true, carried_from: ["s1_circ_difficult_instructions"], stem: "Taking instructions was difficult because… and so…", example: "e.g., The client's [e.g., trauma / learning disability / distrust of authority] affected obtaining a coherent history and instructions, requiring multiple attendances and..." },
+            { label: "Exceptional circumstances or complexity of some other kind", key: "s2_complexity_other", explanation: true, carried_from: ["s1_circ_other"], stem: "The circumstances were… and dealing with them required…", example: "e.g., Set out what the circumstances were and what they demanded of the fee earner. \"Exceptional\" has its normal meaning of unusual or out of the ordinary (CAG 12.8), so say what made this case unlike the run of legally aided work." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true

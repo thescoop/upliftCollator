@@ -76,8 +76,8 @@ class ContentDataTests(unittest.TestCase):
     def test_labels_are_unique(self) -> None:
         # label_to_key_lookup raises if a label collides; this just exercises it.
         lookup = label_to_key_lookup()
-        # 34 live labels plus 41 distinct historical labels.
-        self.assertEqual(len(lookup), 75)
+        # 40 live labels plus 41 distinct historical labels.
+        self.assertEqual(len(lookup), 81)
 
     def test_all_legacy_aliases_are_loaded_and_renderable(self) -> None:
         aliases = legacy_label_aliases()

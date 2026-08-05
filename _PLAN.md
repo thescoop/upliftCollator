@@ -233,14 +233,46 @@ panel key failed it. Three review rounds missed it because they were reading dif
 that file was in none of them. It is now run by `test_structural_audit.py`: a check
 nobody runs is not a check.
 
-**Still open, and it needs Simon.** Sol's last pass argues the thirteen Stage 1 labels
-function as an exhaustive gate, which CAG 12.7 says they are not ("in neither case can an
-exhaustive list of features of a case be identified"). The limb headings are prose, not
-checkboxes, so a solicitor whose case satisfies a 6.13 limb for a reason outside the
-thirteen has no truthful control to tick — the `WHAT_COUNTS_CAVEAT` tells them the list
-is not exhaustive while the form insists it is. The fix would be an "other" option per
-limb with a free-text box, which reopens the tick-only decision deliberately taken in the
-redesign. **Not changed. Simon's call.**
+### The exhaustive-gate problem — CLOSED 5 August 2026, Stage 1 is now 16 labels
+
+Sol's last pass argued the thirteen Stage 1 labels functioned as an exhaustive gate, which
+CAG 12.7 says they are not ("in neither case can an exhaustive list of features of a case
+be identified"). The limb headings are prose, not checkboxes, so a solicitor whose case
+satisfied a 6.13 limb for a reason outside the thirteen had nothing truthful to tick — the
+`WHAT_COUNTS_CAVEAT` told them the list was not exhaustive while the form insisted it was.
+
+**Simon's decision: add an "other" per limb.** Three new Stage 1 labels, each asserting
+the limb rather than an example of it:
+
+- `s1_cse_other` — "The work showed exceptional competence, skill or expertise in some
+  other way" → carries to Care
+- `s1_speed_other` — "The work was done with exceptional speed in some other way" →
+  carries to Speed
+- `s1_circ_other` — "The case involved exceptional circumstances or complexity in some
+  other way" → carries to Complexity
+
+**They assert the operative test, not a new category.** Spec 6.13(a)/(b)/(c) *is* the
+threshold; CAG 12.8's examples merely illustrate it. That framing is why this is not a
+catch-all — the solicitor is claiming the statutory limb, which is exactly what CAG 12.7
+contemplates.
+
+**Stage 1 stays tick-only.** Simon's second decision: the words are collected at Stage 2,
+not here. The Stage 1 narrative line asserts the limb and points forward; the Stage 2
+carrier holds the substance. Nothing about the redesign's no-typing-at-Stage-1 principle
+changes.
+
+**A tick cannot be left empty.** Each carries forward pre-ticked to a Stage 2 box with
+`explanation: true`, and the form refuses to continue without ~10 words — verified in
+Chromium, which rejected the empty box by name. The stems are written to force specifics
+("what made it exceptional rather than merely competent"), because a free box under a
+generic label is where "the case was very difficult" would otherwise go.
+
+**Verified:** structural audit passes at 16 Stage 1 / 40 live keys / 81 labels, and its
+three invariants (`explanation: false`, `what_counts`, `stage2_factor`, a Stage 2 carrier)
+were each confirmed by stripping them from a new label and watching the audit catch it.
+Driven end to end in Chromium: ticked limb (c) other, wrote the explanation, downloaded
+the PDF, and round-tripped it through `extract.py` and `build_skeleton` with nothing
+unrecognised.
 
 **Verified:** 292 tests — which now include the structural audit, rather than it being
 a 293rd thing run separately; each fix confirmed by reverting it and
