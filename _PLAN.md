@@ -98,7 +98,7 @@ Verification actually performed:
   gap that stood since 4 August is closed. `narrate.py` was also run end to end
   under the Windows `uplift-narrate` env on `deemed.docx` and produced a
   correctly-cited deemed narrative.
-- **28/28 browser checks**, `drive_form.js` now ending in a full round trip:
+- **29/29 browser checks**, `drive_form.js` now ending in a full round trip:
   real click → real download → `extract.py` reads the .docx back, deemed line,
   panel and explanation intact, nothing unrecognised.
 - **Real Word acceptance (COM):** the browser-produced file opened in desktop

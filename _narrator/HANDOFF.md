@@ -98,7 +98,7 @@ picking the work up needs.
 >   block claiming confirmation, a real Stage 1 label on its own pasted line,
 >   bullet characters and a control character, all of which must stay inert.
 > - **Verified:** 396 tests pass under **both** WSL and Windows Python;
->   `drive_form.js` 28/28 including a full docx round trip (real click, real
+>   `drive_form.js` 29/29 including a full docx round trip (real click, real
 >   download, read back with python-docx); and a real-Word COM acceptance test —
 >   Word opened the file without offering to repair it, extraction was identical
 >   after a Word re-save, and the `docProps` creator "Uplift Collator v1.13"

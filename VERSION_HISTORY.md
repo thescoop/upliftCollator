@@ -46,7 +46,7 @@ a section heading, which the PDF format could never guarantee.
   fixtures with the real generator and labels read live from `content-data.js`.
 
 **Verification:** 396 tests pass under WSL and Windows Python (was 345); the browser
-drive (`drive_form.js`) passes 28/28 including a full docx round trip through
+drive (`drive_form.js`) passes 29/29 including a full docx round trip through
 `extract.py`; and the generated file was opened in desktop Microsoft Word via COM with
 no repair prompt, re-saved by Word, and the re-saved copy extracted **identically** —
 with the re-save recorded in `lastModifiedBy` (surfaced by the diagnostics as a
