@@ -166,6 +166,17 @@ Two findings were **declined, with reasons**:
   is the deliberate, separately-named escape the house confidentiality rule
   requires; silent was the defect, and silence is what was fixed.
 
+**Rounds 3 and 4 — convergence.** Round 3 found exactly one defect, again in a
+round-1 fix: the `.gitignore` fixture re-include used a wildcard, which made
+the fixtures folder the one place a real app-named download became stageable
+again. Fixed by exact-name re-includes, with the guard test proving an
+app-named file inside `fixtures/` stays unstageable. **Round 4 came back
+empty** — the exit condition — with Sol's verdict: *merge-ready, subject to
+the human approvals and pre-merge gates recorded in this file* (Simon's
+reading of the Stage 1 wording, his judgment of the document's appearance in
+Word, and the Vercel portal's embedded v1.8 copy). Final state: **396 tests**
+under WSL and Windows Python, **29/29** browser checks, tree clean.
+
 **Round 2 — the fixes reviewed as hard as the change.** Sol re-attacked the fix
 commit and confirmed the extraction, structural gate, uplift validation,
 recovery validation and legacy-PDF behaviour all held (the legacy fixture
