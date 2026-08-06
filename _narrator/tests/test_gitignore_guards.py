@@ -40,6 +40,11 @@ class TestDownloadsAreUnstageable(unittest.TestCase):
             "LAA_Uplift_Data_Summary.pdf",
             "LAA_Uplift_Data_Summary (1).pdf",
             "subdir/Uplift_Justification-Jones 11111.docx",
+            # The fixtures folder must NOT be an exception for app-named
+            # files: a wildcard re-include once made it the one place a real
+            # download became stageable again (round-3 review finding).
+            "_narrator/tests/fixtures/Uplift_Justification-Smith 29964.docx",
+            "_narrator/tests/fixtures/Uplift_Justification-Real Case.pdf",
         ):
             with self.subTest(name=name):
                 self.assertTrue(_ignored(name), f"{name} is stageable")
