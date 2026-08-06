@@ -154,6 +154,41 @@ class TestLocalOnly(unittest.TestCase):
             lmstudio.resolve_host()
         self.assertIn("nothing answered", str(ctx.exception))
 
+    def test_the_opt_in_is_never_quiet(self):
+        """The escape must announce itself on every surface. The helper is the
+        single source of the wording — the CLI prints it to stderr, the GUI
+        shows it red in its own log — and reverting the warning makes this
+        fail, which the round-2 review found the earlier test did not."""
+        self._os.environ["UPLIFT_LMSTUDIO_URL"] = "http://api.example.com:1234"
+        self._os.environ["UPLIFT_LMSTUDIO_ALLOW_REMOTE"] = "1"
+
+        notice = lmstudio.remote_escape_notice()
+        self.assertIsNotNone(notice)
+        self.assertIn("OFF this machine", notice)
+        self.assertIn("api.example.com", notice)
+
+        import contextlib
+        import io
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            with self.assertRaises(lmstudio.LMStudioError):
+                lmstudio.resolve_host()
+        self.assertIn("OFF this machine", captured.getvalue())
+
+        # And the GUI actually renders it: the source wires the helper into
+        # the run log (imports of Qt make a live-widget test impossible here,
+        # so hold the wiring the same way test_gui_accepts_docx holds the
+        # file gates).
+        gui_source = (Path(__file__).resolve().parents[1] / "narrate_gui.py"
+                      ).read_text(encoding="utf-8")
+        self.assertIn("remote_escape_notice()", gui_source)
+
+    def test_no_notice_when_everything_is_local(self):
+        self.assertIsNone(lmstudio.remote_escape_notice())
+        self._os.environ["UPLIFT_LMSTUDIO_URL"] = "http://127.0.0.1:1234"
+        self._os.environ["UPLIFT_LMSTUDIO_ALLOW_REMOTE"] = "1"
+        self.assertIsNone(lmstudio.remote_escape_notice())
+
     def test_loopback_is_local(self):
         self.assertTrue(lmstudio._is_local("http://127.0.0.1:1234", None))
         self.assertTrue(lmstudio._is_local("http://localhost:1234", None))

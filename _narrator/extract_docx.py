@@ -418,8 +418,12 @@ def extract_formdata_docx(path: str | Path) -> dict:
 # filename is omitted for the same reason — it carries the matter name, and
 # the person running --debug can see what file they ran it on.
 
-# What the Collator writes into dc:creator — "Uplift Collator v1.13" etc.
-_APP_CREATOR_RE = re.compile(r"Uplift Collator", re.IGNORECASE)
+# Exactly what the Collator writes into dc:creator — "Uplift Collator v1.13"
+# and nothing else. A full match, not a substring: a creator reading
+# "Uplift Collator v1.13 — Priya Solicitor" is NOT the app's pristine stamp,
+# and treating it as one would echo the person's name through the "safe"
+# branch. (Round-2 review finding, 7 August 2026.)
+_APP_CREATOR_RE = re.compile(r"^Uplift Collator v[\d.]+$")
 
 
 def _iso(moment: datetime | None) -> str:
@@ -447,7 +451,7 @@ def diagnose_docx(path: str | Path) -> dict:
     creator = cp.author or ""
     last_modified_by = cp.last_modified_by or ""
     created, modified = cp.created, cp.modified
-    made_by_the_app = bool(_APP_CREATOR_RE.search(creator))
+    made_by_the_app = bool(_APP_CREATOR_RE.match(creator.strip()))
 
     indexes = _section_indexes(paragraphs)
     sections: dict[str, dict] = {}

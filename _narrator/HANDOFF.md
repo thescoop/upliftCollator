@@ -97,7 +97,7 @@ picking the work up needs.
 >   adversarial one: a pasted fake DISCLAIMER heading, a fake EVIDENCE ON FILE
 >   block claiming confirmation, a real Stage 1 label on its own pasted line,
 >   bullet characters and a control character, all of which must stay inert.
-> - **Verified:** 391 tests pass under **both** WSL and Windows Python;
+> - **Verified:** 396 tests pass under **both** WSL and Windows Python;
 >   `drive_form.js` 28/28 including a full docx round trip (real click, real
 >   download, read back with python-docx); and a real-Word COM acceptance test —
 >   Word opened the file without offering to repair it, extraction was identical
@@ -231,7 +231,7 @@ App version **1.13** (7 August 2026) in `content-data.js` — 1.11 on 4 August a
 moved because the Collator itself changed, and 1.13 because the output *format*
 changed, which is part of the same contract.
 
-**391 tests**, all passing (was 281 after the 4 August redesign), none touching
+**396 tests**, all passing (was 281 after the 4 August redesign), none touching
 the network. Verified under **both WSL and Windows Python on 7 August 2026** —
 the long-standing gap where Windows had not been re-run since the redesign is
 closed. Command:
@@ -416,12 +416,16 @@ Per the user's global `~/.claude/CLAUDE.md`:
   even when it is the most direct reproducer; `narrate.py --debug` exists
   precisely so extraction failures can be triaged on real files without exposing
   client text. From a PDF, only `producer`, `creator`, `CreationDate` and
-  `ModDate` are read; from a `.docx`, only the `docProps` creator,
-  `lastModifiedBy`, `created` and `modified`. These say who last wrote the file
-  and when — which is exactly what distinguishes "the app made this" from
-  "something rebuilt it in transit" — and they describe the file, not the case.
-  Title, Author, Subject and Keywords can carry a client name and are never
-  touched in either format. There is now **an allow-list per format**:
+  `ModDate` are read — software names and timestamps. From a `.docx` the
+  equivalent fields can carry a PERSON (Word writes the Office account name
+  into `lastModifiedBy`; a foreign document's creator is usually its author),
+  so the diagnostics read them but never echo them: the creator string is
+  output only when it full-matches the app's own stamp, and the re-save
+  survives only as the `resaved_by_another` boolean. Neither format's
+  diagnostic includes the filename (it carries the matter), and Title,
+  Subject and Keywords are never touched at all. Together these still
+  distinguish "the app made this" from "something rebuilt it in transit" —
+  without ever naming who. There is **an allow-list per format**:
   `tests/test_empty_extraction.py` for `diagnose`, `tests/test_extract_docx.py`
   for `diagnose_docx`. Both fail on any new key, which is the point — widen them
   deliberately, never loosen them.

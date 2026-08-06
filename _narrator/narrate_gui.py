@@ -833,7 +833,7 @@ class NarrateCard(QFrame):
             return
         if not self._input_path:
             self._append_log(
-                '<span style="color:#fab387;">No PDF loaded. '
+                '<span style="color:#fab387;">No summary loaded. '
                 'Drop a file or click Browse.</span>'
             )
             return
@@ -848,6 +848,17 @@ class NarrateCard(QFrame):
         self._narrative_view.clear()
         self._polished_view.clear()
         self._check_view.clear()
+
+        # The deliberate off-machine escape must be as loud here as on the
+        # CLI: an env var inherited from a forgotten shell profile is exactly
+        # how "deliberate" becomes "by accident", and a warning only on the
+        # console behind this window is a warning nobody reads. Logged after
+        # the clear so it is the first line of the run it applies to.
+        remote_notice = lmstudio.remote_escape_notice()
+        if remote_notice:
+            self._append_log(
+                f'<span style="color:#ff6b6b;">{html.escape(remote_notice)}</span>'
+            )
         self._copy_btn.setEnabled(False)
         self._open_folder_btn.setEnabled(False)
         self._generate_btn.setEnabled(False)

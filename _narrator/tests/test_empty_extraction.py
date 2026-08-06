@@ -245,7 +245,10 @@ class TestExplanation(unittest.TestCase):
 # privileged case PDF, so the contents must be structural or software names —
 # never a field value, an explanation, or anything naming a client.
 ALLOWED_DIAGNOSE_KEYS = {
-    "pdf", "pages", "per_page_chars", "raw_chars", "normalised_chars",
+    # No "pdf" filename key — it carried the matter name, in output whose
+    # whole promise is that it can be pasted anywhere. Removed 7 August 2026;
+    # its absence from this set is what keeps it removed.
+    "pages", "per_page_chars", "raw_chars", "normalised_chars",
     "header_matches", "footer_matches", "producer", "creator",
     "made_by_the_app", "images", "largest_image_page_coverage",
     "vector_objects", "sections",

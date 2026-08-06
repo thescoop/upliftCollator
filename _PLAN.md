@@ -94,7 +94,7 @@ dispatch in `extract.py`, both narrator front-ends accepting either format, and
 
 Verification actually performed:
 
-- **391 tests pass** (was 345), under WSL **and Windows Python** — the Windows
+- **396 tests pass** (was 345), under WSL **and Windows Python** — the Windows
   gap that stood since 4 August is closed. `narrate.py` was also run end to end
   under the Windows `uplift-narrate` env on `deemed.docx` and produced a
   correctly-cited deemed narrative.
@@ -165,6 +165,24 @@ Two findings were **declined, with reasons**:
 - *"`UPLIFT_LMSTUDIO_ALLOW_REMOTE=1` bypasses the local-only boundary."* It
   is the deliberate, separately-named escape the house confidentiality rule
   requires; silent was the defect, and silence is what was fixed.
+
+**Round 2 — the fixes reviewed as hard as the change.** Sol re-attacked the fix
+commit and confirmed the extraction, structural gate, uplift validation,
+recovery validation and legacy-PDF behaviour all held (the legacy fixture
+extracts identically before and after). It found four smaller defects — two of
+them in the round-1 fixes, which is the standing pattern — all fixed:
+
+1. The `ALLOW_REMOTE` warning went only to stderr, which a GUI user never
+   sees. `lmstudio.remote_escape_notice()` is now the single wording source;
+   the GUI prints it red as the first line of any run it applies to.
+2. The creator redaction trusted a *substring*: "Uplift Collator v1.13 —
+   Priya Solicitor" passed as the app's stamp and echoed the name. Now a
+   full-match of the exact stamp, with the boundary case tested.
+3. Three fixes lacked honest tests: the `.gitignore` guard (now held by
+   `test_gitignore_guards.py`, asking git itself via `check-ignore`), the
+   warning (now asserted on stderr and in the GUI wiring), and the PDF
+   diagnose allow-list, which still permitted the removed filename key.
+4. A HANDOFF paragraph still described the pre-redaction diagnostics.
 
 ---
 

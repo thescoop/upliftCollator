@@ -147,6 +147,28 @@ def _is_local(url: str, gateway: str | None) -> bool:
     return host in local
 
 
+def remote_escape_notice() -> str | None:
+    """The off-machine warning when the deliberate remote escape is active.
+
+    Returns the warning text, or None when everything stays local. One source
+    of wording for every surface: resolve_host prints it to stderr for the
+    CLI, and the GUI shows it in its own log — a warning only on a console
+    behind the Qt window is a warning nobody reads (round-2 review finding,
+    7 August 2026).
+    """
+    override = os.environ.get("UPLIFT_LMSTUDIO_URL", "").strip().rstrip("/")
+    if not override:
+        return None
+    if os.environ.get("UPLIFT_LMSTUDIO_ALLOW_REMOTE", "") != "1":
+        return None
+    if _is_local(override, _wsl_gateway_ip()):
+        return None
+    return (
+        "WARNING — UPLIFT_LMSTUDIO_ALLOW_REMOTE=1 is set. Privileged client "
+        f"material will be sent OFF this machine, to {override}."
+    )
+
+
 def resolve_host() -> str:
     """Find a live LM Studio server, or explain why there isn't one.
 
@@ -175,13 +197,9 @@ def resolve_host() -> str:
             # The escape is deliberate and documented, but it must never be
             # quiet: an environment variable inherited from a forgotten shell
             # profile is exactly how "deliberate" becomes "by accident". Every
-            # run under it says so, every time.
-            print(
-                "narrate: WARNING — UPLIFT_LMSTUDIO_ALLOW_REMOTE=1 is set. "
-                f"Privileged client material will be sent OFF this machine, to "
-                f"{override}.",
-                file=sys.stderr,
-            )
+            # run under it says so, every time — and the GUI shows the same
+            # notice in its own log via remote_escape_notice().
+            print(f"narrate: {remote_escape_notice()}", file=sys.stderr)
         if _reachable(override):
             return override
         raise LMStudioError(

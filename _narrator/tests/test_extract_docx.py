@@ -404,6 +404,20 @@ class TestDiagnostics(unittest.TestCase):
         self.assertNotIn("Alex", json.dumps(d))
         self.assertNotIn("Alex", extract.explain_empty_extraction(tmp))
 
+    def test_a_creator_containing_the_app_stamp_plus_a_name_is_not_trusted(self):
+        """The redaction must full-match the app's stamp, not find it as a
+        substring: "Uplift Collator v1.13 — Priya Solicitor" is not the app's
+        pristine stamp, and a substring test would have echoed Priya's name
+        through the trusted branch. Round-2 review finding, 7 August 2026."""
+        tmp = Path(tempfile.mkdtemp()) / "stamp-plus-name.docx"
+        shutil.copy(SAMPLE, tmp)
+        doc = Document(str(tmp))
+        doc.core_properties.author = "Uplift Collator v1.13 — Priya Solicitor"
+        doc.save(str(tmp))
+        d = extract.diagnose(tmp)
+        self.assertFalse(d["made_by_the_app"])
+        self.assertNotIn("Priya", json.dumps(d))
+
     def test_case_detail_internal_whitespace_survives(self):
         """The PDF path collapsed whitespace because wrapping forced a rejoin;
         nothing forces one here, so a value must come back as written."""

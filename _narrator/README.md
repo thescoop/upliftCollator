@@ -452,7 +452,7 @@ conda activate uplift-narrate
 python -m unittest discover -s _narrator/tests -v
 ```
 
-391 tests, verified under both WSL and Windows Python on 7 August 2026. The suite
+396 tests, verified under both WSL and Windows Python on 7 August 2026. The suite
 never touches the network — it passes with LM Studio closed. The citation cases
 are generated from `content-data.js` rather than chosen by hand: an earlier suite
 passed 20 tests while the checker was silently fail-open on `CAG Section 12.5 &
