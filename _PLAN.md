@@ -415,7 +415,34 @@ end to end in Chromium with all three panels ticked, a 46-character fee-earner n
 
 ### Still outstanding
 
-1. The merged editable narrative page, and `.docx` output. Untouched.
+1. **THE NEXT JOB — the Collator must output `.docx`, not PDF.** Simon's decision,
+   6 August 2026, at the very end of the session. **Nothing has been built or designed
+   for it.** Also still untouched: the merged editable narrative page.
+
+   Why it is worth doing properly rather than treating as a format swap: the PDF round
+   trip is the direct cause of the two worst defects this project has had. jsPDF wraps
+   a line at the column edge and marks the continuation *in no way at all*, and
+   `extract.py` matches labels by exact string — so a label a few points too wide
+   silently matches nothing on the way back. `measure_pdf_labels.js` exists only
+   because of that. A `.docx` has no such trap.
+
+   What it touches: `generatePdfSummary` and everything jsPDF does in `script.js`;
+   every extraction contract in `extract.py` (section patterns, header/footer
+   stripping, `_resolve_wrapped_label`, the empty-Stage-1 sentinel, the
+   deemed-threshold line); every fixture; `measure_pdf_labels.js`; and the filename
+   assertion in `drive_form.js`.
+
+   Four questions, none of them settled:
+   - Does the PDF go away, or does the Collator offer both? A solicitor may want a PDF
+     to file; the narrator only needs one machine-readable format.
+   - Which browser-side library, and can it be vendored? **Nothing may load from a
+     CDN** — a firm blocking one used to break the download button silently.
+   - Backwards compatibility. PDFs already produced are in live matters, so extraction
+     almost certainly has to read both formats for a long time.
+   - Is the round trip still text-matching, or does `.docx` let the data be embedded
+     properly (custom XML, document properties) so labels stop being the contract at
+     all? That would remove a whole class of defect — but an embedded payload was
+     considered and dropped once before; read why before proposing it again.
 2. Terms clause 2 says data "is processed locally within the User's web browser" —
    true, and not contradicted by `localStorage`, but it does not mention that drafts now
    persist between sessions on a possibly shared machine. The on-page privacy note
