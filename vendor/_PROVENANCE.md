@@ -7,10 +7,8 @@ needs changing, replace it with a new upstream release and update this file.
 
 A solicitor's firm blocking `cdnjs.cloudflare.com` or `cdn.jsdelivr.net` — which
 firms do, by policy, without announcing it — used to break the Collator with no
-error message. jsPDF is what writes the PDF, and since v1.11 removed the
-suggested percentage, that download is the tool's only output. The failure was
-silent, so the solicitor would have concluded the button was broken, or that
-they had filled the form in wrongly.
+error message. The download is the tool's only output since v1.11 removed the
+suggested percentage, so a blocked CDN meant a silently useless tool.
 
 Vendoring also pins what runs. `marked` was loaded from
 `https://cdn.jsdelivr.net/npm/marked/marked.min.js` — **no version in the URL**,
@@ -21,30 +19,33 @@ legal-billing tool with no commit in this repository and no test run.
 
 | File | Version | Licence | Used for |
 |---|---|---|---|
-| `jspdf.umd.min.js` | 2.5.1 (built 2022-01-28) | MIT | Writing the PDF summary (`generatePdfSummary` in `script.js`) |
+| `fflate.umd.min.js` | 0.8.3 | MIT (`fflate-LICENSE.txt`) | Zipping the OOXML parts of the Word summary (`docx-summary.js`) |
 | `marked.min.js` | 15.0.12 | MIT | Rendering the help and terms markdown (`showModalWithMarkdown` in `script.js`) |
 
-Both licences are MIT and the notices are retained in the file headers, which is
-all MIT requires for redistribution.
+The minified fflate build carries no licence header, so its MIT notice is
+committed beside it as `fflate-LICENSE.txt` — keep the two together.
 
-`jspdf-autotable` 3.5.23 was **removed rather than vendored** on 4 August 2026.
-It had been loaded on every page view since the tool was written and is never
-called: no `autoTable` appears anywhere in `script.js`. The tables in the PDF are
-drawn by hand.
+`jspdf.umd.min.js` 2.5.1 was **removed on 7 August 2026** with the move to
+.docx output — the PDF generator it served is gone (see `_PLAN.md`, "THE .DOCX
+OUTPUT"). `jspdf-autotable` 3.5.23 had already been removed rather than
+vendored on 4 August 2026: it had loaded on every page view since the tool was
+written and was never called.
 
 ## Where they came from, and how that was checked
 
-Downloaded 4 August 2026 from the URLs `index.html` previously used, then each
-file was downloaded a second time from an independent CDN and compared:
+Each file was downloaded from a pinned, versioned URL, then downloaded a second
+time from an independent CDN and compared byte for byte:
 
 ```
-jspdf 2.5.1     cdnjs  vs  jsdelivr   sha256 98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875
+fflate 0.8.3    jsdelivr npm/fflate@0.8.3/umd/index.js  vs  unpkg (same path)
+                sha256 462ef8041fc970e3615a20a9dd2b2e3047a073b2da729ef4f02b634bba8b7b83
+                33,044 bytes, downloaded 7 August 2026
 marked 15.0.12  jsdelivr npm/marked (unpinned) vs jsdelivr marked@15.0.12
-                                     sha256 3e7e7d7feb3e5d58cb6c804f68ab5c24cc7e5eb6270fd6e5cbb9124739217d0c
+                sha256 3e7e7d7feb3e5d58cb6c804f68ab5c24cc7e5eb6270fd6e5cbb9124739217d0c
 ```
 
 Both matched byte for byte, so what is committed here is what both CDNs serve.
-The `marked` comparison also fixes which version the unpinned URL had been
+The `marked` comparison also fixed which version the unpinned URL had been
 serving in production: 15.0.12.
 
 ## Updating one of them
@@ -52,13 +53,15 @@ serving in production: 15.0.12.
 1. Download the new file from a pinned, versioned URL.
 2. Download it again from a different CDN and compare hashes.
 3. Replace the file, update the table above and the hash block.
-4. Re-run the form end to end in a browser and generate a PDF — then read that
-   PDF back with `_narrator/extract.py`. The narrator parses the PDF's *text
-   layer*, so a jsPDF change that alters spacing or line breaking can break
-   extraction while the document still looks perfectly correct on screen.
-5. `_narrator/`'s test suite does not run jsPDF at all — no test in it opens a
-   browser. Step 4 is the only check that covers a jsPDF change, which is how
-   two silent truncation bugs survived a green suite until August 2026.
+4. Re-run the form end to end in a browser and download the Word summary — then
+   read it back with `_narrator/extract.py` and run
+   `node _narrator/tests/build_docx_fixture.js` followed by the Python suite.
+   The narrator matches the document's *paragraphs*, so a zip-library change
+   that corrupted encoding would break extraction while the document still
+   looked correct in Word.
+5. `_narrator/tests/test_extract_docx.py` covers the committed fixtures, but
+   only regenerating the fixtures (step 4) covers the *new* library build —
+   the fixtures in git were made with the old one.
 
 ## If you add another library here
 

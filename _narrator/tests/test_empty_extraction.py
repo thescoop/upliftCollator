@@ -97,7 +97,10 @@ class TestExplanation(unittest.TestCase):
     """Every branch must name a cause and a fix, and leak no client text."""
 
     def _explain(self, diag):
-        with mock.patch.object(extract, "diagnose", return_value=diag):
+        # diagnose_pdf, not the dispatching diagnose: explain_empty_extraction
+        # routes "case.pdf" to the PDF path, which reads the PDF diagnostics
+        # directly. (extract_docx has its own explanation tests.)
+        with mock.patch.object(extract, "diagnose_pdf", return_value=diag):
             return extract.explain_empty_extraction("case.pdf")
 
     def test_no_text_layer_explains_why_text_cannot_be_selected(self):
@@ -232,7 +235,7 @@ class TestExplanation(unittest.TestCase):
 
     def test_diagnose_is_the_only_input(self):
         diag = _diag(raw_chars=5000)
-        with mock.patch.object(extract, "diagnose", return_value=diag) as spy:
+        with mock.patch.object(extract, "diagnose_pdf", return_value=diag) as spy:
             extract.explain_empty_extraction("case.pdf")
         spy.assert_called_once()
 

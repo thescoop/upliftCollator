@@ -3,7 +3,8 @@ narrate_gui.py
 ==============
 PyQt6 GUI front-end for the LAA Uplift Narrator.
 
-Drop a Collator-generated PDF on the window (or click Browse) and click
+Drop a Collator-generated summary (.docx, or PDF for older matters) on the
+window (or click Browse) and click
 "Generate Narrative". The tool extracts the solicitor's answers, assembles
 the structured Markdown skeleton, and produces the paste-ready LM Studio
 prompt — all visible directly in the window with one-click "Copy to Clipboard"
@@ -18,8 +19,8 @@ this module can drop into ~/coding/myToolbox later with minimal changes)
   NarrateWindow     — QMainWindow: always-on-top container hosting the Card
   NarrateManager    — QObject: owns the Window lifecycle (single instance)
 
-Run standalone via ``python narrate_gui.py [path/to/case.pdf]`` — the optional
-PDF path pre-loads the file so you only need to click Generate.
+Run standalone via ``python narrate_gui.py [path/to/case.docx]`` — the optional
+path pre-loads the file so you only need to click Generate.
 """
 
 # ── Standard library imports ────────────────────────────────────────────────
@@ -106,9 +107,9 @@ def _font(families: list[str], size: int) -> QFont:
 
 class NarrateWorker(QThread):
     """
-    Background worker that runs the full narrate pipeline on a PDF.
+    Background worker that runs the full narrate pipeline on a summary file.
 
-    Why a QThread? PDF extraction and template parsing usually finish in well
+    Why a QThread? Extraction and template parsing usually finish in well
     under a second, but we don't want even a brief stall on the UI thread —
     keeping the pattern means future heavier additions stay responsive.
 
@@ -125,10 +126,10 @@ class NarrateWorker(QThread):
     log_line = pyqtSignal(str)
     success = pyqtSignal(dict)
 
-    def __init__(self, pdf_path: str, out_dir: str, model_hint: str = "",
+    def __init__(self, input_path: str, out_dir: str, model_hint: str = "",
                  consented: list[str] | None = None, parent=None):
         super().__init__(parent)
-        self._pdf_path = pdf_path
+        self._input_path = input_path
         self._out_dir = out_dir
         self._model_hint = model_hint
         # The exact model ids the user agreed to unload, confirmed on the UI
@@ -140,9 +141,9 @@ class NarrateWorker(QThread):
     def run(self):
         try:
             self.log_line.emit(
-                f'<span style="color:#88aaff;">Reading {os.path.basename(self._pdf_path)}…</span>'
+                f'<span style="color:#88aaff;">Reading {os.path.basename(self._input_path)}…</span>'
             )
-            formdata = extract_formdata(self._pdf_path)
+            formdata = extract_formdata(self._input_path)
 
             n_panel = len(formdata.get("panelMembership", {}))
             n_s1 = len(formdata.get("stage1", {}))
@@ -247,13 +248,13 @@ class NarrateWorker(QThread):
             # honest outcome: the previous behaviour built an empty skeleton,
             # spent a model call on it, and reported "NEEDS REVISION — 1
             # citation dropped", which blames the narrative for a problem that
-            # is entirely in the PDF.
+            # is entirely in the input document.
             if extraction_is_empty(formdata):
                 self.log_line.emit(
                     '<span style="color:#ff6b6b;">Nothing was extracted from this '
-                    'PDF — no narrative can be written from it.</span>'
+                    'document — no narrative can be written from it.</span>'
                 )
-                for line in explain_empty_extraction(self._pdf_path).splitlines():
+                for line in explain_empty_extraction(self._input_path).splitlines():
                     self.log_line.emit(
                         f'<span style="color:#fab387;">{html.escape(line) or "&nbsp;"}</span>'
                     )
@@ -272,7 +273,7 @@ class NarrateWorker(QThread):
             incoherent = threshold_coherence_error(formdata)
             if incoherent:
                 self.log_line.emit(
-                    '<span style="color:#ff6b6b;">This PDF claims Stage 2 factors '
+                    '<span style="color:#ff6b6b;">This document claims Stage 2 factors '
                     'with no threshold basis — stopping.</span>'
                 )
                 for line in incoherent.splitlines():
@@ -371,7 +372,7 @@ class NarrateWorker(QThread):
                 )
             except lmstudio.LMStudioError as exc:
                 # A failed polish must never lose the skeleton, which is the
-                # part that took the PDF to get. Fall back to the paste route.
+                # part that took the document to get. Fall back to the paste route.
                 first_line = str(exc).split("\n", 1)[0]
                 self.log_line.emit(
                     f'<span style="color:#f9e2af;">Polish skipped: {first_line}</span>'
@@ -408,7 +409,10 @@ class NarrateWorker(QThread):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class _DropZone(QLabel):
-    """A QLabel that accepts drag-and-dropped PDF files. Emits ``file_dropped(str)``."""
+    """A QLabel accepting drag-and-dropped summaries (.docx or legacy .pdf).
+
+    Emits ``file_dropped(str)``.
+    """
 
     file_dropped = pyqtSignal(str)
 
@@ -416,7 +420,7 @@ class _DropZone(QLabel):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setText("Drag && drop a PDF here\nor click Browse")
+        self.setText("Drag && drop the Collator summary here (.docx)\nor click Browse")
         self.setMinimumHeight(70)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._apply_default_style()
@@ -460,7 +464,8 @@ class _DropZone(QLabel):
         urls = event.mimeData().urls()
         if urls:
             path = urls[0].toLocalFile()
-            if path.lower().endswith(".pdf"):
+            # .docx since Collator v1.13; every earlier matter holds a PDF.
+            if path.lower().endswith((".docx", ".pdf")):
                 self.file_dropped.emit(path)
 
 
@@ -477,10 +482,10 @@ class NarrateCard(QFrame):
     ┌──────────────────────────────────────────────────┐
     │  UPLIFT NARRATOR                                  │
     │  ┌────────────────────────────────────────────┐    │
-    │  │  Drag & drop a PDF here                   │    │
+    │  │  Drag & drop the summary here             │    │
     │  └────────────────────────────────────────────┘    │
     │  [ Browse… ]                                      │
-    │  case.pdf                                         │
+    │  case.docx                                        │
     │  Output: case-narrative/                          │
     │  [           Generate Narrative           ]       │
     │  ┌────────────────────────────────────────────┐    │
@@ -502,7 +507,7 @@ class NarrateCard(QFrame):
         )
 
         # State
-        self._pdf_path: str | None = None
+        self._input_path: str | None = None
         self._out_dir: str | None = None
         self._worker: NarrateWorker | None = None
 
@@ -773,19 +778,28 @@ class NarrateCard(QFrame):
             self,
             "Select an Uplift Collator PDF",
             os.path.expanduser("~"),
-            "PDF files (*.pdf);;All files (*.*)",
+            "Collator summaries (*.docx *.pdf);;All files (*.*)",
         )
         if chosen:
             self._load_pdf(chosen)
 
     def load_pdf(self, path: str) -> None:
-        """Public alias used by the launcher when a path is passed on argv."""
+        """Public alias used by the launcher when a path is passed on argv.
+
+        The name is kept for launcher compatibility; it loads either format.
+        """
         self._load_pdf(path)
 
     def _load_pdf(self, path: str):
-        if not path.lower().endswith(".pdf"):
+        # .docx since Collator v1.13; every earlier matter holds a PDF. The
+        # drop zone and the Browse filter accept the same pair — all three
+        # gates were updated together on 7 August 2026 after a review agent
+        # found the first pass had widened two of them and left this one
+        # rejecting every .docx with "Please select a PDF file".
+        if not path.lower().endswith((".docx", ".pdf")):
             self._append_log(
-                '<span style="color:#fab387;">Please select a PDF file (.pdf).</span>'
+                '<span style="color:#fab387;">Please select a Collator summary '
+                '(.docx, or .pdf for older matters).</span>'
             )
             return
         if not os.path.isfile(path):
@@ -794,7 +808,7 @@ class NarrateCard(QFrame):
             )
             return
 
-        self._pdf_path = path
+        self._input_path = path
         filename = os.path.basename(path)
 
         self._file_info.setText(filename)
@@ -817,7 +831,7 @@ class NarrateCard(QFrame):
     def _start_generate(self):
         if self._worker is not None and self._worker.isRunning():
             return
-        if not self._pdf_path:
+        if not self._input_path:
             self._append_log(
                 '<span style="color:#fab387;">No PDF loaded. '
                 'Drop a file or click Browse.</span>'
@@ -839,7 +853,7 @@ class NarrateCard(QFrame):
         self._generate_btn.setEnabled(False)
 
         self._worker = NarrateWorker(
-            self._pdf_path, self._out_dir, self._selected_model(),
+            self._input_path, self._out_dir, self._selected_model(),
             consented, parent=self,
         )
         self._worker.log_line.connect(self._append_log)
@@ -1141,11 +1155,11 @@ class NarrateManager(QObject):
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv if argv is None else argv)
 
-    # Optional first positional arg: pre-load this PDF into the GUI.
+    # Optional first positional arg: pre-load this summary into the GUI.
     initial_pdf = None
     if len(argv) > 1 and argv[1] and not argv[1].startswith("-"):
         candidate = argv[1]
-        if os.path.isfile(candidate) and candidate.lower().endswith(".pdf"):
+        if os.path.isfile(candidate) and candidate.lower().endswith((".docx", ".pdf")):
             initial_pdf = candidate
 
     app = QApplication(argv)

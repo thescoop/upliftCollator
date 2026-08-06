@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Main App Elements (to be initialized after password success) ---
     let laaGuideVersionInfoEl, currentYearFooterEl, versionInfoSidebarEl, mainFormTitleEl;
     let pageDivs = [], navSteps = [];
-    let backButton, nextButton, generatePdfSummaryButton;
+    let backButton, nextButton, downloadSummaryButton;
     let viewLaaGuideLinkRightCol, clearAllEntriesLinkRightCol, mainHelpButtonLarge;
     let feeEarnerNameEl, matterTypeEl, caseMatterNameEl, courtLevelEl;
     let panelMembershipContainerOnPage1, preStageIntroTextOnPage1, stage1ContainerOnPage2, stage1FeedbackEl;
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Courts in which CAG 12.2 puts the enhancement ceiling at 100% rather than
     // 50%. These strings must match the option values in index.html exactly;
-    // they are also what gets printed in the PDF, so keep them readable.
+    // they are also what gets printed in the summary document, so keep them readable.
     const HUNDRED_PERCENT_CEILING_COURTS = [
         "High Court", "Upper Tribunal", "Court of Appeal", "Supreme Court"
     ];
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
         backButton = document.getElementById('backButton');
         nextButton = document.getElementById('nextButton');
-        generatePdfSummaryButton = document.getElementById('generatePdfSummaryButton');
+        downloadSummaryButton = document.getElementById('downloadSummaryButton');
         viewLaaGuideLinkRightCol = document.getElementById('viewLaaGuideLinkRightCol');
         clearAllEntriesLinkRightCol = document.getElementById('clearAllEntriesLinkRightCol');
         mainHelpButtonLarge = document.getElementById('mainHelpButtonLarge');
@@ -143,11 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function checkCriticalData() {
-        const isLogoBase64Defined = typeof LOGO_BASE64 !== 'undefined';
-        if (!isLogoBase64Defined) {
-            console.warn("LOGO_BASE64 is not defined in content-data.js. PDF logo might be affected.");
-        }
-
         if (
             typeof LAA_GUIDE_URL === 'undefined' || typeof NARRATIVE_TEMPLATES === 'undefined' ||
             typeof QUESTION_BLOCKS === 'undefined' || typeof MAIN_HELP_TEXT_MARKDOWN === 'undefined' ||
@@ -405,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (backButton) backButton.style.display = pageIndexToShow > 0 ? 'inline-flex' : 'none';
         if (nextButton) nextButton.style.display = pageIndexToShow < pageDivs.length - 1 ? 'inline-flex' : 'none';
-        if (generatePdfSummaryButton) generatePdfSummaryButton.style.display = pageIndexToShow === pageDivs.length - 1 ? 'inline-flex' : 'none';
+        if (downloadSummaryButton) downloadSummaryButton.style.display = pageIndexToShow === pageDivs.length - 1 ? 'inline-flex' : 'none';
 
         // Arriving at Stage 2 is the moment the Stage 1 ticks become selections
         // here, so carry-forward is applied on entry rather than on every Stage 1
@@ -706,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Reading the form back into formData ──────────────────────────────
     //
-    // formData is the single record the review page, the PDF and the saved
+    // formData is the single record the review page, the summary document and the saved
     // draft are all built from. It is split into one reader per page so that
     // navigation can save just the page being left (as it always has) while a
     // restored draft can repopulate the lot in one call — a whole-form read
@@ -732,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stage 1 no longer carries explanations — the labels are the whole of it.
-    // `explanation` is still written, as an empty string, because the PDF, the
+    // `explanation` is still written, as an empty string, because the document, the
     // review page and _narrator/extract.py all read the same record shape and
     // a missing key would have to be defended against in three places.
     function saveStage1FromDom() {
@@ -787,7 +782,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Everything, regardless of which page is on screen. Used when a draft is
-    // restored and immediately before the PDF is written, so that the document
+    // restored and immediately before the summary is written, so that the document
     // can never disagree with the form the solicitor just approved.
     function syncFormDataFromDom() {
         saveCaseDetailsFromDom();
@@ -1287,7 +1282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // True when the threshold is deemed and nothing is ticked at Stage 1 — the
-    // one state in which the PDF prints the deemed line in place of a factor
+    // one state in which the summary prints the deemed line in place of a factor
     // list, and the only state in which the narrator may write the deemed
     // paragraph. Kept as its own predicate so that "deemed" and "deemed and
     // relied on" can never be confused at a call site.
@@ -1297,7 +1292,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // The gate governing whether Stage 2 is reachable, validated, reviewed and
     // printed. Deliberately *not* an overload of isAnyStage1ThresholdTrulyMet(),
-    // which keeps its narrower meaning of "a Stage 1 label is ticked": the PDF's
+    // which keeps its narrower meaning of "a Stage 1 label is ticked": the document's
     // Stage 1 section and the review page still have to tell a factor actually
     // asserted from a threshold that is merely deemed, and collapsing the two
     // would make the document claim something the solicitor never ticked.
@@ -1355,7 +1350,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // isThresholdSatisfied(), not isAnyStage1ThresholdTrulyMet(). If this
             // one is left on the narrower predicate while the deemed route opens
             // Stage 2 for navigation, ticked Stage 2 factors with two-word or
-            // empty explanations pass the download gate, print into the PDF, and
+            // empty explanations pass the download gate, print into the summary, and
             // render in the narrative without complaint — a claim of bare
             // assertions, sent to the LAA. This is the call site that reaches the
             // LAA rather than dead-ending, so it is tested by driving it.
@@ -1379,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // The same gate as validateCurrentPage, so a solicitor who reaches the
         // last page by any route — a restored draft, going back and forward —
-        // cannot download a PDF asserting a threshold factor that the document
+        // cannot download a summary asserting a threshold factor that the document
         // never explains.
         const otherGaps = unevidencedOtherFactors();
         if (otherGaps.length) allValid = false;
@@ -1410,17 +1405,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // them.
             // Deemed threshold, nothing at Stage 2. There is genuinely nothing to
             // claim: the 15% of CAG 12.20 is applied at bill-drafting with no form
-            // at all, and it is a floor rather than an addition (CAG 12.23). A PDF
+            // at all, and it is a floor rather than an addition (CAG 12.23). A summary
             // here would carry a threshold and no factors — which the narrator
             // would refuse anyway, so this keeps the two ends agreeing.
             allValid = false;
             thresholdGap = "The threshold is deemed satisfied by panel membership, but no Stage 2 factor is ticked. There is nothing to claim above the guaranteed 15% (CAG 12.20), which applies at bill-drafting in any event. Tick and explain what justifies more.";
         }
 
-        if (generatePdfSummaryButton) {
-            generatePdfSummaryButton.disabled = !allValid;
-            generatePdfSummaryButton.title = allValid
-                ? "Generate PDF Summary of your selections."
+        if (downloadSummaryButton) {
+            downloadSummaryButton.disabled = !allValid;
+            downloadSummaryButton.title = allValid
+                ? "Download the Word summary of your selections."
                 : (thresholdGap
                     ? thresholdGap
                     : (otherGaps.length
@@ -1505,387 +1500,46 @@ document.addEventListener('DOMContentLoaded', () => {
         if (reviewSummaryEl) reviewSummaryEl.innerHTML = summaryHtml;
     }
 
-    function generatePdfSummary() {
-        if (generatePdfSummaryButton && generatePdfSummaryButton.disabled) {
+    function generateDocxSummary() {
+        if (downloadSummaryButton && downloadSummaryButton.disabled) {
             alert("Before downloading, please complete all Case Details (including the court), enter your Proposed Uplift %, and give every ticked Stage 2 factor an explanation of roughly 10+ words.\n\nStage 1 needs ticks only — there is nothing to write there.");
             return;
         }
-        // Read the whole form, not just the page being looked at. The PDF is
-        // the document that goes to Woodruff Billing, so it must not be able to
-        // differ from what the solicitor approved on the review page.
+        // Read the whole form, not just the page being looked at. The document
+        // is what goes to Woodruff Billing, so it must not be able to differ
+        // from what the solicitor approved on the review page.
         syncFormDataFromDom();
 
-        if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF !== 'function') {
-            alert("jsPDF library not loaded. Cannot download PDF...");
+        // Both come from vendored <script> tags. If either failed to load,
+        // fail with words rather than a dead button — the silent version of
+        // this failure (a firm's network blocking a CDN) is why the libraries
+        // are vendored at all.
+        if (typeof window.buildUpliftDocx !== 'function' || typeof window.fflate === 'undefined') {
+            alert("The document writer did not load (docx-summary.js / vendor/fflate.umd.min.js), so the download cannot run.\n\nReload the page. If this keeps happening, the deployment is missing those files.");
             return;
         }
 
         try {
-            const { jsPDF } = window.jspdf;
-
-            // ── Page setup ─────────────────────────────────────────────────────
-            const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-            const pageW = pdf.internal.pageSize.width;   // 595pt
-            const pageH = pdf.internal.pageSize.height;  // 842pt
-            const margin = 50;                            // All four sides
-            const footerZone = 50;                        // Reserved for footer text
-            const contentW = pageW - (2 * margin);        // Usable text width
-            let currentY = margin;
-
-            // Text defaults
-            const bodySize = 10;
-            const lineH = 13;           // Standard line height for body text
-            const sectionGap = 20;      // Vertical space before a new section header
-            const black = [0, 0, 0];
-            const darkGrey = [60, 60, 60];      // Body text
-            const midGrey = [90, 90, 90];       // Metadata, categories
-            const blue = [0, 86, 179];          // Explanations (Woodruff blue)
-            const lightGrey = [100, 100, 100];  // Disclaimer, footer
-
-            // ── addHeader — "W" monogram + company name + separator line ─────
-            // Pure text header matching the website's serif "W" identity.
-            // Called at the top of each page. Sets currentY past the header.
-            function addHeader() {
-                const headerStartY = currentY;
-
-                // Bold serif "W" monogram (matches website login screen style)
-                pdf.setFont("times", "bold");
-                pdf.setFontSize(28);
-                pdf.setTextColor(black[0], black[1], black[2]);
-                pdf.text("W", margin, headerStartY + 22);
-
-                // Company name beside the "W"
-                const wWidth = pdf.getTextWidth("W") + 10; // gap after monogram
-                pdf.setFont("helvetica", "bold");
-                pdf.setFontSize(15);
-                pdf.setTextColor(black[0], black[1], black[2]);
-                pdf.text("Woodruff Billing Ltd.", margin + wWidth, headerStartY + 14);
-
-                // Subtitle line under company name. Renamed from "LAA Uplift
-                // Enhancement  |  Data Summary" on 6 August 2026 — "Data Summary"
-                // undersold a document that carries the solicitor's reasoning, and
-                // "LAA Uplift Enhancement" used two words for one thing.
-                //
-                // THIS STRING IS AN EXTRACTION CONTRACT. `HEADER_PATTERN` in
-                // _narrator/extract.py strips this line from every page before
-                // parsing; if the two drift apart the header stops being stripped
-                // and appears in the middle of the parsed body on every page.
-                // That pattern matches the old wording too, so PDFs already sitting
-                // in live matters still read correctly.
-                //
-                // The matter name is appended so a printed page 3 says which case
-                // it belongs to. What protects the parse is that HEADER_PATTERN
-                // consumes the WHOLE line including the matter name — so a matter
-                // called "CASE DETAILS" is removed with the rest of the header
-                // rather than appearing as a section heading on every page. There
-                // is a test for exactly that name.
-                pdf.setFont("helvetica", "normal");
-                pdf.setFontSize(8);
-                pdf.setTextColor(midGrey[0], midGrey[1], midGrey[2]);
-                pdf.text(headerSubtitle(), margin + wWidth, headerStartY + 26);
-
-                currentY = headerStartY + 34;
-
-                // Thin separator line
-                pdf.setDrawColor(180, 180, 180);
-                pdf.setLineWidth(0.5);
-                pdf.line(margin, currentY, pageW - margin, currentY);
-                currentY += 16;  // Space below separator
-            }
-
-            // ── addFooter — stamped on every page after content is complete ─────
-            // Shows "CONFIDENTIAL — FOR LAA SUBMISSION" and "Page X of Y".
-            function addFooter(pageNum, totalPages) {
-                const footerY = pageH - 30;
-                pdf.setFont("helvetica", "normal");
-                pdf.setFontSize(7);
-                pdf.setTextColor(lightGrey[0], lightGrey[1], lightGrey[2]);
-                pdf.text("CONFIDENTIAL — FOR LAA SUBMISSION", margin, footerY);
-                pdf.text(
-                    "Page " + pageNum + " of " + totalPages,
-                    pageW / 2, footerY, { align: 'center' }
-                );
-                pdf.text("Woodruff Billing Ltd", pageW - margin, footerY, { align: 'right' });
-            }
-
-            // ── addText — core text helper with automatic page overflow ────────
-            // When text would overflow, creates a new page with header first.
-            function addText(text, options) {
-                options = options || {};
-                if (text === null || typeof text === 'undefined') return;
-
-                const style = options.bold ? "bold" : (options.italic ? "italic" : "normal");
-                const size = options.size || bodySize;
-                const color = options.color || darkGrey;
-                const lh = options.lineHeight || lineH;
-                const indent = options.indent || 0;
-
-                pdf.setFont("helvetica", style);
-                pdf.setFontSize(size);
-                pdf.setTextColor(color[0], color[1], color[2]);
-
-                // Word-wrap text to fit available width
-                const wrapped = pdf.splitTextToSize(String(text), contentW - indent);
-
-                // Check if it fits — if not, new page
-                if (currentY + (wrapped.length * lh) > pageH - footerZone - 10) {
-                    pdf.addPage();
-                    currentY = margin;
-                    addHeader();
-                    // Restore font after header
-                    pdf.setFont("helvetica", style);
-                    pdf.setFontSize(size);
-                    pdf.setTextColor(color[0], color[1], color[2]);
-                }
-
-                pdf.text(wrapped, margin + indent, currentY);
-                currentY += wrapped.length * lh;
-                if (options.spaceAfter) currentY += options.spaceAfter;
-            }
-
-            // ── Section header — bold UPPERCASE with generous spacing ──────────
-            function addSectionHeader(title) {
-                currentY += sectionGap;
-                addText(title.toUpperCase(), {
-                    bold: true, size: 11, color: black, spaceAfter: 8
-                });
-            }
-
-            // ── Detail line — "Label:  Value" on one line ──────────────────────
-            function addDetail(label, value) {
-                addText(label + ":  " + (value || "N/A"), {
-                    size: bodySize, lineHeight: 11, spaceAfter: 4
-                });
-            }
-
-            // ── Criterion — label, category, and explanation ───────────────────
-            function addCriterion(criterionLabel, explanation, categoryTitle) {
-                categoryTitle = categoryTitle || "";
-                currentY += 4;  // Small gap before each criterion
-
-                // Criterion label (bold, with bullet)
-                addText("•  " + criterionLabel, {
-                    bold: true, size: bodySize, lineHeight: 11,
-                    spaceAfter: (explanation || categoryTitle) ? 2 : 6
-                });
-
-                // Category on its own line in grey italic (if present)
-                if (categoryTitle) {
-                    addText(categoryTitle, {
-                        italic: true, size: 8, color: midGrey, indent: 14, spaceAfter: 2
-                    });
-                }
-
-                // Explanation in blue italic, indented
-                if (explanation) {
-                    addText("Explanation: " + explanation, {
-                        italic: true, size: 9, color: blue,
-                        indent: 14, lineHeight: 11, spaceAfter: 6
-                    });
-                }
-            }
-
-            // ════════════════════════════════════════════════════════════════════
-            //                      CONTENT RENDERING
-            // ════════════════════════════════════════════════════════════════════
-
-            // ── Page 1 header ──────────────────────────────────────────────────
-            addHeader();
-
-            // ── Document title (extra breathing room below header) ─────────────
-            currentY += 8;
-            // Kept deliberately free of the matter name: the matter is stated
-            // immediately below in Case Details, and repeating it in the title
-            // would be the third time on one page after the header.
-            addText("Uplift Justification", {
-                bold: true, size: 16, color: black, spaceAfter: 6
-            });
-
-            // Generation metadata — UK date format
+            // The document builder itself lives in docx-summary.js, where Node
+            // can test it without a browser. Everything decided HERE — the
+            // date, the ceiling, the two threshold booleans — is passed in as
+            // data, so the builder never re-derives form state.
             const ukDate = new Date().toLocaleDateString('en-GB', {
                 day: 'numeric', month: 'long', year: 'numeric'
             });
-            const versionText = (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '';
-            addText("Generated: " + ukDate + "  |  Uplift Tool v" + versionText + " (" + LAA_GUIDE_VERSION_INFO_CONST + ")", {
-                size: 8, italic: true, color: midGrey, spaceAfter: 10
+            const bytes = window.buildUpliftDocx(formData, {
+                appName: (typeof APP_NAME !== 'undefined') ? APP_NAME : 'Uplift Collator',
+                appVersion: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '',
+                appReleaseDate: (typeof APP_RELEASE_DATE !== 'undefined') ? APP_RELEASE_DATE : '',
+                guideVersionInfo: LAA_GUIDE_VERSION_INFO_CONST,
+                generatedDateText: ukDate,
+                headerSubtitle: headerSubtitle(),
+                ceilingPercent: applicableCeilingPercent(),
+                thresholdSatisfied: isThresholdSatisfied(),
+                thresholdDeemedOnly: isThresholdDeemedOnly()
             });
 
-            // ── CASE DETAILS ───────────────────────────────────────────────────
-            addSectionHeader("Case Details");
-            addDetail("Fee Earner", formData.caseDetails.feeEarnerName);
-            addDetail("Matter Type", formData.caseDetails.matterType);
-            addDetail("Case / Matter Name", formData.caseDetails.caseMatterName);
-            // Court is printed because it decides the ceiling under CAG 12.2,
-            // and the person drafting the bill needs to know that before they
-            // look at the percentage below. The three lines above are matched
-            // by name in _narrator/extract.py; adding a fourth is safe, but the
-            // existing three must keep their exact wording.
-            addDetail("Court", formData.caseDetails.courtLevel);
-
-            // ── PANEL MEMBERSHIP ───────────────────────────────────────────────
-            addSectionHeader("Panel Membership");
-            const panelSelected = Object.values(formData.panelMembership).some(function(item) { return item.checked; });
-            if (panelSelected) {
-                for (const key in formData.panelMembership) {
-                    if (formData.panelMembership[key].checked) {
-                        addText("•  " + formData.panelMembership[key].label, {
-                            size: bodySize, spaceAfter: 4
-                        });
-                    }
-                }
-            } else {
-                addText("None selected.", {
-                    italic: true, size: bodySize, color: midGrey, spaceAfter: 6
-                });
-            }
-
-            // ── STAGE 1: THRESHOLD TEST ────────────────────────────────────────
-            addSectionHeader("Stage 1: Threshold Test Selections");
-            // Stage 1 entries no longer carry an explanation, so addCriterion
-            // prints the label and its limb and nothing else. The label strings
-            // are the extraction contract that _narrator/extract.py matches on,
-            // which is why they are printed verbatim from content-data.js.
-            const s1Selected = Object.values(formData.stage1).some(function(item) { return item.checked; });
-            if (s1Selected) {
-                for (const key in formData.stage1) {
-                    if (formData.stage1[key].checked) {
-                        addCriterion(
-                            formData.stage1[key].label,
-                            formData.stage1[key].explanation,
-                            formData.stage1[key].categoryTitle
-                        );
-                    }
-                }
-            } else {
-                // Wording deliberately keeps "No Stage" and "selected": that is
-                // the sentinel _narrator/extract.py looks for to tell an empty
-                // section from a section it failed to parse.
-                addText("No Stage 1 threshold factors selected.", {
-                    italic: true, size: bodySize, color: midGrey, spaceAfter: 6
-                });
-
-                // The deemed line is printed IN ADDITION to the sentinel, not
-                // instead of it. The sentinel's job is to prove the section was
-                // read and was genuinely empty; the deemed line then says why that
-                // is legitimate. Replacing one with the other would have cost the
-                // narrator its only means of telling an empty section from a
-                // section it failed to parse.
-                //
-                // It deliberately does NOT repeat the fee earner's name or the
-                // panel. Those are already in the Case Details and Panel
-                // Membership sections, and the narrator cross-checks this line
-                // against them: three separate statements that must agree before
-                // it will write a deemed claim. Restating them here would give a
-                // damaged document a way to agree with itself.
-                //
-                // Exact wording is an extraction contract, matched verbatim by
-                // extract.py. Measured at 363.2pt against a 495.28pt column by
-                // _narrator/tests/measure_pdf_labels.js — it does not wrap.
-                if (isThresholdDeemedOnly()) {
-                    addText("Threshold test: deemed satisfied by panel membership (Spec Para 7.23(a)).", {
-                        italic: true, size: bodySize, color: midGrey, spaceAfter: 6
-                    });
-                }
-            }
-
-            // ── STAGE 2: LEVEL OF ENHANCEMENT (only if Stage 1 met) ───────────
-            if (isThresholdSatisfied()) {
-                addSectionHeader("Stage 2: Level of Enhancement Factors");
-                const s2Selected = Object.values(formData.stage2).some(function(item) { return item.checked; });
-                if (s2Selected) {
-                    for (const key in formData.stage2) {
-                        if (formData.stage2[key].checked) {
-                            addCriterion(
-                                formData.stage2[key].label,
-                                formData.stage2[key].explanation,
-                                formData.stage2[key].categoryTitle
-                            );
-                        }
-                    }
-                } else {
-                    addText("No Stage 2 factors selected.", {
-                        italic: true, size: bodySize, color: midGrey, spaceAfter: 6
-                    });
-                }
-            }
-
-            // ── PROPOSED UPLIFT ────────────────────────────────────────────────
-            addSectionHeader("Proposed Uplift");
-            addText("Proposed Uplift Percentage:  " + (formData.finalUpliftPercent || "Not Set") + "%", {
-                bold: true, size: 13, color: black, spaceAfter: 10
-            });
-            // The ceiling, stated for the bill drafter as it is stated for the
-            // solicitor. The figure above is the solicitor's own throughout —
-            // this tool proposes none — so the ceiling is the only percentage
-            // in this document that did not come from them.
-            const ceilingForPdf = applicableCeilingPercent();
-            if (ceilingForPdf !== null) {
-                addText(
-                    "Applicable ceiling for this court (CAG 12.2):  " + ceilingForPdf + "%",
-                    { size: bodySize, color: midGrey, spaceAfter: 6 }
-                );
-            }
-
-            // ── EVIDENCE ON FILE ───────────────────────────────────────────────
-            //
-            // Printed in both states, and never omitted. _narrator/extract.py
-            // reads this line to decide whether the narrative may state that
-            // the file holds supporting evidence, and a line that appeared only
-            // when confirmed would make "no line" mean two different things:
-            // the solicitor declined, or the PDF predates v1.11. The extractor
-            // treats an absent line as not confirmed, which is right for the
-            // old documents and would be wrong for a new one.
-            addSectionHeader("Evidence on File");
-            addText(
-                "Evidence on file: " +
-                (formData.evidenceOnFileConfirmed ? "Confirmed" : "Not confirmed"),
-                { size: bodySize, spaceAfter: 4 }
-            );
-            addText(
-                formData.evidenceOnFileConfirmed
-                    ? "The fee earner confirms that evidence supporting the matters set out above is held on the case file."
-                    : "The fee earner has not confirmed that supporting evidence is held on the case file. The narrative will not assert that it is.",
-                { size: bodySize, italic: true, color: midGrey, spaceAfter: 6 }
-            );
-
-            // ── DISCLAIMER ─────────────────────────────────────────────────────
-            currentY += sectionGap;
-
-            // Bold heading line
-            addText("DISCLAIMER", {
-                bold: true, size: 8, color: lightGrey, spaceAfter: 4
-            });
-
-            // Disclaimer body — each line word-wrapped
-            const disclaimerLines = [
-                "This document has been generated using the Woodruff Billing Ltd. Uplift Justification Collator.",
-                "It is intended for use by the named Fee Earner and for submission to Woodruff Billing Ltd. only.",
-                "The information contained herein is based on the inputs provided by the solicitor and is for the purpose of assisting Woodruff Billing Ltd. in preparing an LAA enhancement claim.",
-                "The Proposed Uplift % is the solicitor's own figure. This tool does not calculate or suggest a percentage. The final percentage claimed will be determined by Woodruff Billing Ltd. based on a full review, and the quantum of any enhancement is a matter for the Legal Aid Agency.",
-                "Woodruff Billing Ltd. is not responsible for the accuracy or completeness of the information entered by the solicitor. The solicitor remains responsible for the veracity of their justifications."
-            ];
-            for (const line of disclaimerLines) {
-                addText(line, {
-                    size: 7, color: lightGrey, lineHeight: 9, spaceAfter: 2
-                });
-            }
-
-            // ── Version info (end of document) ─────────────────────────────────
-            currentY += 10;
-            const appName = (typeof APP_NAME !== 'undefined') ? APP_NAME : 'Uplift Collator';
-            const appReleaseDate = (typeof APP_RELEASE_DATE !== 'undefined') ? APP_RELEASE_DATE : '';
-            addText(appName + " v" + versionText + (appReleaseDate ? " (" + appReleaseDate + ")" : ""), {
-                italic: true, size: 7, color: lightGrey
-            });
-
-            // ── Stamp footer on every page (now we know total page count) ──────
-            const totalPages = pdf.getNumberOfPages();
-            for (let p = 1; p <= totalPages; p++) {
-                pdf.setPage(p);
-                addFooter(p, totalPages);
-            }
-
-            // ── Save ───────────────────────────────────────────────────────────
+            // ── Save ──────────────────────────────────────────────────────
             // Named for the matter. Every download was "LAA_Uplift_Data_Summary.pdf"
             // until 6 August 2026, so a solicitor running three cases in a morning
             // got that name plus "(1)" and "(2)" in their Downloads folder, with
@@ -1894,11 +1548,22 @@ document.addEventListener('DOMContentLoaded', () => {
             // The narrator derives its output folder from this file's stem, so the
             // matter name carries through to "<stem>-narrative/" as well — which
             // still matches the *-narrative/ rule in .gitignore.
-            pdf.save(matterFilename("Uplift_Justification", "pdf"));
+            const blob = new Blob([bytes], {
+                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = matterFilename("Uplift_Justification", "docx");
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            // Deferred so the click has begun the download before the URL dies.
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
 
         } catch (e) {
-            alert("Error generating PDF: " + e.message + "\n" + (e.stack ? e.stack : '(No stack trace)'));
-            console.error("PDF generation error:", e);
+            alert("Error generating the Word document: " + e.message + "\n" + (e.stack ? e.stack : '(No stack trace)'));
+            console.error("Word document generation error:", e);
         }
     }
 
@@ -2172,7 +1837,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachEventListeners() {
         if (nextButton) nextButton.onclick = nextPage;
         if (backButton) backButton.onclick = prevPage;
-        if (generatePdfSummaryButton) generatePdfSummaryButton.onclick = generatePdfSummary;
+        if (downloadSummaryButton) downloadSummaryButton.onclick = generateDocxSummary;
 
         if (mainHelpButtonLarge) {
             mainHelpButtonLarge.onclick = () => showModalWithMarkdown(helpModal, helpContentDiv, markdownMissingMsgMainEl, MAIN_HELP_TEXT_MARKDOWN);

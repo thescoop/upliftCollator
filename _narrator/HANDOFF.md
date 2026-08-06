@@ -1,7 +1,7 @@
 # Uplift Collator + Narrator — Project Handoff
 
 Concise context for picking up work in a fresh session.
-**Last updated 5 August 2026.**
+**Last updated 7 August 2026.**
 
 ## What this project does
 
@@ -9,26 +9,36 @@ Two cooperating tools for **Woodruff Billing Ltd** (UK Family Law solicitors
 funded by the Legal Aid Agency):
 
 1. **Uplift Collator** — the client-side web app (`index.html`, `script.js`,
-   `content-data.js`, `style.css`). Password-gated, walks a solicitor through
-   the LAA enhancement uplift questionnaire (Costs Assessment Guidance §12),
-   and saves a PDF summary. **Its only output path is the single `pdf.save()` in
-   `generatePdfSummary`** — there is no Word export, no `window.print()`, no
-   print stylesheet. Since v1.12 that filename carries the matter name
-   (`Uplift_Justification-Smith 29964.pdf`) via `matterFilename()`, which mirrors
+   `content-data.js`, `style.css`, and since 7 August 2026 `docx-summary.js`).
+   Password-gated, walks a solicitor through the LAA enhancement uplift
+   questionnaire (Costs Assessment Guidance §12), and downloads a **Word
+   summary**. **Its only output path is the single anchor-click download in
+   `script.js` built by `buildUpliftDocx`** — there is no PDF, no
+   `window.print()`, no print stylesheet. The filename carries the matter name
+   (`Uplift_Justification-Smith 29964.docx`) via `matterFilename()`, which mirrors
    `matter_suffix()` in `_narrator/docx_writer.py`; the two must agree, because
    the narrator's output folder is derived from this file's stem. It was
-   `LAA_Uplift_Data_Summary.pdf` until 6 August 2026.
+   `LAA_Uplift_Data_Summary.pdf` until 6 August 2026, `Uplift_Justification-<matter>.pdf`
+   until 7 August 2026. Libraries are served from `vendor/`, not a CDN; see
+   `vendor/_PROVENANCE.md`. `jspdf.umd.min.js` was deleted from there on
+   7 August 2026 — the generator it served is gone.
 
-   **The per-page header is an extraction contract.** `addHeader` writes
-   "Uplift Justification  |  <matter>" and `HEADER_PATTERN` in `extract.py`
-   strips it from every page before parsing. That pattern still matches the
-   pre-rename wording, because PDFs made before it are in live matters. Change
-   one without the other and the header appears in the parsed body of every
-   page. Both libraries it
-   needs are served from `vendor/`, not a CDN; see `vendor/_PROVENANCE.md`.
-2. **Uplift Narrator** (`_narrator/`) — the back-office tool that turns that PDF
-   into the finished LAA enhancement narrative. It drives a local LM Studio
-   model directly and verifies the result.
+   **The visible strings are the extraction contract, and they were carried over
+   word for word.** Section headings, `Label:  Value` details, `•  ` bullets, the
+   empty-Stage-1 sentinel, the deemed-threshold line and the evidence pair all say
+   in the docx exactly what they said in the PDF, so the two parsers expect the
+   same things. What is *gone* is the per-page furniture problem: the docx puts
+   the header ("Uplift Justification  |  <matter>") and the CONFIDENTIAL footer in
+   real Word header/footer parts, so the body paragraph stream python-docx walks
+   contains no repeated lines at all. `HEADER_PATTERN`/`FOOTER_PATTERN` in
+   `extract.py` are therefore a **PDF-only** concern now — still load-bearing
+   there, and still matching the pre-rename wording because PDFs made before it
+   are in live matters, but with no docx equivalent to keep in step.
+2. **Uplift Narrator** (`_narrator/`) — the back-office tool that turns that
+   summary into the finished LAA enhancement narrative. It drives a local LM
+   Studio model directly and verifies the result. It reads **both** formats,
+   dispatching on the file's first bytes (`extract.detect_format`): `.docx` to
+   `extract_docx.py`, PDF to the frozen path in `extract.py`.
 
 GDPR-sensitive throughout. Nothing leaves the machine, and that is enforced in
 code — see `lmstudio.py`, which refuses any endpoint that is not loopback or
@@ -41,10 +51,82 @@ picking the work up needs.
 
 ## Current state
 
+> **7 August 2026 — the Collator now downloads a `.docx`, and that closed the
+> defect class the rest of this section is mostly about.** Still on branch
+> **`redesign/stage1-labels`**; nothing on `main`, so nothing is live.
+> **`_PLAN.md`, "THE .DOCX OUTPUT", carries the decision and its four settled
+> questions — read it with this.** In short:
+>
+> - **The PDF generator is gone, not kept alongside.** `generatePdfSummary` is
+>   retired; `docx-summary.js` builds the document from hand-written OOXML, zipped
+>   by the vendored `fflate` (0.8.3). `jspdf.umd.min.js` is deleted from
+>   `vendor/`. Offering both formats would have kept jsPDF, kept a wrapping
+>   release gate, and doubled every future label change — to preserve the format
+>   that caused the two worst defects this project has had. A solicitor who needs
+>   a PDF prints one from Word.
+> - **`APP_VERSION` is 1.13.** 1.11 and 1.12 were both built and never shipped, so
+>   "v1.10 or earlier ⇒ legacy label set" still holds and every `pre-v1.11` comment
+>   is still accurate as a boundary. The number moved because **the output format
+>   is as much of the extraction contract as the label set**: two formats must not
+>   share one version, so a PDF claiming v1.13+ is by definition not the app's own
+>   work and `diagnose()` can say so.
+> - **`extract.py` dispatches on content, not extension** (`detect_format`): `%PDF`
+>   → the frozen legacy path in `extract.py`, `PK` → the new `extract_docx.py`.
+>   A mismatch between name and content is reported as damage, never guessed
+>   around. **The PDF path is permanent** — those files are in live matters.
+> - **The docx contract is paragraph equality**, and it is a stronger contract than
+>   a text layer. Every heading, detail line, bullet and sentinel is exactly one
+>   `<w:p>`; python-docx returns each whole. So `extract_docx.py` has **no
+>   rejoining logic and must never grow any** — joining is where the PDF path's
+>   ambiguity came from. Pasted text cannot imitate structure either: a solicitor's
+>   newlines become `<w:br/>` *inside* the explanation's own paragraph, so no line
+>   of it can ever equal a heading paragraph. The evidence section keeps its
+>   last-occurrence rule anyway, because a document edited in Word afterwards can
+>   contain anything.
+> - **Only the *reading* differs.** Label lookup, the `_SECTION_KEY_PREFIXES`
+>   guard, the unrecognised-label records and every downstream meaning are shared
+>   with the PDF path rather than re-implemented — and every visible string is
+>   carried over verbatim, so both formats state the same things in the same words.
+> - **`measure_pdf_labels.js` is deleted.** It existed only to measure jsPDF
+>   wrapping. The PDF *fixtures* and every PDF extraction test stay.
+> - **New standing tool: `node _narrator/tests/build_docx_fixture.js`.** Rebuilds
+>   `sample.docx`, `deemed.docx` and `nasty.docx` with the real generator, labels
+>   read live from `content-data.js`, deterministic output. Run it whenever a label
+>   or the generator changes — a hand-copied fixture label would silently start
+>   testing a document the app can no longer produce. `nasty.docx` is the
+>   adversarial one: a pasted fake DISCLAIMER heading, a fake EVIDENCE ON FILE
+>   block claiming confirmation, a real Stage 1 label on its own pasted line,
+>   bullet characters and a control character, all of which must stay inert.
+> - **Verified:** 378 tests pass under **both** WSL and Windows Python;
+>   `drive_form.js` 28/28 including a full docx round trip (real click, real
+>   download, read back with python-docx); and a real-Word COM acceptance test —
+>   Word opened the file without offering to repair it, extraction was identical
+>   after a Word re-save, and the `docProps` creator "Uplift Collator v1.13"
+>   survived while `lastModifiedBy` recorded who re-saved it.
+> - **The docx forensics replace the PDF `producer` check.** `diagnose_docx`
+>   reports `creator`, `last_modified_by`, `created`, `modified`, the gap between
+>   the last two, and per-section match flags — structure only, no client text,
+>   same GDPR rule as the PDF diagnostic.
+
+> **6 August 2026 — the deemed-threshold route** (recorded here 7 August; the
+> session that built it updated `_PLAN.md` but not this file). Spec Para 7.23(a)
+> deems the Paragraph 6.13 threshold satisfied for a panel member's own work, and
+> the tool now relies on it: a panel member with nothing ticked at Stage 1
+> proceeds to Stage 2, the summary prints "Threshold test: deemed satisfied by
+> panel membership (Spec Para 7.23(a))." beneath the empty-Stage-1 sentinel (in
+> addition to it, never instead of it), and the narrator writes the deemed claim
+> only when three statements agree: that line, a ticked panel, a named fee
+> earner. **Stage 1 became 18 labels, Stage 2 23** (limb (c) gained novelty and
+> weight carriers, each `requires_stage2`); the counts below in the 4 August
+> block are of their date. The referral telling a solicitor to telephone the firm
+> is gone — the tool handles every Stage 1/Stage 2 situation internally.
+
 > **4 August 2026 — the Collator was redesigned, and it changed the narrator's
 > input.** Work is on branch **`redesign/stage1-labels`** (pushed; nothing on
 > `main`, so nothing is live). **`_PLAN.md` in the repo root carries the accurate
-> build status — read it before this file.** In short:
+> build status — read it before this file.** Most of what follows was written
+> against the PDF output; where it describes wrapping or text-layer damage, read
+> it as the **legacy** path. In short:
 >
 > - **Stage 1 collects no prose.** It is now 16 tick-only labels — 13 from CAG 12.8's
 >   examples plus one "in some other way" per limb; explanations are
@@ -73,8 +155,8 @@ picking the work up needs.
 >   do not tidy them away, and do not "modernise" their wording.
 > - **`evidenceOnFileConfirmed` gates** the conclusion's "Evidence supporting these
 >   assertions can be found within the case file", and the front end now sets it: an
->   optional tick on page 5 → an `EVIDENCE ON FILE` section in the PDF →
->   `extract_evidence_confirmation()` → the gate. **The status line and the sentence
+>   optional tick on page 5 → an `EVIDENCE ON FILE` section in the summary (the
+>   PDF then, the docx now) → `extract_evidence_confirmation()` → the gate. **The status line and the sentence
 >   beneath it must agree** before this counts as confirmed. Either alone is one word
 >   from reversing its meaning — "Not confirmed" contains "confirmed", so losing a
 >   "Not " in transit would turn a refusal into an assertion to the LAA. Two strings
@@ -82,6 +164,9 @@ picking the work up needs.
 >   criterion label, does not stop the run. A pre-v1.11 PDF has no such section and
 >   correctly yields False.
 > - **Anything printed into the PDF wraps, and wrapping is where this breaks.**
+>   *(Legacy path only since 7 August 2026 — nothing wraps in a `.docx`, and this
+>   bullet is the whole reason the format changed. The machinery below is still
+>   live and still needed: it is what reads the PDFs sitting in live matters.)*
 >   jsPDF wraps at the column width and marks the continuation in no way at all.
 >   Two silent truncations were found this way and fixed: a Stage 1 label too long
 >   for one line matched nothing and *stopped the run* (every case ticking the
@@ -118,7 +203,10 @@ picking the work up needs.
 >   a previous summary — and it would otherwise both outrank their real answer and
 >   truncate Stage 2 where it sat, dropping every criterion below it. **The other
 >   section headings still have that weakness**, deliberately: tightening them
->   changes how PDFs already in live matters are read.
+>   changes how PDFs already in live matters are read. *(In the docx this cannot
+>   arise in an unedited file at all — pasted lines live inside the explanation's
+>   own paragraph — but `extract_docx.py` keeps the last-occurrence rule for the
+>   evidence section anyway, for documents someone has edited in Word.)*
 > - **`extract.py` now reads the `Court:` line** into `caseDetails.courtLevel`.
 >   Nothing computes with it — the tool proposes no figure — but the ceiling under
 >   CAG 12.2 now reaches `narrative-input.json` instead of being visible only to a
@@ -133,14 +221,16 @@ picking the work up needs.
 > - `templates.py`'s JS scanner is now comment-aware — it previously read the
 >   apostrophe in prose like "the solicitor's own words" as a string delimiter.
 
-App version **1.11** (4 August 2026) in `content-data.js`. Simon confirmed on
-1 August 2026 that narrator-only template additions do **not** bump it; this
-version moved because the Collator itself changed.
+App version **1.13** (7 August 2026) in `content-data.js` — 1.11 on 4 August and
+1.12 on 6 August were both built and never released. Simon confirmed on 1 August
+2026 that narrator-only template additions do **not** bump it; each of these
+moved because the Collator itself changed, and 1.13 because the output *format*
+changed, which is part of the same contract.
 
-**281 tests**, all passing (was 244 before the redesign), none touching the
-network. The 281 figure was verified under **WSL Python on 5 August 2026**;
-**Windows Python has not been re-run since the redesign** — do that before
-trusting a Windows launcher. Command:
+**378 tests**, all passing (was 281 after the 4 August redesign), none touching
+the network. Verified under **both WSL and Windows Python on 7 August 2026** —
+the long-standing gap where Windows had not been re-run since the redesign is
+closed. Command:
 
 ```bash
 conda activate uplift-narrate
@@ -155,7 +245,7 @@ verdict → Word. Both the GUI and the CLI run the identical pipeline through
 **The deliverable is `narrative-polished-<matter>.docx`** — a fragment written
 to paste into the CCMS bill narrative as its final section, named for the case
 so the attachment says which matter it is. `narrative-polished-<matter>.md`
-remains as the audit copy; both fall back to the bare name when the PDF carries
+remains as the audit copy; both fall back to the bare name when the input carries
 no usable matter name. Stale output is cleared by pattern
 (`docx_writer.clear_derived`) — by exact name, a reused folder would keep a
 previous client's named Word file beside the new one. See the README for the layout and for why the .docx
@@ -217,6 +307,11 @@ when `/api/v0` is unavailable.
 
 ## Unreadable PDFs: detect and stop. An OCR fallback was rejected
 
+**Legacy path, and permanent.** The `.docx` move on 7 August 2026 means no *new*
+file can arrive in this state, but every matter begun before then holds a PDF, so
+all of this stays live. The decision below is settled; do not reopen it because
+the format changed.
+
 Some PDFs arrive legible to a human but empty to software — the text converted
 to vector outlines, or the page rasterised. `diagnose()` identifies which, and
 `explain_empty_extraction()` says so and stops. **That is the finished answer.
@@ -229,8 +324,9 @@ management systems, portal uploads, mail gateways. A system did it automatically
 in transit. **The Collator always writes selectable text**, so the damage is
 never the solicitor's doing in the app, and a good original existed. The remedy
 is to ask for that original as the browser saved it; failing that, re-key the
-answers into the web app from the damaged copy and generate a fresh PDF.
-`extract.py` already tells the user exactly this.
+answers into the web app from the damaged copy and download a fresh summary —
+which since v1.13 is a `.docx`, immune to this. `extract.py` already tells the
+user exactly this.
 
 OCR was designed in full and rejected on 3 August 2026. Three reasons:
 
@@ -283,8 +379,21 @@ things about the design are deliberate:
 than every criterion combined, so a tick lost there is not the lesser problem.
 
 The GUI stops and prints the exact `--from-json` command, but cannot itself
-resume from a JSON file; its file picker takes a PDF. Worth closing if it ever
-becomes a nuisance.
+resume from a JSON file; its file picker takes a summary document, not JSON.
+Worth closing if it ever becomes a nuisance.
+
+**Defect found and FIXED the same day, 7 August 2026 — kept here for the
+lesson.** The first pass at teaching the GUI `.docx` widened the drop zone and
+the Browse filter but left `_load_pdf` and `main()` rejecting anything not
+ending `.pdf` — so every dropped Word summary was refused with "Please select a
+PDF file", and dragging a `.docx` onto `_Generate_Uplift_Narrative.bat` opened
+an empty window. A cross-checking documentation pass caught it. All three gates
+now accept `(".docx", ".pdf")` together, and
+`tests/test_gui_accepts_docx.py` holds them together: it fails on any bare
+`.pdf`-only `endswith` gate in `narrate_gui.py`. The lesson is the standing one:
+**when you widen a gate, grep for its siblings** — the same rule as "when you
+correct a claim, grep for it". (`_load_pdf` keeps its name as the launcher-facing
+API; its docstring says it loads either format.)
 
 The measurement stands if this is ever revisited: at 300 dpi with Windows'
 on-device OCR, section headers 6/6, criteria 7/7 by fuzzy label match,
@@ -299,12 +408,17 @@ Per the user's global `~/.claude/CLAUDE.md`:
 
 - Mentor mode — explain trade-offs, plan before coding, don't build until agreed.
 - Both `.bat` and `.sh` startup scripts, `_`-prefixed to sort to the top.
-- **Synthetic fixtures only.** Never read a real client PDF, even when it is the
-  most direct reproducer — `narrate.py --debug` exists precisely so extraction
-  failures can be triaged on real files without exposing client text. Only
-  `producer`, `creator`, `CreationDate` and `ModDate` are read: software names
-  and timestamps describe the file, not the case. Title, Author, Subject and
-  Keywords can carry a client name and are never touched. The allow-list in
-  `tests/test_empty_extraction.py` enforces this and will fail on any new key,
-  which is the point — widen it deliberately, never loosen it.
+- **Synthetic fixtures only.** Never read a real client file — PDF or `.docx` —
+  even when it is the most direct reproducer; `narrate.py --debug` exists
+  precisely so extraction failures can be triaged on real files without exposing
+  client text. From a PDF, only `producer`, `creator`, `CreationDate` and
+  `ModDate` are read; from a `.docx`, only the `docProps` creator,
+  `lastModifiedBy`, `created` and `modified`. These say who last wrote the file
+  and when — which is exactly what distinguishes "the app made this" from
+  "something rebuilt it in transit" — and they describe the file, not the case.
+  Title, Author, Subject and Keywords can carry a client name and are never
+  touched in either format. There is now **an allow-list per format**:
+  `tests/test_empty_extraction.py` for `diagnose`, `tests/test_extract_docx.py`
+  for `diagnose_docx`. Both fail on any new key, which is the point — widen them
+  deliberately, never loosen them.
 - Direct push to `main` is allowed (`.claude/settings.local.json`).

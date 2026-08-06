@@ -1,7 +1,7 @@
 @echo off
 REM _Generate_Uplift_Narrative.bat - Launch the Uplift Narrator GUI
-REM Usage: double-click, or _Generate_Uplift_Narrative.bat path\to\case.pdf to pre-load a PDF
-REM (you can also drag a PDF onto _Generate_Uplift_Narrative.bat in Explorer)
+REM Usage: double-click, or _Generate_Uplift_Narrative.bat path\to\case.docx to pre-load a summary
+REM (you can also drag the Collator .docx — or a legacy PDF — onto this file in Explorer)
 
 cd /d "%~dp0"
 

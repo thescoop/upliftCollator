@@ -35,6 +35,7 @@ set -u
 SHIPPED=(
   index.html
   script.js
+  docx-summary.js
   style.css
   content-data.js
   vendor/

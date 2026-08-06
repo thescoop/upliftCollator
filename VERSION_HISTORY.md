@@ -5,6 +5,78 @@ The Uplift Collator is a confidential web-based tool developed by Woodruff Billi
 
 ## Version History
 
+### Version 1.13 - August 7, 2026
+**Status:** In development on branch `redesign/stage1-labels` (NOT on `main`, NOT live).
+Versions 1.11 and 1.12 were never released; 1.13 carries the whole redesign.
+
+**The output is now a Word document.** The download button produces
+`Uplift_Justification-<matter>.docx` instead of a PDF. Simon's decision, made at the
+end of the 6 August 2026 session; the reasoning and the settling of the four open
+questions are recorded in `_PLAN.md` ("THE .DOCX OUTPUT").
+
+**Why.** The narrator reads the solicitor's answers back out of the downloaded file,
+and the PDF round trip was the direct cause of the two worst defects this project has
+had: jsPDF wraps a line at the column edge marking the continuation in no way at all,
+and the narrator matches labels by exact string — so a label a few points too wide
+silently became two lines matching nothing. A Word document has no such trap: each
+logical line is one paragraph and comes back whole, however long. The paragraph
+contract also makes pasted text structurally inert — a block pasted into an
+explanation lives *inside* that explanation's paragraph, so no line of it can imitate
+a section heading, which the PDF format could never guarantee.
+
+**Key changes:**
+- New `docx-summary.js` builds the document in the browser: hand-written
+  WordprocessingML zipped by the vendored `fflate` 0.8.3 (32 KB, MIT — see
+  `vendor/_PROVENANCE.md`). Chosen over the ~1.12 MB `docx` npm bundle so every byte
+  that ends up in a signed legal document can be read in full. jsPDF is removed.
+- Every extraction-contract string — section headings, `Label:  Value` details,
+  `•  ` bullets, the empty-Stage-1 sentinel, the deemed-threshold line, the evidence
+  pair — is carried over verbatim, so the two formats state the same things in the
+  same words.
+- The document carries real Word header/footer parts and `docProps/core.xml` naming
+  the creator (`Uplift Collator v1.13`) with creation/modification stamps — the
+  forensics `diagnose()` used to read from PDF producer metadata.
+- `_narrator/extract.py` now dispatches on content (magic bytes): `.docx` is read by
+  the new `extract_docx.py` against a paragraph-equality contract; the PDF path is
+  frozen as the legacy path and keeps reading every PDF in a live matter, forever.
+- The narrator GUI accepts dropped `.docx` files (and legacy PDFs); `narrate.py`
+  takes either format.
+- `measure_pdf_labels.js` is retired — nothing can wrap. Its replacement gate is
+  `node _narrator/tests/build_docx_fixture.js`, which regenerates the three docx
+  fixtures with the real generator and labels read live from `content-data.js`.
+
+**Verification:** 378 tests pass under WSL and Windows Python (was 345); the browser
+drive (`drive_form.js`) passes 28/28 including a full docx round trip through
+`extract.py`; and the generated file was opened in desktop Microsoft Word via COM with
+no repair prompt, re-saved by Word, and the re-saved copy extracted **identically** —
+with `lastModifiedBy` correctly recording who rewrote it. Load-bearing guards
+(cross-section key refusal, deemed-line bounding to Stage 1, XML control-character
+cleaning) were each verified by reverting them and watching their tests fail.
+
+**Why the version bumped again:** the output format is as much of the extraction
+contract as the label set, so two formats must not share a number. It also buys a
+diagnostic for free: a PDF stamped v1.13 or later cannot be the app's own work.
+
+### Version 1.12 - August 6, 2026
+**Status:** Never released — superseded by 1.13 on the same branch before reaching `main`.
+
+**The deemed-threshold route.** Spec Para 7.23(a) provides that for work done by a
+member of a relevant panel "the threshold test at Paragraph 6.13 shall be deemed to
+be satisfied in respect of that work". The tool now relies on it: a panel member who
+ticks nothing at Stage 1 may proceed to Stage 2 and build a claim above the
+guaranteed 15%, and the summary document states the deeming on its face, naming the
+fee earner. The referral telling such a solicitor to telephone the firm is gone —
+the tool handles every Stage 1/Stage 2 situation internally.
+
+**Key changes:** Stage 1 grew to 18 labels (limb (c) gained novelty and weight
+carriers, each asserting the *limb* and each requiring Stage 2 substance); Stage 2
+grew to 23; the narrator extracts "deemed" as an affirmatively stated,
+cross-checked fact (deemed line + ticked panel + named fee earner must all agree);
+`_spec-7.20-7.24-verbatim.md` became the Specification quoting source of truth.
+Full reasoning: `_PLAN.md`, "THE DEEMED-THRESHOLD ROUTE". 345 tests passed at this
+point; the version bumped because the label set is the extraction contract and a
+released 1.11 would have collided with it.
+
 ### Version 1.11 - August 4, 2026
 **Status:** In development on branch `redesign/stage1-labels` (NOT yet on GitHub, NOT yet live)
 

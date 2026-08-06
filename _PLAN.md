@@ -7,6 +7,117 @@ live.** Only a merge to `main` publishes to solicitors.
 
 ---
 
+## 6–7 AUGUST 2026 — THE .DOCX OUTPUT. The four questions, settled.
+
+Simon's decision, end of the 6 August session: **the Collator must output `.docx`,
+not PDF.** The four open questions were settled in the 7 August session, each with
+its reasoning recorded here because Simon was not present for the settling — read
+these as proposals implemented and reversible on the branch, not as his words.
+
+**1. The PDF goes.** Simon's own phrasing — "output .docx, *not* PDF" — already
+chose replacement over addition. Offering both would keep jsPDF vendored, keep
+`measure_pdf_labels.js` as a live release gate, and double every future label
+change (two generators, two contracts, two test drives) to preserve a format whose
+round trip caused the two worst defects this project has had. A solicitor who
+needs a PDF to file prints one from Word, which every firm has. `extract.py`'s PDF
+reading path is untouched and permanent: PDFs sit in live matters and must read
+correctly forever.
+
+**2. The library is fflate 0.8.3, vendored, plus our own OOXML writer.** Sol
+surveyed the field (6 Aug 2026, report in the session record): the `docx` npm
+package still ships a browser bundle but it is ~1.12 MB with five embedded
+dependencies; `html-docx-js` is abandoned and emits MHTML that LibreOffice cannot
+read; docxtemplater wants a binary template. fflate is 32 KB, dependency-free,
+MIT, UMD-loadable from a `<script>` tag — and the document itself is simple enough
+(headings, details, bullets, explanations) that the WordprocessingML we need is
+~200 lines we can read in full. For a tool whose output solicitors sign and send
+to the LAA, a small fully-audited writer beats a large trusted one. Vendored by
+the house method: downloaded from two CDNs, compared byte-for-byte, hash recorded
+in `vendor/_PROVENANCE.md`.
+
+**3. Extraction reads both formats, dispatched on extension and verified by magic
+bytes.** `%PDF` must begin a `.pdf`, `PK` a `.docx`; a mismatch is reported as
+damage, not guessed around. The PDF path — section regexes, wrap resolution, the
+longest-run case-details reader, every hardening — is frozen as the legacy path.
+The docx path is new code against a new contract.
+
+**4. The round trip stays text-matching; there is no embedded payload.** The
+reasons the payload was dropped on 4 August still hold (Word's Document Inspector
+strips custom XML; a text-reading path must exist regardless). What changes is the
+unit of matching: the docx contract is **paragraph equality**, not line-regex over
+a wrapped text layer. Each label, heading, detail line and sentinel is one
+`<w:p>`; python-docx returns it whole. That kills the wrapping trap by
+construction — and it kills the pasted-block trap too ("Still outstanding" item 4
+below): a solicitor's pasted text lives *inside* an explanation paragraph, its
+newlines encoded as `w:br`, so no line of it can ever equal a heading paragraph.
+The legacy PDF parser needed five review rounds of hardening against those two
+traps; the docx parser is immune to both before it is written.
+
+### Consequences banked with the decision
+
+- **`APP_VERSION` becomes 1.13** (1.12, like 1.11, never ships). The output format
+  is as much of the extraction contract as the label set, so two formats must not
+  share a number: any PDF claiming v1.13+ is by definition not the app's own work,
+  which `diagnose()` can say outright.
+- **The generator moves out of `script.js`** into `docx-summary.js`, loadable by
+  Node as well as the browser — so for the first time the document builder itself
+  is unit-testable without a click drive: build → bytes → python-docx reads it
+  back. `drive_form.js` still proves the real browser path end to end.
+- **The docx carries real Word header/footer parts** (matter name; CONFIDENTIAL
+  line with page fields), so the *body* paragraph stream that python-docx reads
+  contains no per-page furniture at all — `HEADER_PATTERN`/`FOOTER_PATTERN`
+  stripping is a PDF-only concern.
+- **`docProps/core.xml` names the creator** ("Uplift Collator v1.13") and carries
+  created/modified stamps, replacing the PDF metadata that `diagnose()` reads for
+  its who-rewrote-this-file forensics.
+- **`measure_pdf_labels.js` is retired.** It existed to measure jsPDF wrapping;
+  there is no jsPDF and nothing wraps. The PDF *fixtures* and every PDF extraction
+  test stay: that path now serves live legacy matters.
+- Every extraction-contract **string** is carried over unchanged — section
+  headings, `Label:  Value` details, `•  ` bullets, the empty-Stage-1 sentinel,
+  the deemed-threshold line, the evidence pair — so the two formats state the same
+  things in the same words, and the docx parser's expectations are the PDF
+  parser's expectations minus the damage handling.
+
+### Built and verified, 7 August 2026
+
+The programme above is **implemented**. What exists: `docx-summary.js` (the
+generator, Node-loadable so it is unit-testable without a browser),
+`vendor/fflate.umd.min.js` (two-CDN verified, hash in `_PROVENANCE.md`),
+`_narrator/extract_docx.py` (the paragraph-contract reader), content-based
+dispatch in `extract.py`, both narrator front-ends accepting either format, and
+`_narrator/tests/build_docx_fixture.js` regenerating three fixtures
+(`sample.docx`, `deemed.docx`, `nasty.docx`) with labels read live from
+`content-data.js` so they can never drift from the shipped wording.
+
+Verification actually performed:
+
+- **378 tests pass** (was 345), under WSL **and Windows Python** — the Windows
+  gap that stood since 4 August is closed. `narrate.py` was also run end to end
+  under the Windows `uplift-narrate` env on `deemed.docx` and produced a
+  correctly-cited deemed narrative.
+- **28/28 browser checks**, `drive_form.js` now ending in a full round trip:
+  real click → real download → `extract.py` reads the .docx back, deemed line,
+  panel and explanation intact, nothing unrecognised.
+- **Real Word acceptance (COM):** the browser-produced file opened in desktop
+  Word with no repair, was re-saved by Word, and the re-saved copy extracted
+  **identically** — with `lastModifiedBy` showing who rewrote it, which is the
+  new `diagnose()` forensics working as designed.
+- **Guards revert-proofed:** the cross-section key refusal, the deemed-line
+  bounding to Stage 1, and the generator's XML control-character cleaning were
+  each broken deliberately and each failure was caught by its own test.
+- `nasty.docx` proves the paste-immunity claim end to end: a pasted block
+  containing a fake `DISCLAIMER`, a fake `EVIDENCE ON FILE` confirmation, a
+  real Stage 1 label on its own bulleted line and a fake percentage all stay
+  inert inside the explanation that carries them.
+
+**Not yet done:** LibreOffice has not opened the file (not installed on either
+machine); Simon has not yet seen the document's appearance in Word — the
+layout is carried over from the PDF (colours, sizes, header/footer) but taste
+is his call before merge.
+
+---
+
 ## 6 AUGUST 2026 — THE DEEMED-THRESHOLD ROUTE. Read this before anything below.
 
 **Simon's instruction:** the tool must handle every situation that can arise at Stage 1
@@ -73,8 +184,9 @@ the collision.
 
 | Tool | What it catches |
 |---|---|
-| `node _narrator/tests/measure_pdf_labels.js` | A label that wraps in the PDF, measured with the vendored jsPDF. Found the pre-existing 604.8pt `s1_cse_vulnerable_client` on its first run. |
-| `node _narrator/tests/drive_form.js` | Anything only a click can see. 23 checks across both routes. |
+| ~~`node _narrator/tests/measure_pdf_labels.js`~~ | **Retired 7 August 2026** with the PDF generator — nothing wraps in a .docx. In its day it found the 604.8pt `s1_cse_vulnerable_client` on its first run. |
+| `node _narrator/tests/build_docx_fixture.js` | Regenerates the .docx fixtures with the real generator and live labels — run it whenever labels or the generator change, then the Python suite. |
+| `node _narrator/tests/drive_form.js` | Anything only a click can see. 28 checks across both routes, ending in a full docx round trip through `extract.py`. |
 | `python3 _narrator/tests/structural_audit.py` | Cross-stage contracts, plus retired-template binding. |
 
 ### Verification actually performed
@@ -415,9 +527,11 @@ end to end in Chromium with all three panels ticked, a 46-character fee-earner n
 
 ### Still outstanding
 
-1. **THE NEXT JOB — the Collator must output `.docx`, not PDF.** Simon's decision,
-   6 August 2026, at the very end of the session. **Nothing has been built or designed
-   for it.** Also still untouched: the merged editable narrative page.
+1. ~~**THE NEXT JOB — the Collator must output `.docx`, not PDF.**~~ **CLOSED
+   7 August 2026 — built and verified.** See "THE .DOCX OUTPUT" at the top of this
+   file for the four decisions and the verification record. Still untouched from
+   this item: **the merged editable narrative page** (review page and document are
+   still two renderings of the same data).
 
    Why it is worth doing properly rather than treating as a format swap: the PDF round
    trip is the direct cause of the two worst defects this project has had. jsPDF wraps

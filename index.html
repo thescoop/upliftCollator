@@ -29,8 +29,9 @@
     -->
     <!-- Marked.js for Markdown rendering -->
     <script src="vendor/marked.min.js"></script>
-    <!-- jsPDF for PDF Generation -->
-    <script src="vendor/jspdf.umd.min.js"></script>
+    <!-- fflate zips the OOXML parts; docx-summary.js writes the Word summary -->
+    <script src="vendor/fflate.umd.min.js"></script>
+    <script src="docx-summary.js"></script>
 </head>
 <body>
     <!-- ────────── WELCOME SCREEN ────────── -->
@@ -106,7 +107,7 @@
                       </ul>
                       <p>
                         This tool helps solicitors structure information and justifications for their enhancement claims, 
-                        generating a PDF summary for Woodruff Billing to build upon in the bill narrative they present to the LAA. 
+                        generating a Word summary for Woodruff Billing to build upon in the bill narrative they present to the LAA.
                         More guidance is available from the 
                         <a href="#" id="aboutHelpLinkInline" style="text-decoration: underline;">HELP</a> buttons.
                       </p>
@@ -310,9 +311,9 @@
                         worth no more than the automatic sentence it replaced. Leaving it
                         unticked costs one sentence and blocks nothing.
 
-                        The tick is printed into the PDF in both states, because silence
-                        would be ambiguous between "declined" and "made before this
-                        question existed".
+                        The tick is printed into the summary document in both states,
+                        because silence would be ambiguous between "declined" and
+                        "made before this question existed".
                     -->
                     <div class="form-group evidence-on-file-group">
                         <h4>Evidence on file</h4>
@@ -333,16 +334,16 @@
                     </div>
 
                     <div class="page-instruction">
-                        <h4>Next Steps & PDF Summary</h4>
+                        <h4>Next Steps & Word Summary</h4>
                         <p>
-                            Once you are satisfied with your input, please generate the PDF summary and save it alongside your case files.
+                            Once you are satisfied with your input, please download the Word summary and save it alongside your case files.
                         </p>
                         <p>
                             <strong>Important Notes:</strong>
                         </p>
                         <ul>
                             <li>Your "Proposed Uplift %" is a valuable indication for us. However, please remember that the Legal Aid Agency (LAA) makes the final determination as to the quantum of any enhancement that may be awarded.</li>
-                            <li>The PDF you submit will be carefully reviewed by Woodruff Billing. We will then use this information to construct a comprehensive and persuasive narrative designed to best support your claim for an uplift.</li>
+                            <li>The Word document you submit will be carefully reviewed by Woodruff Billing. We will then use this information to construct a comprehensive and persuasive narrative designed to best support your claim for an uplift.</li>
                         </ul>
                     </div>
                 </div>
@@ -351,10 +352,10 @@
                 <div class="form-navigation-buttons">
                     <button id="backButton" class="btn btn-secondary-wb" style="display:none;">Back</button>
                     <button id="nextButton" class="btn btn-primary-wb">Continue</button>
-                    <button id="generatePdfSummaryButton" class="btn btn-danger-wb"
+                    <button id="downloadSummaryButton" class="btn btn-danger-wb"
                             style="display:none;" disabled
                             title="Complete all required fields and explanations to enable download.">
-                        Download PDF Summary
+                        Download Word Summary
                     </button>
                 </div>
             </div>

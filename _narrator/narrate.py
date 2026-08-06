@@ -1,12 +1,15 @@
-"""CLI: PDF in → finished LAA enhancement narrative out.
+"""CLI: Collator summary in → finished LAA enhancement narrative out.
 
 Usage::
 
-    python narrate.py path/to/case.pdf [--out-dir DIR]
-    python narrate.py path/to/case.pdf --polish [--model NAME] [--no-verify]
+    python narrate.py path/to/case.docx [--out-dir DIR]
+    python narrate.py path/to/case.docx --polish [--model NAME] [--no-verify]
 
-If ``--out-dir`` is omitted, output goes to ``<pdf-stem>-narrative/`` next to
-the input PDF.
+The input is the Collator's downloaded summary — a .docx since v1.13, a PDF
+for every matter begun earlier. Both read identically from here on.
+
+If ``--out-dir`` is omitted, output goes to ``<input-stem>-narrative/`` next to
+the input file.
 
 Always produces:
   narrative.md           — structured Markdown skeleton, fully cited
@@ -14,7 +17,7 @@ Always produces:
   narrative-input.json   — recovered formData for debugging or re-runs
 
 With ``--polish`` it also calls the local LM Studio server and adds, where
-``<matter>`` is the case/matter name recovered from the PDF (so, for a matter
+``<matter>`` is the case/matter name recovered from the summary (so, for a matter
 entered as "Smith 29964", ``narrative-polished-Smith 29964.docx``):
 
   narrative-polished-<matter>.docx — the finished narrative as Word. This is the
@@ -24,7 +27,7 @@ entered as "Smith 29964", ``narrative-polished-Smith 29964.docx``):
   citation-check.txt     — deterministic citation/placeholder check + LLM review
 
 The two polished files are named for the matter so that a Word file sitting in a
-folder or attached to an email says which case it belongs to. Where the PDF
+folder or attached to an email says which case it belongs to. Where the input
 carries no usable matter name they fall back to ``narrative-polished.docx`` and
 ``narrative-polished.md``. ``citation-check.txt`` keeps its fixed name: it
 certifies the run rather than being an artifact anyone sends on.
@@ -38,9 +41,12 @@ Exit codes::
 
     0  clean run
     1  narrative written, but a check flagged it — read citation-check.txt
-    2  the PDF path is not a file
+    2  the input path is not a file
     3  LM Studio failed or refused; the skeleton was still written
-    4  nothing extracted from the PDF; no files written
+    4  nothing extracted from the input; no files written
+    5  stopped: a ticked item matched no criterion, or a limb "other" had no
+       Stage 2 explanation — narrative-input.json written for correction
+    6  stopped: Stage 2 factors with no stateable threshold basis
 """
 
 from __future__ import annotations
@@ -68,8 +74,8 @@ import prompts as prompts_mod
 from skeleton import build_skeleton
 
 
-def _default_out_dir(pdf_path: Path) -> Path:
-    return pdf_path.parent / f"{pdf_path.stem}-narrative"
+def _default_out_dir(input_path: Path) -> Path:
+    return input_path.parent / f"{input_path.stem}-narrative"
 
 
 # Outputs derived from the skeleton. They stop being true the moment a new run
@@ -86,14 +92,16 @@ _clear_derived = docx_writer.clear_derived
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument(
-        "pdf", nargs="?", help="Path to the Collator-generated PDF"
+        "summary",
+        nargs="?",
+        help="Path to the Collator-generated summary (.docx; PDF for older matters)",
     )
     parser.add_argument(
         "--from-json",
         type=Path,
         default=None,
         metavar="FILE",
-        help="Re-run from a narrative-input.json instead of a PDF. This is the "
+        help="Re-run from a narrative-input.json instead of a summary file. This is the "
              "way to resume after a criterion label could not be matched: "
              "correct the label in that file and point this at it.",
     )
@@ -101,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         "--out-dir",
         type=Path,
         default=None,
-        help="Output directory (default: <pdf-stem>-narrative/ next to the PDF)",
+        help="Output directory (default: <input-stem>-narrative/ next to the input)",
     )
     parser.add_argument(
         "--polish",
@@ -130,13 +138,13 @@ def main(argv: list[str] | None = None) -> int:
         "--debug",
         action="store_true",
         help="Print structure-only diagnostics (no client text) and exit. "
-             "Safe to share when triaging extraction failures on real PDFs.",
+             "Safe to share when triaging extraction failures on real documents.",
     )
     args = parser.parse_args(argv)
 
-    if bool(args.pdf) == bool(args.from_json):
+    if bool(args.summary) == bool(args.from_json):
         print(
-            "narrate: give either a PDF or --from-json, not both and not neither.",
+            "narrate: give either a summary file (.docx or PDF) or --from-json, not both and not neither.",
             file=sys.stderr,
         )
         return 2
@@ -144,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.from_json:
         if args.debug:
             print(
-                "narrate: --debug inspects a PDF; --from-json has none to inspect.",
+                "narrate: --debug inspects a summary file; --from-json has none to inspect.",
                 file=sys.stderr,
             )
             return 2
@@ -155,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
         # Default beside the file itself: a corrected narrative-input.json
         # already lives in the output directory of the run that produced it.
         out_dir = (args.out_dir or json_path.parent).resolve()
-        pdf_path = None
+        input_path = None
         print(f"narrate: reading {json_path.name}", file=sys.stderr)
         try:
             formdata = load_formdata_json(json_path)
@@ -163,19 +171,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"narrate: cannot read {json_path.name}: {exc}", file=sys.stderr)
             return 2
     else:
-        pdf_path = Path(args.pdf).resolve()
-        if not pdf_path.is_file():
-            print(f"narrate: file not found: {pdf_path}", file=sys.stderr)
+        input_path = Path(args.summary).resolve()
+        if not input_path.is_file():
+            print(f"narrate: file not found: {input_path}", file=sys.stderr)
             return 2
 
         if args.debug:
-            print(json.dumps(diagnose(pdf_path), indent=2, ensure_ascii=False))
+            print(json.dumps(diagnose(input_path), indent=2, ensure_ascii=False))
             return 0
 
-        out_dir = (args.out_dir or _default_out_dir(pdf_path)).resolve()
+        out_dir = (args.out_dir or _default_out_dir(input_path)).resolve()
 
-        print(f"narrate: reading {pdf_path.name}", file=sys.stderr)
-        formdata = extract_formdata(pdf_path)
+        print(f"narrate: reading {input_path.name}", file=sys.stderr)
+        formdata = extract_formdata(input_path)
 
     n_panel = len(formdata.get("panelMembership", {}))
     n_s1 = len(formdata.get("stage1", {}))
@@ -251,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
             "exceptional\nin a respect the guidance's examples do not cover. The "
             "Stage 2 explanation is the\nonly place that says what it was, so the "
             "narrative would tell the LAA the detail\nfollows and then not give it.\n\n"
-            "  The form no longer produces this, so the PDF either predates that "
+            "  The form no longer produces this, so the document either predates that "
             "change or the\n  JSON was edited by hand.\n\n"
             "  Everything recovered is in:\n"
             f"    {input_json}\n"
@@ -264,24 +272,24 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 5
 
-    # Nothing recovered means nothing to write. Stop at the PDF rather than
+    # Nothing recovered means nothing to write. Stop at the input rather than
     # building an empty skeleton, spending a model call on it, and reporting
     # the result as a citation failure — which says the narrative is wrong
     # when the truth is that there never was one.
     if extraction_is_empty(formdata):
-        if pdf_path is None:
+        if input_path is None:
             print(
                 "\nnarrate: that file holds no ticked criteria — there is "
                 "nothing to write a narrative from.",
                 file=sys.stderr,
             )
             return 4
-        print("\nnarrate: nothing was extracted from this PDF.\n", file=sys.stderr)
-        print(explain_empty_extraction(pdf_path), file=sys.stderr)
+        print("\nnarrate: nothing was extracted from this document.\n", file=sys.stderr)
+        print(explain_empty_extraction(input_path), file=sys.stderr)
         print(
             "\nnarrate: no files were written. For the full structural "
             "diagnostic (no client text) run:\n"
-            f'  python narrate.py --debug "{pdf_path}"',
+            f'  python narrate.py --debug "{input_path}"',
             file=sys.stderr,
         )
         return 4
@@ -294,10 +302,10 @@ def main(argv: list[str] | None = None) -> int:
     if incoherent:
         print("\nnarrate: stopping.\n", file=sys.stderr)
         print(incoherent, file=sys.stderr)
-        if pdf_path is not None:
+        if input_path is not None:
             print(
                 "\n  For the full structural diagnostic (no client text) run:\n"
-                f'    python narrate.py --debug "{pdf_path}"',
+                f'    python narrate.py --debug "{input_path}"',
                 file=sys.stderr,
             )
         print("\nnarrate: no files were written.", file=sys.stderr)

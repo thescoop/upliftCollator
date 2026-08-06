@@ -123,7 +123,7 @@ class TestTimingReachesTheReader(unittest.TestCase):
 
     def explain(self, **overrides):
         from unittest import mock
-        with mock.patch.object(extract, "diagnose",
+        with mock.patch.object(extract, "diagnose_pdf",
                                return_value={**self.BASE, **overrides}):
             return extract.explain_empty_extraction("anything.pdf")
 

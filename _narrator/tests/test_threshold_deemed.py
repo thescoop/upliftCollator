@@ -110,12 +110,14 @@ class ExtractDeemedLineTests(unittest.TestCase):
         self.assertFalse(extract_threshold_deemed(text))
 
     def test_tolerates_the_wrap_the_generator_may_introduce(self) -> None:
-        """jsPDF breaks a line at the column width and marks it in no way at all.
+        """jsPDF broke a line at the column width and marked it in no way at all.
 
-        The line is measured at 363.2pt against a 495.28pt column by
-        measure_pdf_labels.js and so should not wrap — but "should not" is what
-        was believed about the vulnerable-client label too, and that produced a
-        PDF the narrator refused to process for every claim ticking it.
+        Legacy-PDF path. The line measured 363.2pt against a 495.28pt column
+        (per the retired measure_pdf_labels.js) and so should not wrap — but
+        "should not" is what was believed about the vulnerable-client label
+        too, and that produced a PDF the narrator refused to process for every
+        claim ticking it. PDFs already in live matters keep this tolerance
+        forever; the .docx format cannot wrap at all.
         """
         wrapped = DEEMED_LINE.replace("by panel", "by\npanel")
         text = self._pdf_text(f"No Stage 1 threshold factors selected.\n{wrapped}")

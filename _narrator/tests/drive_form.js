@@ -74,7 +74,14 @@ async function openApp(browser) {
     {
         const { page, dialogs } = await openApp(browser);
         const title = await page.title();
-        check('version injected into the tab title', /v1\.12$/.test(title), title);
+        // Derived from content-data.js, not hardcoded here: a hardcoded "v1.12"
+        // in this very check survived the version bump to 1.13 and failed the
+        // drive — the same lesson as the hardcoded "13" the fourteenth review
+        // round caught in the Stage 1 alert.
+        const appVersion = (fs.readFileSync(path.join(REPO, 'content-data.js'), 'utf8')
+            .match(/const APP_VERSION = "([^"]+)"/) || [])[1];
+        check('version injected into the tab title',
+            !!appVersion && title.endsWith('v' + appVersion), title);
 
         // ── Page 1: case details + panel ────────────────────────────────────────
         await page.fill('#feeEarnerName', 'A. Solicitor');
@@ -155,28 +162,53 @@ async function openApp(browser) {
         await page.fill('#finalProposedUpliftPercent', '35');
         await page.waitForTimeout(300);
 
-        const dlDisabled = await page.locator('#generatePdfSummaryButton').isDisabled();
+        const dlDisabled = await page.locator('#downloadSummaryButton').isDisabled();
         check('download enabled once the deemed claim is evidenced', !dlDisabled);
 
         // ── Produce the PDF ─────────────────────────────────────────────────────
         if (!dlDisabled) {
             const [download] = await Promise.all([
                 page.waitForEvent('download', { timeout: 15000 }),
-                page.click('#generatePdfSummaryButton'),
+                page.click('#downloadSummaryButton'),
             ]);
             // The name the browser offers is the name the solicitor gets. Every
             // download was "LAA_Uplift_Data_Summary.pdf" until 6 August 2026, so
             // three cases in a morning produced that plus "(1)" and "(2)".
-            // Renamed to Uplift_Justification the same day: "Data Summary"
-            // undersold a document carrying the solicitor's own reasoning.
+            // Renamed to Uplift_Justification the same day; .docx since v1.13.
             const suggested = download.suggestedFilename();
             check('the download is named for the matter',
-                suggested === 'Uplift_Justification-Synthetic Test 0001.pdf',
+                suggested === 'Uplift_Justification-Synthetic Test 0001.docx',
                 suggested);
 
             const dest = path.join(OUT, suggested);
             await download.saveAs(dest);
-            check('PDF downloaded', fs.existsSync(dest), path.basename(dest));
+            check('summary downloaded', fs.existsSync(dest), path.basename(dest));
+
+            // ── Round-trip: the narrator must read back what the browser wrote ──
+            // This is the whole extraction contract exercised end to end: real
+            // click, real download, real python-docx read. On this deemed route
+            // Stage 1 is empty, so the deemed line and the panel tick are what
+            // must survive the trip.
+            try {
+                const out = execSync(
+                    `python3 extract.py ${JSON.stringify(dest)}`,
+                    { cwd: path.join(REPO, '_narrator'), encoding: 'utf8' });
+                const data = JSON.parse(out);
+                check('round-trip: deemed threshold read back',
+                    data.thresholdDeemed === true);
+                check('round-trip: panel membership read back',
+                    Object.keys(data.panelMembership || {}).length === 1,
+                    Object.keys(data.panelMembership || {}).join(','));
+                check('round-trip: Stage 2 factor read back with its explanation',
+                    Object.values(data.stage2 || {}).some(e =>
+                        e.checked && (e.explanation || '').split(/\s+/).length >= 10));
+                check('round-trip: nothing unrecognised',
+                    !(data.unrecognised && data.unrecognised.length),
+                    JSON.stringify(data.unrecognised || []).slice(0, 120));
+            } catch (e) {
+                check('round-trip: extract.py read the download', false,
+                    String(e.message || e).slice(0, 200));
+            }
         }
 
     }
@@ -231,7 +263,7 @@ async function openApp(browser) {
         await page.waitForTimeout(250);
 
         check('download enabled on the ordinary route',
-            !(await page.locator('#generatePdfSummaryButton').isDisabled()));
+            !(await page.locator('#downloadSummaryButton').isDisabled()));
 
         // ── C: threshold removed while sitting on the last page ────────────────
         //    The restored-draft shape: a draft saved on the final page is put back
@@ -245,8 +277,8 @@ async function openApp(browser) {
         });
         await page.waitForTimeout(250);
 
-        const disabled = await page.locator('#generatePdfSummaryButton').isDisabled();
-        const title = await page.locator('#generatePdfSummaryButton').getAttribute('title');
+        const disabled = await page.locator('#downloadSummaryButton').isDisabled();
+        const title = await page.locator('#downloadSummaryButton').getAttribute('title');
         check('download blocked once the threshold is gone', disabled);
         check('and the button says why',
             /threshold test \(CAG 12\.4\) is not met/.test(title || ''),
