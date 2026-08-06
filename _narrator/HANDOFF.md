@@ -11,9 +11,20 @@ funded by the Legal Aid Agency):
 1. **Uplift Collator** — the client-side web app (`index.html`, `script.js`,
    `content-data.js`, `style.css`). Password-gated, walks a solicitor through
    the LAA enhancement uplift questionnaire (Costs Assessment Guidance §12),
-   and saves a PDF summary. **Its only output path is
-   `pdf.save("LAA_Uplift_Data_Summary.pdf")`, in `generatePdfSummary`** — there is
-   no Word export, no `window.print()`, no print stylesheet. Both libraries it
+   and saves a PDF summary. **Its only output path is the single `pdf.save()` in
+   `generatePdfSummary`** — there is no Word export, no `window.print()`, no
+   print stylesheet. Since v1.12 that filename carries the matter name
+   (`Uplift_Justification-Smith 29964.pdf`) via `matterFilename()`, which mirrors
+   `matter_suffix()` in `_narrator/docx_writer.py`; the two must agree, because
+   the narrator's output folder is derived from this file's stem. It was
+   `LAA_Uplift_Data_Summary.pdf` until 6 August 2026.
+
+   **The per-page header is an extraction contract.** `addHeader` writes
+   "Uplift Justification  |  <matter>" and `HEADER_PATTERN` in `extract.py`
+   strips it from every page before parsing. That pattern still matches the
+   pre-rename wording, because PDFs made before it are in live matters. Change
+   one without the other and the header appears in the parsed body of every
+   page. Both libraries it
    needs are served from `vendor/`, not a CDN; see `vendor/_PROVENANCE.md`.
 2. **Uplift Narrator** (`_narrator/`) — the back-office tool that turns that PDF
    into the finished LAA enhancement narrative. It drives a local LM Studio
@@ -141,9 +152,13 @@ polish via LM Studio → deterministic citation check → LLM second opinion →
 verdict → Word. Both the GUI and the CLI run the identical pipeline through
 `polish.run()`, so the two can never disagree.
 
-**The deliverable is `narrative-polished.docx`** — a fragment written to paste
-into the CCMS bill narrative as its final section. `narrative-polished.md`
-remains as the audit copy. See the README for the layout and for why the .docx
+**The deliverable is `narrative-polished-<matter>.docx`** — a fragment written
+to paste into the CCMS bill narrative as its final section, named for the case
+so the attachment says which matter it is. `narrative-polished-<matter>.md`
+remains as the audit copy; both fall back to the bare name when the PDF carries
+no usable matter name. Stale output is cleared by pattern
+(`docx_writer.clear_derived`) — by exact name, a reused folder would keep a
+previous client's named Word file beside the new one. See the README for the layout and for why the .docx
 carries its own citation check.
 
 Three conventions worth not rediscovering:

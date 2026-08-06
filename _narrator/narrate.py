@@ -13,12 +13,26 @@ Always produces:
   narrative-prompt.txt   — the exact instruction sent to the model (audit record)
   narrative-input.json   — recovered formData for debugging or re-runs
 
-With ``--polish`` it also calls the local LM Studio server and adds:
-  narrative-polished.docx — the finished narrative as Word. This is the one you
-                            send: it pastes into the bill narrative as its final
-                            section.
-  narrative-polished.md  — the same narrative as plain text (audit copy)
+With ``--polish`` it also calls the local LM Studio server and adds, where
+``<matter>`` is the case/matter name recovered from the PDF (so, for a matter
+entered as "Smith 29964", ``narrative-polished-Smith 29964.docx``):
+
+  narrative-polished-<matter>.docx — the finished narrative as Word. This is the
+                            one you send: it pastes into the bill narrative as
+                            its final section.
+  narrative-polished-<matter>.md  — the same narrative as plain text (audit copy)
   citation-check.txt     — deterministic citation/placeholder check + LLM review
+
+The two polished files are named for the matter so that a Word file sitting in a
+folder or attached to an email says which case it belongs to. Where the PDF
+carries no usable matter name they fall back to ``narrative-polished.docx`` and
+``narrative-polished.md``. ``citation-check.txt`` keeps its fixed name: it
+certifies the run rather than being an artifact anyone sends on.
+
+Stale output from a previous run is cleared by pattern rather than by exact
+name — see ``docx_writer.clear_derived``. That is load-bearing: clearing by name
+would leave another client's named Word file in the folder as soon as two
+matters shared one.
 
 Exit codes::
 
@@ -46,6 +60,7 @@ from extract import (
     explain_empty_extraction,
     extract_formdata,
     extraction_is_empty,
+    threshold_coherence_error,
     unevidenced_other_factors,
     load_formdata_json,
 )
@@ -59,18 +74,12 @@ def _default_out_dir(pdf_path: Path) -> Path:
 
 # Outputs derived from the skeleton. They stop being true the moment a new run
 # overwrites the skeleton, so they are cleared before one starts.
-DERIVED_FILES = (
-    "narrative-polished.docx",
-    "narrative-polished.md",
-    "citation-check.txt",
-)
-
-
-def _clear_derived(out_dir: Path) -> None:
-    for name in DERIVED_FILES:
-        (out_dir / name).unlink(missing_ok=True)
-
-
+#
+# Cleared by PATTERN, not by fixed name, since 6 August 2026 — the polished files
+# now carry the matter name. Clearing by exact name would have stopped overwriting
+# the previous run's output the moment two matters shared a folder, leaving a Word
+# file bearing ANOTHER client's name beside the new one. See docx_writer.
+_clear_derived = docx_writer.clear_derived
 
 
 
@@ -277,6 +286,23 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 4
 
+    # Stage 2 factors with no threshold basis. build_skeleton refuses this too —
+    # that is where the rule actually lives, so it holds for the GUI and for
+    # skeleton.py's own __main__ as well — but a ValueError traceback is not a
+    # report, and this is the entry point most likely to meet the case.
+    incoherent = threshold_coherence_error(formdata)
+    if incoherent:
+        print("\nnarrate: stopping.\n", file=sys.stderr)
+        print(incoherent, file=sys.stderr)
+        if pdf_path is not None:
+            print(
+                "\n  For the full structural diagnostic (no client text) run:\n"
+                f'    python narrate.py --debug "{pdf_path}"',
+                file=sys.stderr,
+            )
+        print("\nnarrate: no files were written.", file=sys.stderr)
+        return 6
+
     out_dir.mkdir(parents=True, exist_ok=True)
     skeleton_md = build_skeleton(formdata)
     case_meta = formdata.get("caseDetails", {}) | {
@@ -325,8 +351,12 @@ def main(argv: list[str] | None = None) -> int:
                   "narrative-prompt.txt into LM Studio by hand.", file=sys.stderr)
             return 3
 
-        (out_dir / "narrative-polished.md").write_text(result.polished + "\n", encoding="utf-8")
-        written.append("narrative-polished.md")
+        # Both carry the matter name — one narrative in two formats, so a folder
+        # in which only one of them named the case would invite sending the
+        # wrong pair.
+        stem = docx_writer.polished_stem(formdata)
+        (out_dir / f"{stem}.md").write_text(result.polished + "\n", encoding="utf-8")
+        written.append(f"{stem}.md")
 
         # The Word file is the deliverable, so a conversion that lost a
         # citation must be loud rather than leaving a plausible-looking .docx
@@ -334,9 +364,9 @@ def main(argv: list[str] | None = None) -> int:
         docx_ok = True
         try:
             outcome = docx_writer.write_docx(
-                result.polished, out_dir / "narrative-polished.docx"
+                result.polished, out_dir / f"{stem}.docx"
             )
-            written.append("narrative-polished.docx")
+            written.append(f"{stem}.docx")
             print(
                 f"narrate: Word document written — {len(outcome.citations)} "
                 "citations carried over.",

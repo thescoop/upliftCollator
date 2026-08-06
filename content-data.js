@@ -2,7 +2,14 @@
 // This file stores the static data for the LAA Uplift Data Capture Web Application.
 
 // Version Information
-const APP_VERSION = "1.11";
+// 1.11 never shipped. The whole redesign was built under it on
+// redesign/stage1-labels and none of it reached main, so the compatibility rule
+// stays "v1.10 or earlier ⇒ legacy label set" and every "pre-v1.11" comment in
+// this file remains accurate as a boundary. Bumped to 1.12 on 6 August 2026 for
+// the deemed-threshold route and the two new Stage 1 labels, because a released
+// 1.11 and this build would otherwise be two different label sets under one
+// number — and the label set is the extraction contract.
+const APP_VERSION = "1.12";
 const APP_RELEASE_DATE = "4 August 2026";
 const APP_NAME = "Uplift Collator";
 
@@ -63,6 +70,19 @@ const NARRATIVE_TEMPLATES = {
     // count; see _pick_by_count().
     "intro": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factors, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2024 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
     "intro_singular": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work due to the following exceptional factor, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2024 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
+
+    // Deemed-route variants of the two above, naming the fee earner. On the
+    // ordinary route the threshold rests on features of the case and the
+    // unqualified wording is right. On the deemed route it rests entirely on one
+    // named person's panel membership: Spec Para 7.23's chapeau confines the
+    // deeming to "work done by a member of a relevant panel", and CAG 12.22
+    // excludes supervision and other fee earners outright. An unqualified claim on
+    // a bill with a second fee earner would extend the deeming over work it never
+    // covered — which is also the one thing CAG 12.22 tells the draftsman to make
+    // clear: "the narrative must clearly state the fee-earner for whom the
+    // enhancement is claimed and the basis for the enhancement".
+    "intro_deemed": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work carried out by {FEE_EARNER_NAME}, due to the following exceptional factors, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2024 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
+    "intro_deemed_singular": "An enhancement of {UPLIFT_PERCENT}% is claimed on the {ITEM_OF_WORK} work carried out by {FEE_EARNER_NAME}, due to the following exceptional factor, reflecting the principles in CPR 44.4(3) and relevant LAA Costs Assessment Guidance (CAG) and the 2024 Standard Civil Contract Specification (referred to as 'Spec'):\n\n",
     // The scope qualifier these two templates used to carry — "and the work
     // undertaken falls within the scope of this accreditation" — was removed on
     // 5 August 2026. It has no source. It is absent from the 2024 General
@@ -89,6 +109,31 @@ const NARRATIVE_TEMPLATES = {
     // and the factors determining the level of enhancement"). These templates
     // therefore carry no {USER_EXPLANATION} — from v1.11 Stage 1 collects no prose.
     "threshold_intro_narrative": "\n**LAA Threshold Test (Qualifying for Enhancement - Spec Para 6.13 / CAG Section 12.4):**\nThe work meets the threshold for enhancement because, compared with the generality of legally aided proceedings to which the prescribed rates apply:",
+
+    // Used INSTEAD of threshold_intro_narrative when the solicitor ticked nothing
+    // at Stage 1 and the threshold is deemed satisfied by panel membership. Both
+    // the quotation and the paragraph number are checked against
+    // _spec-7.20-7.24-verbatim.md, which is the source of truth for the
+    // Specification exactly as _cag-section-12-verbatim.md is for the guidance.
+    //
+    // It opens on the entitlement rather than on the absence of factors. Leading
+    // with "no threshold factor is asserted" would be true and would also be an
+    // admission against interest in the first line of a bill narrative, for no
+    // gain: the absence is evident the moment an assessor looks for the list. The
+    // absence is still stated — third sentence — because an assessor must not have
+    // to discover it.
+    //
+    // Every assertion traces to something the solicitor entered: the name they
+    // typed, the panel they ticked, and the fact that no Stage 1 box is ticked.
+    // The rest is citation, which the narrator may add. It asserts nothing about
+    // the work itself, which is the whole point of a deemed threshold — it is a
+    // matter of contractual entitlement, not a claim about the case.
+    //
+    // Scope is confined to the named fee earner, because Spec Para 7.23's chapeau
+    // confines it and CAG 12.22 excludes supervision and other fee earners. On a
+    // bill with a second fee earner an unqualified claim would extend the deeming
+    // to work it never covered.
+    "threshold_deemed_narrative": "\n**LAA Threshold Test (Qualifying for Enhancement - Spec Para 6.13 / CAG Section 12.4):**\nThe threshold test at Spec Para 6.13 is deemed to be satisfied in respect of the work carried out by {FEE_EARNER_NAME}, who is a member of the {PANEL_NAME}. Spec Para 7.23(a) provides that where work is done by a member of a relevant panel \"the threshold test at Paragraph 6.13 shall be deemed to be satisfied in respect of that work\". This claim relies on that provision, and not on any of the threshold factors described at CAG Section 12.8. The level of enhancement claimed is addressed below.",
     "s1_competence_skill_expertise_header_narrative": "  The work was done with **exceptional competence, skill or expertise** (Spec Para 6.13(a) / CAG Section 12.8(a)):",
     "s1_cse_detailed_knowledge": "    - Unusually detailed knowledge relevant to this case was applied.",
     "s1_cse_difficult_argument": "    - An unusual or difficult legal argument was pursued.",
@@ -111,6 +156,12 @@ const NARRATIVE_TEMPLATES = {
     "s1_circ_difficult_instructions": "    - Taking instructions from the client or other witnesses was exceptionally difficult.",
     "s1_circ_client_impact": "    - The issues affecting the client gave rise to exceptional circumstances.",
     "s1_circ_out_of_hours": "    - The case required substantial out-of-hours work.",
+    // Both assert the operative limb — exceptional circumstances or complexity —
+    // with novelty or volume as the cause. Neither says novelty or weight is
+    // itself the threshold, because Spec Para 6.13(c) does not say that. See the
+    // limb (c) block comment in QUESTION_BLOCKS for the whole reasoning.
+    "s1_circ_novel_point": "    - A novel point of law or legal context made the case exceptionally complex.",
+    "s1_circ_weight": "    - The volume of documentation, material or issues gave rise to exceptional circumstances.",
     "s1_circ_other": "    - The case involved exceptional circumstances or complexity in a respect other than the examples given at CAG 12.8(c), which are expressly not exhaustive (CAG 12.7). The circumstances are set out below.",
 
     // --- Stage 2: the level of enhancement --------------------------------------
@@ -138,6 +189,7 @@ const NARRATIVE_TEMPLATES = {
 
     "s2_novelty_header_narrative": "  **Novelty** (CAG 12.9(c)(i)):",
     "s2_novelty_difficult_argument": "    - An unusual or difficult legal argument was pursued.{USER_EXPLANATION}",
+    "s2_novelty_novel_point": "    - The case involved a novel point of law or legal context.{USER_EXPLANATION}",
 
     "s2_weight_header_narrative": "  **Weight** (CAG 12.9(c)(ii)):",
     "s2_weight_client_importance": "    - The importance of the case to the client was a factor in the level of enhancement.{USER_EXPLANATION}",
@@ -161,6 +213,7 @@ const NARRATIVE_TEMPLATES = {
     "s2_resp_no_counsel_drafting": "    - Drafting was undertaken without recourse to counsel.{USER_EXPLANATION}",
     "s2_resp_no_counsel_advocacy": "    - Advocacy was undertaken without recourse to counsel.{USER_EXPLANATION}",
     "s2_resp_addressed_expert_issues": "    - Evidential issues were identified or addressed that might otherwise have incurred the time of an expert.{USER_EXPLANATION}",
+    "s2_resp_other": "    - The fee earner accepted a degree of responsibility beyond the considerations identified at CAG 12.9(a), which are expressly not exhaustive (CAG 12.7).{USER_EXPLANATION}",
 
     // The conclusion no longer asserts the wrong comparison. CAG 12.8 sets the
     // benchmark as the generality of legally aided proceedings; the previous
@@ -385,10 +438,32 @@ const QUESTION_BLOCKS = [
         // "exceptional circumstances or complexity". 12.8(c)'s own heading adds
         // novelty and weight, but 12.8's headings are demonstrably loose (it also
         // refers to "the three limbs of 6.15" where 12.4 puts the threshold at
-        // 6.13), so 12.4 governs. Novelty and weight are developed as Stage 2
-        // considerations at 12.9(c) and are collected there. Confirmed with Simon
-        // on 4 August 2026: he has never seen a claim pass the threshold on
-        // documentary weight or novelty alone.
+        // 6.13), so 12.4 governs.
+        //
+        // The title and the narrative header therefore keep the operative wording
+        // and MUST NOT drift to 12.8(c)'s heading. A narrative asserting
+        // "exceptional circumstances, novelty, weight or complexity (Spec Para
+        // 6.13(c))" would attribute to the contract words the contract does not
+        // contain — the exact class of defect this tool exists to remove, and this
+        // time in the direction that invites challenge rather than under-claiming.
+        // Novelty and weight are instances beneath the limb, not a fourth limb.
+        //
+        // The novelty and weight labels were added on 6 August 2026, REVERSING the
+        // decision recorded here on 4 August 2026. What changed was the question,
+        // not the evidence. On 4 August the question was "should weight or novelty
+        // pass the threshold on their own?" — Simon's answer was no, from never
+        // having seen such a claim succeed, and that answer still stands. On
+        // 6 August the question was "can a solicitor whose case really is
+        // exceptional for one of those reasons say so at all?", and the answer was
+        // that they could not: Stage 1 had no wording for it, so the tool turned
+        // them away.
+        //
+        // The two are reconciled in the labels themselves, which do not claim the
+        // thing Simon rejected. Each asserts the limb — exceptional circumstances
+        // or complexity — with novelty or volume as the cause of it, and each
+        // carries `requires_stage2`, so neither can reach the LAA without
+        // particulars behind it at Stage 2. Weight or novelty alone, bare and
+        // unevidenced, is exactly as unclaimable as it was before.
         title: "Threshold limb (c): exceptional circumstances or complexity",
         main_question_text: "Did the case involve exceptional circumstances or complexity?",
         main_toggle_id: "s1_circumstances_main_toggle",
@@ -422,6 +497,46 @@ const QUESTION_BLOCKS = [
                 explanation: false,
                 stage2_factor: "speed",
                 what_counts: "CAG 12.8(c): \"A case requiring substantial out of hours work may also be considered to fall under this limb or particular work may be considered under 6.15(b) of the Specification\". This carries forward to speed at Stage 2."
+            },
+            {
+                label: "A novel point of law or legal context made the case exceptionally complex",
+                // NOT `s1_circ_novelty`. That key already exists in
+                // NARRATIVE_TEMPLATES as a RETIRED v1.10 entry, and both JS object
+                // literals and json5 resolve a duplicate key to the last
+                // occurrence — the retired block sits after the live one, so the
+                // retired template would have won, silently. This label would then
+                // have rendered into a bill narrative as "The case presented novel
+                // points of law or a unique factual matrix concerning [SPECIFY
+                // NOVEL ASPECTS]", sending an unfilled placeholder to the LAA,
+                // plus a {USER_EXPLANATION} token on a label that carries no
+                // explanation. structural_audit.py would have passed it: it checks
+                // that a key HAS a template, not that the template is a live one.
+                key: "s1_circ_novel_point",
+                explanation: false,
+                // `requires_stage2` on a NAMED label, which until 6 August 2026 was
+                // used only for the three "other" labels. The reason differs. An
+                // "other" says nothing on its own; this says something, but CAG
+                // 12.9(c)(i) is close to an instruction that it be particularised —
+                // "it should be clear from the provider's claim whether the case
+                // involves a novel point of law or legal context". A tick asserting
+                // novelty with nothing identifying the point is not clear from the
+                // claim, so the guard applies here too.
+                requires_stage2: true,
+                stage2_factor: "novelty",
+                what_counts: "CAG 12.8(c)'s heading names novelty as a threshold matter: \"The case involved exceptional circumstances, novelty, weight or complexity\". The operative wording is narrower — Spec Para 6.13(c), CAG 12.4(c) and CAG 12.12(c) all say \"exceptional circumstances **or complexity**\" — so this label asserts that limb, with the novel point as what made the case complex. It does not assert that novelty by itself passes the threshold, and an assessor reading 12.4(c) could argue that it cannot. CAG 12.9(c)(i) supplies the phrase: \"it should be clear from the provider's claim whether the case involves a novel point of law or legal context\". Because it must be clear, this tick will not stand alone — you will be asked at Stage 2 to identify the point and say what made it novel."
+            },
+            {
+                label: "The volume of documentation, material or issues gave rise to exceptional circumstances",
+                key: "s1_circ_weight",
+                explanation: false,
+                // Flagged for the reason Simon gave on 4 August 2026 when he
+                // rejected weight as a threshold label outright: he has never seen
+                // a claim pass on documentary weight alone. A bare tick asserting
+                // exceptional volume with no figure anywhere in the document is
+                // that claim. The flag makes it impossible to file.
+                requires_stage2: true,
+                stage2_factor: "weight",
+                what_counts: "CAG 12.8(c)'s heading names weight as a threshold matter: \"The case involved exceptional circumstances, novelty, weight or complexity\". The operative wording is narrower — Spec Para 6.13(c), CAG 12.4(c) and CAG 12.12(c) all say \"exceptional circumstances **or complexity**\" — so this label asserts that limb, with the volume as what gave rise to it. Tick it with your eyes open: an assessor can argue that volume is a Stage 2 consideration under CAG 12.9(c)(ii) and not a threshold matter at all, and a claim resting on bulk alone is the weakest kind there is. It will not stand alone — you will be asked at Stage 2 for the actual volume, in files, pages or issues. **If what gives this case its weight is what was at stake for the client rather than its bulk, tick \"The issues affecting the client gave rise to exceptional circumstances\" above instead.** That is the other half of CAG 12.9(c)(ii), and ticking both for the same fact double-counts it."
             },
             {
                 label: "The case involved exceptional circumstances or complexity in some other way",
@@ -522,6 +637,17 @@ const QUESTION_BLOCKS = [
         factor_description: "CAG 12.9(c)(i): \"it should be clear from the provider’s claim whether the case involves a novel point of law or legal context\".",
         checkboxes: [
             { label: "Unusual or difficult legal argument", key: "s2_novelty_difficult_argument", explanation: true, carried_from: ["s1_cse_difficult_argument"], stem: "The argument was… and any novelty in the point of law or legal context arose because…", example: "e.g., The argument concerned [specific issue]; the point of law or legal context was novel because..." },
+            // Deliberately NOT "Novel point of law or legal context". The legacy
+            // alias block below maps "A novel point of law or legal context" to
+            // s2_novelty_difficult_argument, and the two would then differ by one
+            // leading article. Both are Stage 2, so the section-membership guard
+            // could not tell a wrap-damaged one from the other; and anyone later
+            // "tidying" this label to add the article would give
+            // label_to_key_lookup() one label mapping to two keys, which raises at
+            // load and kills the narrator for every document, not just novelty
+            // ones. "Novelty in the" shares no opening with "A novel point", so
+            // there is nothing to tidy them together.
+            { label: "Novelty in the point of law or legal context", key: "s2_novelty_novel_point", explanation: true, carried_from: ["s1_circ_novel_point"], stem: "The novel point of law or legal context was… and it was novel because…", example: "e.g., The point concerned [specific issue]; it was novel because [there was no reported authority on it / the provision had not previously been applied to facts of this kind], and dealing with it required..." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -533,17 +659,28 @@ const QUESTION_BLOCKS = [
         cag_citation: "CAG 12.9(c)(ii)",
         factor: "weight",
         narrative_header_key: "s2_weight_header_narrative",
-        // Weight has TWO halves and only one of them is carried forward. CAG
-        // 12.9(c)(ii) covers both "the volume of documentation, other material, or
+        // Weight has TWO halves, and as of 6 August 2026 both are carried forward.
+        // CAG 12.9(c)(ii) covers "the volume of documentation, other material, or
         // the number of issues arising" AND "the importance of the case to the
         // client". The client-importance half arrives from Stage 1 label
-        // s1_circ_client_impact; the volume half has no Stage 1 carrier, because
-        // documentary weight is deliberately not a threshold label. So the volume
-        // item must be offered independently or it can never be claimed at all.
+        // s1_circ_client_impact; the volume half now arrives from s1_circ_weight,
+        // added when limb (c) gained a weight label.
+        //
+        // Both remain independently tickable — carry-forward pre-ticks a box, it
+        // does not gate it — so weight can still be claimed at Stage 2 by a
+        // solicitor who did not tick either Stage 1 label. What changed is that a
+        // Stage 1 weight tick is no longer an orphan: s1_circ_weight carries
+        // `requires_stage2`, and this is the item that satisfies it.
+        //
+        // _PLAN.md recorded Responsibility and Weight as the two Stage 2 "orphans".
+        // That was only ever half right — the client-importance half has had a
+        // carrier since the redesign. Responsibility is now the only factor block
+        // with no Stage 1 route into it at all, which is by design: there is no
+        // threshold limb about carrying a case without counsel.
         factor_description: "CAG 12.9(c)(ii): weight \"may refer to the volume of documentation, other material, or the number of issues arising\". It \"may also refer to the importance of the case to the client\".",
         checkboxes: [
             { label: "Importance of the case to the client", key: "s2_weight_client_importance", explanation: true, carried_from: ["s1_circ_client_impact"], stem: "What was at stake for the client was… and that meant…", example: "e.g., The proceedings affected the client's [e.g., fundamental right to family life / risk of homelessness], requiring..." },
-            { label: "Volume of documentation, material or issues", key: "s2_weight_volume", explanation: true, origin: "independent", stem: "The volume was… and dealing with it required…", example: "e.g., The disclosure, exceeding [e.g., 10 lever arch files / 2000 pages], related to [type of documents] and required time to review and schedule for..." },
+            { label: "Volume of documentation, material or issues", key: "s2_weight_volume", explanation: true, carried_from: ["s1_circ_weight"], stem: "The volume was… and dealing with it required…", example: "e.g., The disclosure, exceeding [e.g., 10 lever arch files / 2000 pages], related to [type of documents] and required time to review and schedule for..." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -596,6 +733,26 @@ const QUESTION_BLOCKS = [
             { label: "Drafting without counsel", key: "s2_resp_no_counsel_drafting", explanation: true, origin: "independent", stem: "I drafted… myself, which might otherwise have involved counsel because…", example: "e.g., Drafting of [e.g., a detailed Threshold Agreement / a nuanced position statement addressing multiple allegations] was handled entirely by the fee earner..." },
             { label: "Advocacy without counsel", key: "s2_resp_no_counsel_advocacy", explanation: true, origin: "independent", stem: "I conducted the advocacy at… which might typically have been briefed because…", example: "e.g., The fee earner conducted advocacy at the [e.g., contested interim hearing / directions hearing involving complex legal argument] which might typically have been briefed to Counsel because..." },
             { label: "Addressed evidential issues that might otherwise have needed an expert", key: "s2_resp_addressed_expert_issues", explanation: true, origin: "independent", stem: "I addressed… myself, which avoided…", example: "e.g., By meticulously [e.g., cross-referencing medical records with witness statements / researching technical financial data], the fee earner was able to address [specific expert/evidential issue] directly, thereby avoiding the need and cost of instructing a separate expert in..." },
+            // The ONLY "other" added at Stage 2, on 6 August 2026. Four were
+            // proposed — one per factor lacking one — and three were cut on the
+            // ground that CAG 12.7 makes the *features* of a case non-exhaustive,
+            // not the factors' own definitions. Efficiency is defined at
+            // 12.9(b)(iii) by its outcome ("claiming less time or less in
+            // disbursements"), with "whether because of… or because of…" already
+            // covering any cause; novelty at 12.9(c)(i) simply *is* "a novel point
+            // of law or legal context"; weight at 12.9(c)(ii) has both of its
+            // halves on the page. An "other" in any of those is outside the factor
+            // as the LAA wrote it, and would collect the padding this file warns
+            // about twenty lines above.
+            //
+            // Responsibility is different, and 12.9(a) says so in its own
+            // construction: "one consideration will be… Another point may be" —
+            // expressly open-ended. It is also the one factor with no Stage 1 route
+            // into it, so a solicitor who carried an unusual share of the load in a
+            // way none of the four items describes has nowhere else to say it.
+            // Simon's decision, 6 August 2026, choosing the narrowest of three
+            // options put to him.
+            { label: "Responsibility accepted in some other way", key: "s2_resp_other", explanation: true, origin: "independent", stem: "I carried… and the responsibility mattered because…", example: "e.g., Identify the work or decision the fee earner was responsible for, say how that responsibility came to rest with them rather than with counsel or a colleague, and explain what turned on it. CAG 12.16 frames this as \"an unusual share of the load\" — so say what made the share unusual. Ordinary conduct of a case is not this factor." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -722,13 +879,17 @@ This tool helps solicitors provide structured information for claiming an enhanc
 ## The LAA's Two-Stage Process for Enhancements:
 
 ### Stage 1: Threshold Test (CAG Section 12.4)
-First, the work must meet **at least ONE** of these primary criteria.
+First, the work must meet **at least ONE** of these primary criteria — unless the fee earner is on one of the three family panels, in which case the threshold is deemed satisfied for their own work and the tool will let you through without one (see below).
 
-Panel membership sits outside that test. A guaranteed minimum of 15% is payable for work carried out by a fee-earner on one of the three panels (CAG 12.20) — though **not** for supervision, and not for work done by other fee-earners (CAG 12.22). Paragraph 7.23(a) of the 2024 Family Category Specific Rules also deems the Paragraph 6.13 threshold satisfied for that fee-earner's work. This tool nonetheless asks a panel member to tick at least one factor before it will build a claim above 15%. **That is how the tool is set up, not what the rules require.** If your case justifies more than 15% on responsibility or weight alone — neither of which has a Stage 1 equivalent — say so to Woodruff Billing directly rather than treating this form as the limit of what you can claim.
+Panel membership sits outside that test. A guaranteed minimum of 15% is payable for work carried out by a fee-earner on one of the three panels (CAG 12.20) — though **not** for supervision, and not for work done by other fee-earners (CAG 12.22). It is a floor rather than an addition: it is not payable on top of a general enhancement (CAG 12.23), so this tool is about whether the case justifies more than 15%.
+
+Spec Para 7.23(a) also deems the Paragraph 6.13 threshold satisfied for that fee-earner's own work. **The tool relies on that**: a panel member who ticks nothing at Stage 1 may still go on to Stage 2 and build a claim above 15%, resting the threshold on 7.23(a) rather than on any factor. It will say so on the face of the PDF and in the narrative, naming the fee earner, because the deeming reaches only their work and CAG 12.22 requires the narrative to state whose claim it is.
+
+Do that with your eyes open. Nothing then supports the claim except Stage 2, and an assessor who reads exceptional complexity at Stage 2 will ask why limb (c) was not claimed at Stage 1. If a threshold factor genuinely applies, tick it.
 
 Tick whichever factors apply. Stage 1 is tick-only; explanations are collected at Stage 2, where they count. The three headings are the limbs of Spec Para 6.13 — they group the factors and are not themselves tickable.
 
-Thirteen of the factors are the guidance's own examples, and CAG 12.7 says they are **not** an exhaustive list. Each limb therefore ends with an "in some other way" option, which claims the limb itself rather than one of the examples. Tick one of those only where the limb genuinely applies and none of the examples fits — you will have to say what it was at Stage 2, and the form will not produce a PDF until you do.
+Fifteen of the factors are the guidance's own examples, and CAG 12.7 says they are **not** an exhaustive list. Each limb therefore ends with an "in some other way" option, which claims the limb itself rather than one of the examples. Tick one of those only where the limb genuinely applies and none of the examples fits — you will have to say what it was at Stage 2, and the form will not produce a PDF until you do.
 
 1.  **Exceptional competence, skill, or expertise:**
     *   The fee earner demonstrates unusually detailed knowledge.
@@ -751,7 +912,7 @@ Thirteen of the factors are the guidance's own examples, and CAG 12.7 says they 
 
 ---
 ### Stage 2: Determining the Level of Enhancement (CAG Section 12.5 & 12.9)
-If the Stage 1 threshold test is met by selecting at least one Stage 1 factor, these Stage 2 sections allow you to detail the factors relevant to the *amount* of enhancement claimed. Provide an explanation for each selected Stage 2 factor.
+Once the Stage 1 threshold test is satisfied — by ticking at least one Stage 1 factor, or by panel membership under Spec Para 7.23(a) — these Stage 2 sections allow you to detail the factors relevant to the *amount* of enhancement claimed. Provide an explanation for each selected Stage 2 factor.
 
 1.  **Degree of responsibility accepted by the fee earner:**
     *   Extent of work done without recourse to Counsel (e.g., analysis, planning, drafting, advocacy).

@@ -19,8 +19,10 @@ Two front-ends:
 ## The input must come from the app's own button
 
 The narrator reads the PDF that the Uplift Collator web app saves when you
-click **Generate PDF Summary** — `LAA_Uplift_Data_Summary.pdf`. Rename it
-freely; the *content* is what matters.
+click **Generate PDF Summary**. Since v1.12 the download is named for the
+matter — `Uplift_Justification-Smith 29964.pdf` — so several cases in a
+morning no longer arrive as the same filename with `(1)` and `(2)` after it.
+Rename it freely; the *content* is what matters.
 
 It cannot read a PDF made by the browser's own Print / Save-as-PDF, because
 printing captures the on-screen page, which has none of the section structure
@@ -114,7 +116,9 @@ to happen somewhere either way.
 For an input `case.pdf`, both front-ends write a folder `case-narrative/` next
 to the PDF:
 
-- **`narrative-polished.docx`** — the finished narrative as a Word document.
+- **`narrative-polished-<matter>.docx`** — the finished narrative as a Word
+  document, named for the case (`narrative-polished-Smith 29964.docx`), so the
+  file says which matter it belongs to once it is attached to an email.
   **This is the one you send.** It is a *fragment*, not a standalone document:
   it is written to be pasted straight into the CCMS bill narrative as its final
   section, "Claim For Additional General Enhancement". It therefore has no title
@@ -129,7 +133,8 @@ to the PDF:
   disallowed. Headings are bold only — underline conventionally signals a
   citation in legal drafting, so using it for headings competes with the
   authorities that are the point of this section.
-- **`narrative-polished.md`** — the same narrative as plain text. The audit and
+- **`narrative-polished-<matter>.md`** — the same narrative as plain text, named
+  to match the .docx. The audit and
   diff copy, and what the GUI's *Polished Narrative* tab shows. Identical in
   substance to the .docx; the conversion refuses to write a Word file that does
   not carry exactly the same citations, in the same counts (see below).
@@ -173,7 +178,14 @@ are pure scaffolding (`Introduction`, `Conclusion`) *and* contain no citation.
 After building the document it re-runs the citation extractor over the finished
 Word file and refuses to save it unless the citations match the Markdown
 exactly, in the same counts. If that ever fails, the run says so and exits
-non-zero; `narrative-polished.md` is unaffected and can be used instead.
+non-zero; the `narrative-polished-<matter>.md` is unaffected and can be used
+instead.
+
+Both polished files fall back to the bare `narrative-polished.docx` /
+`narrative-polished.md` when the PDF carries no usable matter name — a file
+called `narrative-polished-unknown.docx` would be worse than one with no suffix
+at all. `citation-check.txt` keeps its fixed name: it certifies the run rather
+than being something you send on.
 
 **The polished narrative still needs a human review pass before it goes to the
 LAA.** The checks tell you nothing was dropped; they cannot tell you the

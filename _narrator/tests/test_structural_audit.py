@@ -50,9 +50,15 @@ class StructuralAuditTests(unittest.TestCase):
         # exactly the failure this wrapper exists to catch, so the counts are
         # what it reads. Update these deliberately when the form changes; that
         # is the point of them.
-        self.assertIn("Stage 1: 16 checkboxes", report)
-        self.assertIn("Template coverage: 40 live keys and 41 legacy labels", report)
-        self.assertIn("Label uniqueness: 81 live/legacy labels", report)
+        # 16 -> 18 on 6 August 2026: limb (c) gained a novelty label and a weight
+        # label. 40 -> 44 live keys: those two, plus their Stage 2 carriers
+        # s2_novelty_novel_point and s2_resp_other. 81 -> 85 follows (44 live +
+        # 41 legacy). The legacy and alias counts are unchanged, and should be:
+        # nothing that already shipped was renamed.
+        self.assertIn("Stage 1: 18 checkboxes", report)
+        self.assertIn("Retired-template binding: 54 live keys and headers", report)
+        self.assertIn("Template coverage: 44 live keys and 41 legacy labels", report)
+        self.assertIn("Label uniqueness: 85 live/legacy labels", report)
         self.assertIn("Changed-label aliases: 12 previous live labels", report)
 
 

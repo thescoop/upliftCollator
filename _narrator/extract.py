@@ -87,6 +87,14 @@ EVIDENCE_STATUS = re.compile(
 # they had pasted into an explanation. The last heading is the section; if it
 # does not read cleanly the answer is no, not "look further up".
 EVIDENCE_HEADING = re.compile(r"^EVIDENCE ON FILE\s*$", re.MULTILINE)
+# The deemed-threshold line, printed by script.js beneath the empty-Stage-1
+# sentinel when the fee earner is on a relevant panel and nothing is ticked.
+# Whitespace-tolerant for the same reason as the sentence above — the generator
+# may break it anywhere — but otherwise exact. It is an extraction contract.
+THRESHOLD_DEEMED_LINE = re.compile(
+    r"Threshold\s+test:\s+deemed\s+satisfied\s+by\s+panel\s+membership\s*"
+    r"\(Spec\s+Para\s+7\.23\(a\)\)\."
+)
 # Whitespace-tolerant because jsPDF wraps this sentence at the column width and
 # the break lands in a different place depending on the page.
 EVIDENCE_CONFIRMED_SENTENCE = re.compile(
@@ -98,9 +106,24 @@ FOOTER_PATTERN = re.compile(
     r"CONFIDENTIAL\s+[—-]\s+FOR LAA SUBMISSION\s+Page\s+\d+\s+of\s+\d+\s+Woodruff Billing Ltd"
 )
 
-# Per-page header rendered by addHeader.
+# Per-page header rendered by addHeader, stripped before parsing.
+#
+# TWO wordings, and both must stay. The header was "LAA Uplift Enhancement |
+# Data Summary" until 6 August 2026 and is "Uplift Justification | <matter>"
+# after it. PDFs produced before the rename are sitting in live matters, and a
+# pattern that matched only the new wording would stop stripping their header —
+# putting "Woodruff Billing Ltd. LAA Uplift Enhancement | Data Summary" into the
+# middle of the parsed body on every page of every one of them.
+#
+# The new form consumes to end of line so that the matter name goes with it.
+# That is what keeps a matter called "CASE DETAILS" from planting a false
+# section heading on every page: the whole header line is removed, name and all.
+# `[^\n]*` cannot run past the line, so it can never eat real content — and the
+# name is capped at 60 characters by the generator before it gets here.
 HEADER_PATTERN = re.compile(
-    r"W\s*Woodruff Billing Ltd\.\s+LAA Uplift Enhancement\s*\|\s*Data Summary"
+    r"W\s*Woodruff Billing Ltd\.\s+"
+    r"(?:LAA Uplift Enhancement\s*\|\s*Data Summary"
+    r"|Uplift Justification(?:\s*\|[^\n]*)?)"
 )
 
 
@@ -551,6 +574,114 @@ def extract_criteria(
     return result
 
 
+def extract_threshold_deemed(text: str) -> bool:
+    """Whether the PDF affirmatively states that the threshold is deemed satisfied.
+
+    Read strictly, and defaulting to False in every doubtful case, on the same
+    reasoning as :func:`extract_evidence_confirmation`.
+
+    This must be a *positive* reading of a line that is present, never an
+    inference from an absent Stage 1 section. The distinction is the whole point.
+    Before this existed, a Stage 1 section that was missing entirely produced
+    exactly what the empty-Stage-1 sentinel produces — ``{}`` — so "the solicitor
+    legitimately ticked nothing" and "the section was destroyed" were the same
+    value. That was harmless only while the form refused to produce the first
+    shape at all. The deemed route makes it a legitimate document, and at that
+    point an absent Stage 1 section could be read as a contractual entitlement to
+    enhancement that nobody claimed.
+
+    Bounded to the Stage 1 section. The line is meaningless anywhere else, and
+    accepting it from anywhere would let a solicitor who pasted a previous
+    summary into an explanation box assert panel entitlement by accident — the
+    failure mode that ``EVIDENCE ON FILE`` had to be hardened against.
+    """
+    block = section_slice(text, "stage1")
+    if not block:
+        return False
+    return bool(THRESHOLD_DEEMED_LINE.search(block))
+
+
+def deemed_threshold_support(formdata: dict) -> str | None:
+    """Why this document's deemed-threshold claim cannot be made, or None if it can.
+
+    Three separate statements must agree before the narrator will write a
+    deemed paragraph: the deemed line itself, a ticked panel, and a named fee
+    earner. Any one of them alone is not enough.
+
+    That is not belt-and-braces for its own sake. Spec Para 7.23's chapeau
+    confines the deeming to "work done by a member of a relevant panel", and CAG
+    12.22 requires that "the narrative must clearly state the fee-earner for whom
+    the enhancement is claimed and the basis for the enhancement" — so a claim
+    naming no fee earner is one the guidance forbids. And the costliest defect in
+    this project's history was a guaranteed panel entitlement asserted on
+    unverified panel data: PANEL MEMBERSHIP had no section guard, so a criterion
+    label read there made the narrative claim the guaranteed 15% on the strength
+    of a factor ticked somewhere else. Panel membership is checkable by the LAA
+    against the public registers. A false statement of it is a checkable false
+    statement over the solicitor's name.
+    """
+    if not formdata.get("thresholdDeemed"):
+        return (
+            "the PDF does not carry the deemed-threshold line "
+            "(\"Threshold test: deemed satisfied by panel membership\")"
+        )
+    if not formdata.get("panelMembership"):
+        return (
+            "the PDF states that the threshold is deemed satisfied by panel "
+            "membership, but no panel is ticked. The deeming in Spec Para 7.23(a) "
+            "applies only to work done by a member of a relevant panel"
+        )
+    fee_earner = (formdata.get("caseDetails") or {}).get("feeEarnerName") or ""
+    if not fee_earner.strip():
+        return (
+            "the PDF states that the threshold is deemed satisfied by panel "
+            "membership, but names no fee earner. CAG 12.22 requires the "
+            "narrative to state the fee earner for whom the enhancement is "
+            "claimed, and Spec Para 7.23(a) deems the threshold satisfied only "
+            "for that person's own work"
+        )
+    return None
+
+
+def threshold_coherence_error(formdata: dict) -> str | None:
+    """Why this document has no stateable threshold basis, or None if it has one.
+
+    Called at every entry point that can reach :func:`skeleton.build_skeleton`,
+    because a claim with Stage 2 factors and no threshold is a claim that fails
+    on its face — and would be filed by a solicitor who never chose to file it
+    that way.
+
+    Silent before 6 August 2026. ``extraction_is_empty`` passes on Stage 2 alone,
+    and ``skeleton`` appends its Stage 1 and Stage 2 sections independently, so a
+    document with no threshold section rendered a narrative that simply had no
+    threshold paragraph in it. That could not arise while the form refused to
+    produce such a PDF; the deemed route means the shape now occurs legitimately,
+    and the narrator has to be able to tell the legitimate one from the three
+    illegitimate ones — a Stage 1 section lost to line-wrapping, one truncated by
+    a bare heading pasted into an explanation (see _PLAN.md, "Still outstanding"
+    item 4), and a hand-edited ``--from-json`` file.
+    """
+    if formdata.get("stage1"):
+        return None
+    if not formdata.get("stage2"):
+        # Nothing at either stage: extraction_is_empty owns this, and gives a
+        # better-targeted message than anything that could be said here.
+        return None
+    unsupported = deemed_threshold_support(formdata)
+    if unsupported:
+        return (
+            "This document claims Stage 2 enhancement factors but states no "
+            f"threshold basis for them: {unsupported}.\n\n"
+            "An enhancement claim needs the threshold at Spec Para 6.13 to be met "
+            "or deemed. Without it the Stage 2 factors have nothing to attach to, "
+            "and the claim fails on its face.\n\n"
+            "If the Stage 1 section should not be empty, the likeliest cause is "
+            "that it was damaged in the PDF rather than that it was never filled "
+            "in — check the PDF's own Stage 1 section against the form."
+        )
+    return None
+
+
 def extract_uplift_percent(text: str) -> str:
     block = section_slice(text, "proposed_uplift")
     m = re.search(r"Proposed Uplift Percentage:\s*([\d.]+)\s*%", block)
@@ -929,7 +1060,7 @@ def explain_empty_extraction(pdf_path: str | Path) -> str:
             "happened to the file *after* the app saved it — it is not\n"
             "something the solicitor did wrong in the app.\n\n"
             "Fix: ask for the file exactly as the app saved it —\n"
-            "LAA_Uplift_Data_Summary.pdf, straight from the browser's Downloads\n"
+            "Uplift_Justification-<matter>.pdf, straight from the browser's Downloads\n"
             "folder, before it was filed, uploaded or forwarded anywhere.\n\n"
             "Do not re-key or OCR this copy: on an audited claim a mis-read page\n"
             "count or percentage is worse than no narrative at all. If the\n"
@@ -948,7 +1079,7 @@ def explain_empty_extraction(pdf_path: str | Path) -> str:
             + (f"\n{note}\n" if note else "")
             + (f"\n{timing}\n" if timing else "")
             + "\nFix: ask for the file the app itself saved —\n"
-            "LAA_Uplift_Data_Summary.pdf, straight from the Downloads folder."
+            "Uplift_Justification-<matter>.pdf, straight from the Downloads folder."
         )
 
     if not matched:
@@ -1008,6 +1139,7 @@ def extract_formdata(pdf_path: str | Path) -> dict:
         "stage2": extract_criteria(text, "stage2", label_keys, unmatched),
         "finalUpliftPercent": extract_uplift_percent(text),
         "evidenceOnFileConfirmed": extract_evidence_confirmation(text),
+        "thresholdDeemed": extract_threshold_deemed(text),
     }
     if unmatched:
         data["unrecognised"] = unmatched
@@ -1034,6 +1166,35 @@ def load_formdata_json(path: str | Path) -> dict:
     for section in ("caseDetails", "panelMembership", "stage1", "stage2"):
         if not isinstance(data.get(section, {}), dict):
             raise ValueError(f"{path.name}: {section!r} is not an object.")
+
+    # The entries themselves, not merely the section wrapper. Until 6 August 2026
+    # this checked only that the four sections were dicts, which made
+    # ``{"stage1": {"anything": "at all"}}`` a *truthy* Stage 1 section. That
+    # mattered the moment the deemed route existed: every "is Stage 1 empty?"
+    # test in the narrator — extraction_is_empty, threshold_coherence_error —
+    # would read that file as having a threshold, and the run would proceed with
+    # no threshold section in the narrative and no complaint anywhere.
+    #
+    # Hand-editing this file is a *supported* recovery workflow here (it is how a
+    # solicitor fixes an unmatched label), so this is an ordinary typo path, not a
+    # hostile-input hypothetical.
+    for section in ("panelMembership", "stage1", "stage2"):
+        for key, entry in (data.get(section) or {}).items():
+            where = f"{path.name}: {section}[{key!r}]"
+            if not isinstance(entry, dict):
+                raise ValueError(
+                    f"{where} is {type(entry).__name__}, not an object. Each entry "
+                    'must look like {"checked": true, "label": "..."}.'
+                )
+            if not isinstance(entry.get("label"), str) or not entry["label"].strip():
+                raise ValueError(f"{where} has no usable 'label'.")
+
+    if "thresholdDeemed" in data and not isinstance(data["thresholdDeemed"], bool):
+        # Truthiness would let the string "false" assert a contractual entitlement.
+        raise ValueError(
+            f"{path.name}: 'thresholdDeemed' must be true or false, not "
+            f"{data['thresholdDeemed']!r}."
+        )
 
     label_keys = label_to_key_lookup()
     known = list(label_keys)

@@ -76,8 +76,13 @@ class ContentDataTests(unittest.TestCase):
     def test_labels_are_unique(self) -> None:
         # label_to_key_lookup raises if a label collides; this just exercises it.
         lookup = label_to_key_lookup()
-        # 40 live labels plus 41 distinct historical labels.
-        self.assertEqual(len(lookup), 81)
+        # 44 live labels plus 41 distinct historical labels. Live went 40 -> 44 on
+        # 6 August 2026 with the two new limb (c) labels and their two Stage 2
+        # carriers. This assertion is the one that would fire if a new label were
+        # ever worded into collision with a legacy alias — label_to_key_lookup()
+        # raises outright on an ambiguous label, so a silent near-miss shows up
+        # here as a count that is one short.
+        self.assertEqual(len(lookup), 85)
 
     def test_all_legacy_aliases_are_loaded_and_renderable(self) -> None:
         aliases = legacy_label_aliases()
@@ -270,6 +275,42 @@ class ContentDataTests(unittest.TestCase):
             return_value={live_label: live_key},
         ):
             self.assertEqual(label_to_key_lookup()[live_label], live_key)
+
+    def test_the_help_prose_counts_the_labels_correctly(self) -> None:
+        """The help text spells its counts out in words, so they cannot be derived.
+
+        The on-screen counts are computed (script.js counts the checkboxes), but
+        MAIN_HELP_TEXT_MARKDOWN is prose and says "Fifteen of the factors are the
+        guidance's own examples". A hardcoded count in live prose has already gone
+        wrong here once — the Stage 1 alert said "the twelve" after the
+        tactic/better-result label was split in two, so the screen telling a
+        solicitor to go back and read them all named the wrong number of them.
+        That one was fixed by deriving it. This one cannot be, so it is asserted.
+        """
+        words = {
+            13: "Thirteen", 14: "Fourteen", 15: "Fifteen",
+            16: "Sixteen", 17: "Seventeen", 18: "Eighteen",
+        }
+        blocks = load_content_data()["question_blocks"]
+        stage1 = [
+            chk for block in blocks if block.get("page") == 2
+            for chk in block.get("checkboxes", [])
+        ]
+        named = [c for c in stage1 if "in some other way" not in c["label"]]
+        source = (
+            Path(__file__).resolve().parents[2] / "content-data.js"
+        ).read_text(encoding="utf-8")
+
+        expected = words[len(named)]
+        self.assertIn(
+            f"{expected} of the factors are the guidance's own examples",
+            source,
+            f"the help text names the wrong number of named Stage 1 labels; "
+            f"there are {len(named)} ({len(stage1)} total, "
+            f"{len(stage1) - len(named)} of them \"in some other way\")",
+        )
+        for wrong in set(words.values()) - {expected}:
+            self.assertNotIn(f"{wrong} of the factors", source)
 
 
 if __name__ == "__main__":

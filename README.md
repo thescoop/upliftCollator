@@ -10,7 +10,9 @@ All processing happens in the browser. No data is sent to any server and nothing
 
 ## Current version
 
-`APP_VERSION = "1.11"` (defined once in `content-data.js`). To release a new version, change that single constant — it propagates everywhere.
+`APP_VERSION = "1.12"` (defined once in `content-data.js`). To release a new version, change that single constant — it propagates everywhere.
+
+That claim was false until 6 August 2026: the browser tab title and the welcome-screen badge were hardcoded `v1.11` in `index.html`, so following this instruction would have shipped a build whose first screen contradicted its own version. Both are injected from `APP_VERSION` now. If you add another place the version appears, inject it — do not type it.
 
 The bundled LAA reference is *Costs Assessment Guidance, Version 1a, 23 September 2024* (`Costs_Assessment_Guidance_2024_SCC_-_Version_1a-_23_September_2024.pdf`).
 

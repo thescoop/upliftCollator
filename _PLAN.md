@@ -1,9 +1,104 @@
 # Agreed programme — settled 4 August 2026
 
-## BUILD STATUS — updated 5 August 2026, end of session
+## BUILD STATUS — updated 6 August 2026, end of session
 
 Work is on branch **`redesign/stage1-labels`**. **Nothing is on `main`, so nothing is
 live.** Only a merge to `main` publishes to solicitors.
+
+---
+
+## 6 AUGUST 2026 — THE DEEMED-THRESHOLD ROUTE. Read this before anything below.
+
+**Simon's instruction:** the tool must handle every situation that can arise at Stage 1
+and Stage 2 internally. The situation set is finite. It must not tell a solicitor to
+telephone the firm. That referral (`script.js`, the panel alert) is gone.
+
+**`APP_VERSION` is now 1.12.** 1.11 never shipped, so the compatibility rule is
+unchanged — "v1.10 or earlier ⇒ legacy label set" — and every `pre-v1.11` comment
+remains accurate as a boundary. It bumped because a released 1.11 and this build would
+otherwise be two different label sets under one number, and the label set *is* the
+extraction contract.
+
+### What changed
+
+1. **A panel member with nothing ticked at Stage 1 may now proceed**, on Spec Para
+   7.23(a). `isThresholdSatisfied()` and `isThresholdDeemedOnly()` sit beside an
+   untouched `isAnyStage1ThresholdTrulyMet()`, which keeps its narrower meaning of "a
+   Stage 1 label is ticked". All seven of its call sites moved to the new predicate.
+   The old one stays live as a *component* of the new one, so there is no dead code
+   wearing an authoritative name.
+2. **Stage 1 is 18 labels.** Limb (c) gained `s1_circ_novel_point` and `s1_circ_weight`.
+3. **Stage 2 is 23.** `s2_novelty_novel_point` (the novelty carrier) and `s2_resp_other`.
+4. **The narrator treats "deemed" as an affirmatively extracted, cross-checked state.**
+5. `_spec-7.20-7.24-verbatim.md` is now the Specification source of truth, the twin of
+   `_cag-section-12-verbatim.md`. **Nothing may quote the Specification without it.**
+
+### The reversal, recorded honestly
+
+`_PLAN.md` said on 4 August: *"Should novelty and weight be Stage 1 threshold labels?
+No."* Simon reversed that on 6 August. **The question changed, not the evidence.** On
+4 August it was "should weight or novelty pass the threshold on their own?" — his answer
+was no, from never having seen such a claim succeed, and that answer still stands. On
+6 August it was "can a solicitor whose case is genuinely exceptional for one of those
+reasons say so at all?", and the answer was that they could not.
+
+The labels are worded so they do not claim the thing he rejected: each asserts the
+**limb** — exceptional circumstances or complexity — with novelty or volume as its
+cause, and each carries `requires_stage2`, so neither can reach the LAA bare. **The limb
+(c) block title and its narrative header must keep the operative "circumstances or
+complexity" wording and must never drift to CAG 12.8(c)'s looser heading**, which would
+attribute to the contract words the contract does not contain.
+
+### The defect that would have shipped
+
+`updateStage2Visibility()` was called on only four triggers, none of them the panel
+checkbox or arrival at Stage 2. **The entire deemed route would have been dead on
+arrival**: the solicitor would have reached Stage 2 with the blocking banner showing and
+every control under `pointer-events: none`. Nothing caught it because `script.js` has no
+unit tests. It now recomputes on `showPage(1)`, `showPage(2)` and on panel-checkbox
+change, and `_narrator/tests/drive_form.js` clicks a Stage 2 checkbox to prove it.
+
+### The near-miss worth remembering
+
+The novelty label was nearly keyed `s1_circ_novelty` — **which already existed as a
+RETIRED template** further down the same object. JS object literals and json5 both
+resolve a duplicate key to the *last* occurrence, and the retired block sits after the
+live one, so the retired template would silently have won. The label would have reached
+the LAA reading *"...a unique factual matrix concerning **[SPECIFY NOVEL ASPECTS]**"*.
+`structural_audit.py` would have passed it: it checked that a key **has** a template, not
+that the template is a **live** one. Both axes are now checked, proven by reintroducing
+the collision.
+
+### New standing tools — run these when labels change
+
+| Tool | What it catches |
+|---|---|
+| `node _narrator/tests/measure_pdf_labels.js` | A label that wraps in the PDF, measured with the vendored jsPDF. Found the pre-existing 604.8pt `s1_cse_vulnerable_client` on its first run. |
+| `node _narrator/tests/drive_form.js` | Anything only a click can see. 23 checks across both routes. |
+| `python3 _narrator/tests/structural_audit.py` | Cross-stage contracts, plus retired-template binding. |
+
+### Verification actually performed
+
+- **327 tests pass** (was 305). 21 new in `test_threshold_deemed.py`.
+- **Three guards revert-proofed** — the panel cross-check, the `build_skeleton` refusal,
+  and the Stage-1 bounding of the deemed line. Each break fails its own test and nothing
+  else.
+- **23/23 browser checks pass**, and the PDF produced by the drive was fed back through
+  `extract_formdata()` → `thresholdDeemed: True`, cross-check supported, coherent
+  narrative.
+- **Not yet run: Windows Python.** Unchanged from before this session.
+
+### Still open after this session
+
+- **The multi-fee-earner bill.** The form is single-fee-earner throughout, and the
+  deeming and the 15% are both per-fee-earner (Spec 7.23 chapeau, CAG 12.20/12.22). A
+  matter with a panel member *and* an assistant needs two runs. The deemed intro confines
+  its claim to the named fee earner, so the narrative is not wrong — but the boundary is
+  undocumented for the user.
+- `window.isAnyStage1ThresholdTrulyMetGlobally` (`script.js`) has no consumer. Left
+  alone; note it before wiring anything to it, since its name no longer describes the
+  gate.
+- Items 1–4 under "Still outstanding" below are unchanged.
 
 ### Done and committed
 
@@ -341,13 +436,14 @@ end to end in Chromium with all three panels ticked, a 46-character fee-earner n
 
 ### Two things to decide next session
 
-- **Sol argued novelty and weight should return to Stage 1** and was told not to, since
-  Simon settled it. Its argument: CAG 12.8(c)'s heading, expressly introduced as
-  threshold guidance, names "exceptional circumstances, novelty, weight or complexity".
-  The counter, which stands: 12.4(c) is the operative threshold and says "circumstances
-  **or** complexity", and 12.8's headings are demonstrably loose — the same paragraph
-  cites "the three limbs of 6.15" where 12.4 puts the threshold at 6.13. Recorded
-  because it is the argument an assessor could make back.
+- ~~**Sol argued novelty and weight should return to Stage 1**~~ **CLOSED 6 August 2026 —
+  they were added.** See the deemed-threshold section at the top of this file for what
+  changed and why it is not a contradiction of the 4 August decision. The counter-argument
+  below still stands and is now recorded in the `what_counts` panel of each new label, so
+  the solicitor ticks it knowing what an assessor can say back: 12.4(c) is the operative
+  threshold and says "circumstances **or** complexity", and 12.8's headings are
+  demonstrably loose — the same paragraph cites "the three limbs of 6.15" where 12.4 puts
+  the threshold at 6.13.
 - ~~**Sol's finding 6 was never applied.**~~ **CLOSED 5 August 2026 — both conditions
   removed.** See "Panel membership" below.
 
@@ -371,6 +467,12 @@ rule has been "narrator work never touches the Collator"; it is set aside on
 purpose for this programme.
 
 ## The last open question — CLOSED, 4 August 2026
+
+> **SUPERSEDED 6 August 2026 — novelty and weight ARE now Stage 1 labels.** The record
+> below is kept because its reasoning is still live: it is why both new labels assert the
+> *limb* rather than novelty or weight themselves, and why both carry `requires_stage2`
+> so that neither can be claimed bare. See the deemed-threshold section at the top of
+> this file. Do not read what follows as current.
 
 **Should novelty and weight be Stage 1 threshold labels? No.** Simon confirmed he has
 never seen a claim pass the threshold on documentary weight or novelty alone, which

@@ -17,6 +17,7 @@ reviewer) to draw on the solicitor's verbatim explanation when filling them in.
 
 from __future__ import annotations
 
+from extract import deemed_threshold_support, threshold_coherence_error
 from templates import load_content_data
 
 
@@ -292,21 +293,59 @@ def build_skeleton(formdata: dict) -> str:
         "FEE_EARNER_NAME": (case.get("feeEarnerName") or "").strip() or "[fee earner]",
     }
 
+    # The structural guarantee, as well as the friendly stops in narrate.py and
+    # narrate_gui.py. Those two are what a user sees; this is what makes the rule
+    # true. build_skeleton is the one function every entry point must pass
+    # through — the CLI, --from-json, the GUI's independent pipeline, and
+    # skeleton.py's own __main__ — so putting the check anywhere else means
+    # putting it in four places and finding out later that it went into three.
+    # This project has shipped exactly that bug twice: the "other"-factor guard
+    # went into narrate.py alone while the GUI is what the launchers run, and the
+    # panel section guard was missed on --from-json.
+    refusal = threshold_coherence_error(formdata)
+    if refusal:
+        raise ValueError(refusal)
+
+    # Deemed only when nothing is ticked at Stage 1. A document with both a
+    # deemed line and ticked factors states its threshold the ordinary way, and
+    # the ordinary paragraph is the stronger one — asserted factors beat a
+    # contractual presumption in front of an assessor.
+    deemed = not stage1 and deemed_threshold_support(formdata) is None
+
     # "The following exceptional factors" and the conclusion both refer to
     # everything the claim rests on — the Stage 1 and Stage 2 criteria. Panel
     # membership is not one of them: it is the separate guaranteed 15%.
     n_factors = len(stage1) + len(stage2)
 
     sections: list[str] = [
-        _substitute(_pick_by_count(templates, "intro", n_factors, "singular"), common)
+        _substitute(
+            _pick_by_count(
+                templates, "intro_deemed" if deemed else "intro", n_factors, "singular"
+            ),
+            common,
+        )
     ]
 
+    panel_names = ""
     if panel:
         panel_labels = [_clean_panel_label(item["label"]) for item in panel.values()]
+        panel_names = _join_panels(panel_labels)
         sections.append(
             _substitute(
                 _pick_by_count(templates, "panel_membership", len(panel), "plural"),
-                {**common, "PANEL_NAME": _join_panels(panel_labels)},
+                {**common, "PANEL_NAME": panel_names},
+            )
+        )
+
+    # The deemed paragraph stands in place of the Stage 1 factor list. It is
+    # emitted here, in the Stage 1 slot, so the narrative always carries a
+    # threshold section: before this, a document with no Stage 1 factors produced
+    # a narrative with no threshold paragraph at all, silently.
+    if deemed:
+        sections.append(
+            _substitute(
+                templates["threshold_deemed_narrative"],
+                {**common, "PANEL_NAME": panel_names},
             )
         )
 

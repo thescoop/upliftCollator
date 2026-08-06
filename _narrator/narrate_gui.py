@@ -52,6 +52,7 @@ from extract import (
     explain_empty_extraction,
     extract_formdata,
     extraction_is_empty,
+    threshold_coherence_error,
     unevidenced_other_factors,
 )
 from skeleton import build_skeleton
@@ -164,9 +165,10 @@ class NarrateWorker(QThread):
             if unrecognised:
                 out_dir = Path(self._out_dir)
                 out_dir.mkdir(parents=True, exist_ok=True)
-                for stale in ("narrative.md", "narrative-prompt.txt",
-                              "narrative-polished.docx", "narrative-polished.md",
-                              "citation-check.txt"):
+                # By pattern, because the polished files carry the matter name.
+                # See docx_writer.clear_derived.
+                docx_writer.clear_derived(out_dir)
+                for stale in ("narrative.md", "narrative-prompt.txt"):
                     (out_dir / stale).unlink(missing_ok=True)
                 input_json = out_dir / "narrative-input.json"
                 input_json.write_text(
@@ -203,9 +205,10 @@ class NarrateWorker(QThread):
             if unevidenced:
                 out_dir = Path(self._out_dir)
                 out_dir.mkdir(parents=True, exist_ok=True)
-                for stale in ("narrative.md", "narrative-prompt.txt",
-                              "narrative-polished.docx", "narrative-polished.md",
-                              "citation-check.txt"):
+                # By pattern, because the polished files carry the matter name.
+                # See docx_writer.clear_derived.
+                docx_writer.clear_derived(out_dir)
+                for stale in ("narrative.md", "narrative-prompt.txt"):
                     (out_dir / stale).unlink(missing_ok=True)
                 input_json = out_dir / "narrative-input.json"
                 input_json.write_text(
@@ -259,6 +262,28 @@ class NarrateWorker(QThread):
                 )
                 return
 
+            # Stage 2 factors with no threshold basis. build_skeleton refuses
+            # this as well — the rule lives there so that it cannot be missed on
+            # one path — but this pipeline is entirely independent of narrate.py
+            # and would otherwise surface it as an unhandled ValueError. The GUI
+            # is what the launcher scripts run, so it is the path that matters
+            # most: the "other"-factor guard went into narrate.py only when it
+            # was first written, and this file did not get it.
+            incoherent = threshold_coherence_error(formdata)
+            if incoherent:
+                self.log_line.emit(
+                    '<span style="color:#ff6b6b;">This PDF claims Stage 2 factors '
+                    'with no threshold basis — stopping.</span>'
+                )
+                for line in incoherent.splitlines():
+                    self.log_line.emit(
+                        f'<span style="color:#fab387;">{html.escape(line) or "&nbsp;"}</span>'
+                    )
+                self.log_line.emit(
+                    '<span style="color:#9399b2;">No files were written.</span>'
+                )
+                return
+
             self.log_line.emit(
                 '<span style="color:#88aaff;">Building skeleton…</span>'
             )
@@ -279,9 +304,7 @@ class NarrateWorker(QThread):
             out_dir = Path(self._out_dir)
             out_dir.mkdir(parents=True, exist_ok=True)
 
-            for stale in ("narrative-polished.docx", "narrative-polished.md",
-                          "citation-check.txt"):
-                (out_dir / stale).unlink(missing_ok=True)
+            docx_writer.clear_derived(out_dir)
 
             (out_dir / "narrative.md").write_text(skeleton + "\n", encoding="utf-8")
             (out_dir / "narrative-prompt.txt").write_text(prompt, encoding="utf-8")
@@ -309,7 +332,10 @@ class NarrateWorker(QThread):
                 polished = result.polished
                 report = polish_mod.format_full_report(result)
 
-                (out_dir / "narrative-polished.md").write_text(
+                # Both formats carry the matter name; citation-check.txt does
+                # not, since it certifies the run rather than being sent on.
+                stem = docx_writer.polished_stem(formdata)
+                (out_dir / f"{stem}.md").write_text(
                     polished + "\n", encoding="utf-8")
                 (out_dir / "citation-check.txt").write_text(report, encoding="utf-8")
 
@@ -319,7 +345,7 @@ class NarrateWorker(QThread):
                 # sitting beside a check that certified the Markdown.
                 try:
                     outcome = docx_writer.write_docx(
-                        polished, out_dir / "narrative-polished.docx"
+                        polished, out_dir / f"{stem}.docx"
                     )
                     self.log_line.emit(
                         f'<span style="color:#a6e3a1;">Word document written — '

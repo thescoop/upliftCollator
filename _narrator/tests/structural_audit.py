@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -104,6 +105,51 @@ def main() -> None:
     )
     assert "panel_membership" in templates
 
+    # A live key silently bound to a RETIRED template. Added 6 August 2026, after
+    # the new Stage 1 novelty label was very nearly given the key `s1_circ_novelty`
+    # — which already existed as a retired v1.10 template further down the same
+    # object. Both JS object literals and json5 resolve a duplicate key to the LAST
+    # occurrence, and the retired block sits after the live one, so the retired
+    # template would have won with no error anywhere. The label would have reached
+    # the LAA reading "...a unique factual matrix concerning [SPECIFY NOVEL
+    # ASPECTS]".
+    #
+    # The existing template-coverage check could not catch it: it asks whether a
+    # key HAS a template, not whether the template is a live one. These two ask
+    # what a retired template actually looks like. Every retired entry carries
+    # either a [PLACEHOLDER] for the solicitor to fill in by hand or a
+    # {USER_EXPLANATION} token from the era when Stage 1 took explanations, and no
+    # live entry has either — verified across all 44 live keys when this was added.
+    header_keys = {
+        block["narrative_header_key"]
+        for block in blocks
+        if block.get("narrative_header_key")
+    }
+    placeholder = re.compile(r"\[[A-Z][^\]]*\]")
+    with_placeholders = sorted(
+        key
+        for key in (live_keys | header_keys) & set(templates)
+        if placeholder.search(templates[key])
+    )
+    assert not with_placeholders, (
+        "live keys whose template still carries an unfilled [PLACEHOLDER], which "
+        "would print verbatim into a bill narrative sent to the LAA: "
+        f"{with_placeholders}. The usual cause is a live key colliding with a "
+        "retired one — check the RETIRED KEYS block in content-data.js."
+    )
+
+    stage1_keys = {checkbox["key"] for checkbox in stage1}
+    stage1_with_explanation = sorted(
+        key
+        for key in stage1_keys & set(templates)
+        if "{USER_EXPLANATION}" in templates[key]
+    )
+    assert not stage1_with_explanation, (
+        "Stage 1 keys whose template expects an explanation. Stage 1 is tick-only "
+        f"(explanation=false), so nothing ever fills these: {stage1_with_explanation}. "
+        "Same likely cause as above — a collision with a retired key."
+    )
+
     lookup = label_to_key_lookup()  # Raises if any live/legacy label is ambiguous.
 
     missing_replaced_labels = REPLACED_LIVE_LABELS - set(aliases)
@@ -115,6 +161,10 @@ def main() -> None:
     print(
         f"Stage 1: {len(stage1)} checkboxes; explanation=false, what_counts, "
         "stage2_factor and Stage 2 carrier all present"
+    )
+    print(
+        f"Retired-template binding: {len(live_keys | header_keys)} live keys and "
+        "headers carry no [PLACEHOLDER]; no Stage 1 template expects an explanation"
     )
     print(
         f"Template coverage: {len(live_keys)} live keys and {len(aliases)} legacy "

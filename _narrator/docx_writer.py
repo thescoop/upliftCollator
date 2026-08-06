@@ -51,6 +51,80 @@ from docx.shared import Inches, Pt, Twips
 
 import checks
 
+# ── Output naming ───────────────────────────────────────────────────────────
+#
+# The finished narrative carries the matter name, so that a Word file sitting in
+# a folder or attached to an email says which case it belongs to. Simon's
+# request, 6 August 2026.
+#
+# The suffix is taken from the whole "Case / Matter Name" field, not from a
+# surname parsed out of it. There is no separate client-surname field in the
+# form — that field is where the surname lives, typically as "Smith 29964" — and
+# the number is what keeps two matters for the same family apart. Taking only
+# the first word would make them the same filename, and the second run would
+# overwrite the first in silence.
+POLISHED_BASE = "narrative-polished"
+
+# Illegal on Windows, plus the control range. The output folder normally sits on
+# /mnt/c and is opened in Windows Word, so Windows' rules are the binding ones
+# even when the run happens under WSL.
+_FILENAME_UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_WHITESPACE_RUN = re.compile(r"\s+")
+# Long enough for a real matter name, short enough to keep the whole path clear
+# of Windows' 260-character limit when the folder is nested a few deep.
+_MAX_SUFFIX = 60
+
+
+def matter_suffix(formdata: dict) -> str:
+    """Filename-safe form of the matter name, or "" if there is nothing usable.
+
+    Returns the empty string rather than a placeholder when the field is absent
+    or sanitises away to nothing: a PDF produced before the field existed, or one
+    whose case details were damaged, should get the plain filename rather than a
+    file called something like "narrative-polished-unknown.docx".
+    """
+    raw = ((formdata.get("caseDetails") or {}).get("caseMatterName") or "").strip()
+    if not raw:
+        return ""
+    cleaned = _WHITESPACE_RUN.sub(" ", _FILENAME_UNSAFE.sub("", raw)).strip()
+    # Windows cannot store a name ending in a dot or a space, and silently
+    # mangles one that does.
+    cleaned = cleaned[:_MAX_SUFFIX].strip().rstrip(".").strip()
+    return cleaned
+
+
+def polished_stem(formdata: dict) -> str:
+    """Filename stem shared by narrative-polished.docx and its .md audit copy.
+
+    The two share a stem deliberately — they are one narrative in two formats,
+    and a folder in which only one of them carries the matter name would invite
+    sending the wrong pair. ``citation-check.txt`` keeps its fixed name: it
+    certifies the run rather than being an artifact anyone sends on.
+    """
+    suffix = matter_suffix(formdata)
+    return f"{POLISHED_BASE}-{suffix}" if suffix else POLISHED_BASE
+
+
+# Every derived artifact, as glob patterns rather than fixed names. This is not
+# cosmetic: once the stem varies by matter, clearing by exact name stops
+# overwriting the previous run's output, so a Word file bearing ANOTHER client's
+# matter name would be left sitting beside the new one — in the folder the
+# solicitor is about to attach something from. Clearing by pattern keeps the
+# folder holding exactly one narrative, as it did when the name was fixed.
+DERIVED_GLOBS = (
+    f"{POLISHED_BASE}*.docx",
+    f"{POLISHED_BASE}*.md",
+    "citation-check.txt",
+)
+
+
+def clear_derived(out_dir: Path) -> None:
+    """Delete every derived artifact in *out_dir*, whatever matter it named."""
+    for pattern in DERIVED_GLOBS:
+        for stale in Path(out_dir).glob(pattern):
+            stale.unlink(missing_ok=True)
+
+
 # ── Typography, taken from CCMS_BN v13e.docx ────────────────────────────────
 # Page size is given in twips, exactly as that file stores it. Word rounds page
 # dimensions to whole twips on save, so an inch-converted A4 does not survive

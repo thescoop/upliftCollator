@@ -330,6 +330,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const headerVersionEl = document.getElementById('headerVersion');
             if (headerVersionEl) headerVersionEl.textContent = `v${APP_VERSION}`;
+
+            // The tab title and the welcome badge, which were hardcoded in
+            // index.html until 6 August 2026. Following README's instruction to
+            // "change that single constant" would have shipped a 1.12 build whose
+            // browser tab and first screen both still read 1.11.
+            const welcomeVersionEl = document.getElementById('welcomeVersion');
+            if (welcomeVersionEl) welcomeVersionEl.textContent = `v${APP_VERSION}`;
+            document.title = `Woodruff Billing - Uplift Justification Collator v${APP_VERSION}`;
         }
 
         if (preStageIntroTextOnPage1) {
@@ -353,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stage2IntroNoteEl.innerHTML = `
                 <p>The Stage 1 threshold is met, so the question now is <strong>how much</strong> enhancement the case justifies (CAG 12.9).</p>
                 <p>Everything you ticked at Stage 1 is already selected below and marked as carried forward. Complete the sentence under each one: what happened, why it was necessary, and what it led to.</p>
-                <p>Factors with no Stage 1 origin — weight of documentation, and degree of responsibility — are offered here on their own, because nothing carries them forward and they would otherwise never be claimed.</p>
+                <p>Degree of responsibility has no Stage 1 origin — there is no threshold limb about carrying a case without counsel — so it is offered here on its own, because nothing carries it forward and it would otherwise never be claimed.</p>
             `;
         }
         buildQuestionnaire();
@@ -403,8 +411,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // here, so carry-forward is applied on entry rather than on every Stage 1
         // click — the solicitor should not watch boxes appear on a page they are
         // not looking at.
+        // Recomputed on arrival at Stage 1 and Stage 2, not only when a Stage 1
+        // box is clicked. The deemed route (Spec Para 7.23(a)) turns on a panel
+        // tick made two pages earlier, so a solicitor can now reach either page
+        // with the threshold state changed and no Stage 1 checkbox ever touched.
+        // Before 6 August 2026 nothing recomputed on that path and Stage 2
+        // arrived permanently soft-disabled.
+        //
+        // After refreshStage1CarryForward, so the validity pass inside it sees
+        // the boxes carry-forward has just ticked.
+        if (pageIndexToShow === 1) {
+            updateStage2Visibility();
+        }
         if (pageIndexToShow === 2) {
             refreshStage1CarryForward(true);
+            updateStage2Visibility();
         }
         if (pageIndexToShow === 3) {
             populateReviewSummary();
@@ -433,24 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let nextPageIndex = currentPageIndex + 1;
 
         if (currentPageIndex === 1) {
-            if (!isAnyStage1ThresholdTrulyMet()) {
-                // `page === 1 &&` and a filter rather than a find, to match
-                // savePanelMembershipFromDom and buildQuestionnaire. This read
-                // the first block with id 'panel' whatever page it sat on, so
-                // it was order-dependent and would have looked at the wrong
-                // block if a page-2 one were ever named the same.
-                const panelKeys = QUESTION_BLOCKS
-                    .filter(b => b.page === 1 && b.id === 'panel')
-                    .flatMap(b => b.checkboxes.map(cb => cb.key));
-                let isPanelMember = false;
-                if (feeEarnerNameEl && feeEarnerNameEl.value.trim() !== "") {
-                    for (const key of panelKeys) {
-                        if (formElements[key] && formElements[key].checkbox.checked) {
-                            isPanelMember = true; break;
-                        }
-                    }
-                }
-
+            if (!isThresholdSatisfied() || isThresholdDeemedOnly()) {
                 // Counted rather than written out. It read "the twelve" until
                 // 5 August 2026, having been drafted before the
                 // tactic/better-result label was split into two, so the screen
@@ -460,25 +464,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     .filter(b => b.page === 2)
                     .reduce((n, b) => n + b.checkboxes.length, 0);
 
-                if (isPanelMember) {
-                    // This alert used to open "the threshold test (CAG 12.4) is
-                    // not met and there is no enhancement to determine the level
-                    // of". For a panel member that overstates what an empty
-                    // Stage 1 proves: Paragraph 7.23(a) of the 2024 Standard
-                    // Civil Contract Family Category Specific Rules provides
-                    // that where the work is done by a member of a relevant
-                    // panel "the threshold test at Paragraph 6.13 shall be
-                    // deemed to be satisfied in respect of that work". The tool
-                    // still asks for a tick before it will build a claim above
-                    // 15% (Simon's call, 5 August 2026: anyone with real Stage 2
-                    // material will have a Stage 1 hook, and skipping the
-                    // threshold produces a weak narrative) — but it no longer
-                    // tells them a thing that is not so, and it no longer ends
-                    // by implying they are finished.
-                    alert("Nothing is ticked at Stage 1.\n\nPanel membership is indicated, so the guaranteed 15% minimum (CAG 12.20) is applied at bill-drafting for that fee earner's own work whatever this form says — not for supervision, and not for work done by anyone not on a panel (CAG 12.22). It is a floor, not an addition: it is not payable on top of a general enhancement (CAG 12.23), so this tool is about whether the case justifies more than 15%.\n\nTo claim more, tick at least one of the " + stage1Count + " threshold factors. Before deciding none fits: if what makes this case worth more is the work you did without counsel, or the sheer volume of it, those are the two things Stage 2 asks about that Stage 1 does not — so look again rather than assuming Stage 1 has nothing for you.\n\nIf none of the " + stage1Count + " genuinely applies but you say this case is worth more than 15% on responsibility or weight alone, that is not something this form can carry — raise it with Woodruff Billing directly. Do not tick a factor that does not apply in order to get past this page.");
-                    return;
+                if (isThresholdDeemedOnly()) {
+                    // Until 6 August 2026 this was a dead end: it told a panel
+                    // member with nothing to tick that a claim resting on
+                    // responsibility or weight was "not something this form can
+                    // carry — raise it with Woodruff Billing directly". Simon's
+                    // instruction was that the tool must handle every situation
+                    // that can arise at Stage 1 rather than referring one back to
+                    // the firm, and the situation set is finite. Spec Para
+                    // 7.23(a) is the route: for a relevant panel member the
+                    // threshold is deemed satisfied, so there is nothing to refer.
+                    //
+                    // A confirm rather than a silent pass. Going on without a
+                    // Stage 1 factor is a real choice with a real cost — the whole
+                    // claim then rests on Stage 2 — and the solicitor should make
+                    // it deliberately. The coherence warning in the third
+                    // paragraph is the assessor's own question: after 6 August
+                    // 2026 every Stage 2 factor except Responsibility has a Stage 1
+                    // twin, so a Stage 2 answer with no twin ticked invites
+                    // "if the case was exceptionally complex, why was limb (c) not
+                    // claimed?" — which reads as one of the two sections
+                    // overstating.
+                    const feeEarner = feeEarnerNameEl ? feeEarnerNameEl.value.trim() : "";
+                    if (!confirm(
+                        "Nothing is ticked at Stage 1.\n\n" +
+                        "Panel membership is indicated, so Spec Para 7.23(a) deems the threshold test at Paragraph 6.13 satisfied for " + (feeEarner || "this fee earner") + "'s own work. It does not extend to supervision, or to work done by anyone not on a panel (CAG 12.22). You can go on to Stage 2 on that basis.\n\n" +
+                        "Before you do, two things. The guaranteed 15% minimum (CAG 12.20) already applies at bill-drafting whatever this form says, and it is a floor rather than an addition — it is not payable on top of a general enhancement (CAG 12.23). This tool is only about whether the case justifies more than 15%, so with nothing at Stage 1 the whole of that argument has to be carried by Stage 2 alone.\n\n" +
+                        "And if any of the " + stage1Count + " threshold factors does apply, tick it. An assessor who reads exceptional complexity at Stage 2 will ask why limb (c) was not claimed at Stage 1, and the honest answers are that it should have been or that Stage 2 overstates it. Neither helps the claim.\n\n" +
+                        "Continue to Stage 2 with nothing ticked at Stage 1?"
+                    )) {
+                        return;
+                    }
                 } else {
-                    alert("Nothing is ticked at Stage 1, so the threshold test (CAG 12.4) is not met, and no panel membership is indicated either.\n\nAn enhancement claim needs at least one threshold factor. Read the " + stage1Count + " on the previous page against this case: the test is whether the work was unusual or out of the ordinary compared with legally aided work generally — not compared with other family cases.\n\nIf none of them genuinely applies, there is nothing further to do in this tool.");
+                    alert("Nothing is ticked at Stage 1, so the threshold test (CAG 12.4) is not met, and no panel membership is indicated either.\n\nAn enhancement claim needs at least one threshold factor. Read the " + stage1Count + " on the previous page against this case: the test is whether the work was unusual or out of the ordinary compared with legally aided work generally — not compared with other family cases.\n\nIf the fee earner is on the Resolution Accredited Specialist Panel, the Law Society's Children Panel or the Law Society Family Law Panel Advanced, go back to the first page and tick it there. The threshold is then deemed satisfied for their own work under Spec Para 7.23(a), and this page will let you through without a Stage 1 factor.\n\nIf none of the " + stage1Count + " genuinely applies and the fee earner is on no panel, there is nothing further to do in this tool.");
                     return;
                 }
             }
@@ -493,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveCurrentPageData();
         let prevPageIndex = currentPageIndex - 1;
 
-        if (currentPageIndex === 3 && !isAnyStage1ThresholdTrulyMet()) {
+        if (currentPageIndex === 3 && !isThresholdSatisfied()) {
             prevPageIndex = 1;
         }
 
@@ -534,6 +552,41 @@ document.addEventListener('DOMContentLoaded', () => {
     // it without ever explaining the "other". Filing a limb (c) circumstance
     // under Complexity is defensible in the meantime, since CAG 12.9(c)(iii)
     // refers back to the whole of 12.8(c).
+    // Builds "<base>-<matter name>.<ext>", or "<base>.<ext>" when there is no
+    // usable matter name. Deliberately mirrors matter_suffix() in
+    // _narrator/docx_writer.py: the same field, the same illegal characters, the
+    // same 60-character cap, the same refusal to invent a placeholder. The two
+    // ends must agree, because the narrator's output sits in a folder named after
+    // the file this produces.
+    //
+    // Windows rules are the binding ones even though this runs in a browser — the
+    // file lands in a Windows Downloads folder and is opened from there.
+    function sanitisedMatterName() {
+        const raw = (caseMatterNameEl ? caseMatterNameEl.value : "").trim();
+        return raw
+            // eslint-disable-next-line no-control-regex
+            .replace(/[<>:"/\\|?*\x00-\x1f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 60)
+            .trim()
+            // Windows cannot store a name ending in a dot, and mangles one silently.
+            .replace(/\.+$/, "")
+            .trim();
+    }
+
+    function matterFilename(base, extension) {
+        const cleaned = sanitisedMatterName();
+        return cleaned ? `${base}-${cleaned}.${extension}` : `${base}.${extension}`;
+    }
+
+    // The per-page header line. Extraction contract — see addHeader and
+    // HEADER_PATTERN in _narrator/extract.py.
+    function headerSubtitle() {
+        const cleaned = sanitisedMatterName();
+        return cleaned ? `Uplift Justification  |  ${cleaned}` : "Uplift Justification";
+    }
+
     function unevidencedOtherFactors() {
         const gaps = [];
         QUESTION_BLOCKS.filter(b => b.page === 2).forEach(block => {
@@ -586,7 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (block.page === 2) {
                 isBlockEffectivelyVisibleForValidation = true;
             } else if (block.page === 3) {
-                isBlockEffectivelyVisibleForValidation = isAnyStage1ThresholdTrulyMet();
+                isBlockEffectivelyVisibleForValidation = isThresholdSatisfied();
             }
 
             // An optional_section block — Degree of Responsibility — never
@@ -823,8 +876,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const input = document.createElement('input');
         input.type = 'checkbox';
         input.id = chkData.key;
+        // updateStage2Visibility() as well as the validity check, because a panel
+        // tick now moves the threshold gate (Spec Para 7.23(a)). Without it the
+        // whole deemed route was dead on arrival: this handler and showPage() were
+        // the only ways to reach Stage 2 without touching a Stage 1 box, neither
+        // recomputed, and Stage 2 stayed soft-disabled with pointer-events: none.
+        // The solicitor would have arrived at a page of controls that could not be
+        // clicked. Nothing caught it because script.js has no tests — it is
+        // covered now by driving the form in Chromium.
         input.onchange = () => {
-            checkAllPlaceholdersAndExplanations();
+            updateStage2Visibility();
             persistDraft();
         };
         labelContainer.appendChild(input);
@@ -836,7 +897,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── STAGE 1 ─────────────────────────────────────────────────────────────
     //
-    // Thirteen labels, tick only, all of them visible.
+    // Eighteen labels, tick only, all of them visible.
     //
     // Stage 1 is a pass/fail threshold (CAG 12.4) that earns nothing by itself,
     // so it must not consume the solicitor's effort. The previous version
@@ -856,12 +917,19 @@ document.addEventListener('DOMContentLoaded', () => {
     //
     // "So no ticked point is ever left bare" is what this comment used to say,
     // and it was not true: the Stage 2 box is an ordinary checkbox and can be
-    // unticked, after which nothing asks for it again. For the thirteen named
-    // labels that is a legitimate choice — the threshold is met on a factor the
-    // solicitor does not press for the level, and the Stage 1 line still states
-    // something. For the three "other" labels it is not, because they state
-    // nothing on their own; those carry `requires_stage2` and are enforced in
-    // unevidencedOtherFactors(), on this side, and in the narrator.
+    // unticked, after which nothing asks for it again. For most of the fifteen
+    // named labels that is a legitimate choice — the threshold is met on a factor
+    // the solicitor does not press for the level, and the Stage 1 line still
+    // states something. For the three "other" labels it is not, because they
+    // state nothing on their own.
+    //
+    // Two of the named labels are treated the same way as the "others", for a
+    // different reason: `s1_circ_novel_point` and `s1_circ_weight` say something,
+    // but say the kind of thing that is worth nothing bare. CAG 12.9(c)(i) is
+    // close to an instruction that novelty be particularised, and a weight claim
+    // with no figure anywhere in the document has never been seen to pass. All
+    // five carry `requires_stage2` and are enforced in unevidencedOtherFactors(),
+    // on this side, and in the narrator.
 
     function buildStage1Block(block, targetContainer) {
         const blockDiv = createBlockShell(block);
@@ -1195,9 +1263,60 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.isAnyStage1ThresholdTrulyMetGlobally = isAnyStage1ThresholdTrulyMet;
 
+    // Spec Para 7.23(a): where the work is done by a member of a relevant panel,
+    // "the threshold test at Paragraph 6.13 shall be deemed to be satisfied in
+    // respect of that work". That is a contractual entitlement, not an assertion
+    // about the case, so it does not depend on anything ticked at Stage 1.
+    //
+    // The fee earner's name is required as well as the panel tick, and this is
+    // not a convenience: the deeming attaches to one named person's own work —
+    // not to supervision, and not to anyone else on the matter (CAG 12.22). A
+    // narrative that cannot say whose work it was cannot make the claim, so an
+    // anonymous panel tick deems nothing.
+    //
+    // `page === 1 &&` and a filter rather than a find, to match
+    // savePanelMembershipFromDom and buildQuestionnaire. Reading the first block
+    // with id 'panel' whatever page it sat on was order-dependent, and would
+    // have looked at the wrong block if a page-2 one were ever named the same.
+    function isDeemedThresholdAvailable() {
+        if (!feeEarnerNameEl || feeEarnerNameEl.value.trim() === "") return false;
+        const panelKeys = QUESTION_BLOCKS
+            .filter(b => b.page === 1 && b.id === 'panel')
+            .flatMap(b => b.checkboxes.map(cb => cb.key));
+        return panelKeys.some(key => formElements[key] && formElements[key].checkbox.checked);
+    }
+
+    // True when the threshold is deemed and nothing is ticked at Stage 1 — the
+    // one state in which the PDF prints the deemed line in place of a factor
+    // list, and the only state in which the narrator may write the deemed
+    // paragraph. Kept as its own predicate so that "deemed" and "deemed and
+    // relied on" can never be confused at a call site.
+    function isThresholdDeemedOnly() {
+        return !isAnyStage1ThresholdTrulyMet() && isDeemedThresholdAvailable();
+    }
+
+    // The gate governing whether Stage 2 is reachable, validated, reviewed and
+    // printed. Deliberately *not* an overload of isAnyStage1ThresholdTrulyMet(),
+    // which keeps its narrower meaning of "a Stage 1 label is ticked": the PDF's
+    // Stage 1 section and the review page still have to tell a factor actually
+    // asserted from a threshold that is merely deemed, and collapsing the two
+    // would make the document claim something the solicitor never ticked.
+    function isThresholdSatisfied() {
+        return isAnyStage1ThresholdTrulyMet() || isDeemedThresholdAvailable();
+    }
+
     function updateStage2Visibility() {
-        const isS1Met = isAnyStage1ThresholdTrulyMet();
-        if(stage1FeedbackEl) stage1FeedbackEl.style.display = isS1Met ? 'block' : 'none';
+        const isS1Met = isThresholdSatisfied();
+        if (stage1FeedbackEl) {
+            stage1FeedbackEl.style.display = isS1Met ? 'block' : 'none';
+            // Not "Threshold met" on the deemed route. It would be true — 7.23(a)
+            // deems it — but it reads as confirmation that this page is finished,
+            // and a deemed claim with nothing ticked is the weakest shape the tool
+            // can produce. Say what has happened and what it costs.
+            stage1FeedbackEl.textContent = isThresholdDeemedOnly()
+                ? "Threshold deemed satisfied by panel membership (Spec Para 7.23(a)), with nothing ticked here. Stage 2 is open on that basis — but with no threshold factor behind it, the whole claim rests on Stage 2 alone. Tick anything above that genuinely applies."
+                : "Threshold met. You can now go on to evidence the level of enhancement at Stage 2.";
+        }
 
         // Stage 2 selections are *preserved* (not silently cleared) when the
         // Stage 1 threshold is not met — a habit worth keeping from v1.10. The
@@ -1233,7 +1352,14 @@ document.addEventListener('DOMContentLoaded', () => {
         QUESTION_BLOCKS.forEach(block => {
             let blockIsEffectivelyVisible = false;
             if (block.page === 1 || block.page === 2) blockIsEffectivelyVisible = true;
-            else if (block.page === 3) blockIsEffectivelyVisible = isAnyStage1ThresholdTrulyMet();
+            // isThresholdSatisfied(), not isAnyStage1ThresholdTrulyMet(). If this
+            // one is left on the narrower predicate while the deemed route opens
+            // Stage 2 for navigation, ticked Stage 2 factors with two-word or
+            // empty explanations pass the download gate, print into the PDF, and
+            // render in the narrative without complaint — a claim of bare
+            // assertions, sent to the LAA. This is the call site that reaches the
+            // LAA rather than dead-ending, so it is tested by driving it.
+            else if (block.page === 3) blockIsEffectivelyVisible = isThresholdSatisfied();
 
             // Nothing here treats an empty optional section as incomplete: only
             // items the solicitor has actually ticked are examined, so a
@@ -1258,13 +1384,48 @@ document.addEventListener('DOMContentLoaded', () => {
         const otherGaps = unevidencedOtherFactors();
         if (otherGaps.length) allValid = false;
 
+        // The threshold itself, which nothing here checked until 6 August 2026.
+        // nextPage() blocks the route forward, but a restored draft is put back on
+        // whatever page it was saved on without replaying the navigation gates, so
+        // a draft saved on the last page with nothing at Stage 1 arrived with the
+        // download button live. The PDF it produced printed "No Stage 1 threshold
+        // factors selected." and then omitted the Stage 2 section entirely — while
+        // the answers were still sitting in the form in front of the solicitor.
+        // They would have found out at billing.
+        //
+        // Not a new-feature bug: it predates the deemed route. It is the same
+        // family as the Stage 2 data-loss defect still live in the Vercel copy.
+        let thresholdGap = "";
+        if (!isThresholdSatisfied()) {
+            allValid = false;
+            thresholdGap = "Nothing is ticked at Stage 1 and no panel membership is recorded, so the threshold test (CAG 12.4) is not met. Go back to Stage 1.";
+        } else if (isThresholdDeemedOnly() && !QUESTION_BLOCKS
+                .filter(b => b.page === 3)
+                .some(b => b.checkboxes.some(c =>
+                    formElements[c.key] && formElements[c.key].checkbox.checked))) {
+            // Read from the DOM, not from formData.stage2. Everything else in this
+            // function reads the live controls, and formData is only refreshed by
+            // saveCurrentPageData() — so a model read here would answer for the
+            // last page the solicitor navigated away from, not the one in front of
+            // them.
+            // Deemed threshold, nothing at Stage 2. There is genuinely nothing to
+            // claim: the 15% of CAG 12.20 is applied at bill-drafting with no form
+            // at all, and it is a floor rather than an addition (CAG 12.23). A PDF
+            // here would carry a threshold and no factors — which the narrator
+            // would refuse anyway, so this keeps the two ends agreeing.
+            allValid = false;
+            thresholdGap = "The threshold is deemed satisfied by panel membership, but no Stage 2 factor is ticked. There is nothing to claim above the guaranteed 15% (CAG 12.20), which applies at bill-drafting in any event. Tick and explain what justifies more.";
+        }
+
         if (generatePdfSummaryButton) {
             generatePdfSummaryButton.disabled = !allValid;
             generatePdfSummaryButton.title = allValid
                 ? "Generate PDF Summary of your selections."
-                : (otherGaps.length
-                    ? "“" + otherGaps[0].stage1 + "” is ticked at Stage 1 but nothing at Stage 2 explains it. Go back and either explain it or untick it."
-                    : "Complete all Case Details (including the court), enter your Proposed Uplift %, and make sure every ticked Stage 2 factor has an explanation of roughly 10+ words.");
+                : (thresholdGap
+                    ? thresholdGap
+                    : (otherGaps.length
+                        ? "“" + otherGaps[0].stage1 + "” is ticked at Stage 1 but nothing at Stage 2 explains it. Go back and either explain it or untick it."
+                        : "Complete all Case Details (including the court), enter your Proposed Uplift %, and make sure every ticked Stage 2 factor has an explanation of roughly 10+ words."));
         }
     }
 
@@ -1316,7 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else { summaryHtml += "<p><em>No Stage 1 threshold factors ticked.</em></p>"; }
 
-        if (isAnyStage1ThresholdTrulyMet()) {
+        if (isThresholdSatisfied()) {
             summaryHtml += "<h3>Stage 2: Level of Enhancement Factors:</h3>";
             let s2Selected = Object.values(formData.stage2).some(item => item.checked);
             if (s2Selected) {
@@ -1400,11 +1561,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 pdf.setTextColor(black[0], black[1], black[2]);
                 pdf.text("Woodruff Billing Ltd.", margin + wWidth, headerStartY + 14);
 
-                // Subtitle line under company name
+                // Subtitle line under company name. Renamed from "LAA Uplift
+                // Enhancement  |  Data Summary" on 6 August 2026 — "Data Summary"
+                // undersold a document that carries the solicitor's reasoning, and
+                // "LAA Uplift Enhancement" used two words for one thing.
+                //
+                // THIS STRING IS AN EXTRACTION CONTRACT. `HEADER_PATTERN` in
+                // _narrator/extract.py strips this line from every page before
+                // parsing; if the two drift apart the header stops being stripped
+                // and appears in the middle of the parsed body on every page.
+                // That pattern matches the old wording too, so PDFs already sitting
+                // in live matters still read correctly.
+                //
+                // The matter name is appended so a printed page 3 says which case
+                // it belongs to. What protects the parse is that HEADER_PATTERN
+                // consumes the WHOLE line including the matter name — so a matter
+                // called "CASE DETAILS" is removed with the rest of the header
+                // rather than appearing as a section heading on every page. There
+                // is a test for exactly that name.
                 pdf.setFont("helvetica", "normal");
                 pdf.setFontSize(8);
                 pdf.setTextColor(midGrey[0], midGrey[1], midGrey[2]);
-                pdf.text("LAA Uplift Enhancement  |  Data Summary", margin + wWidth, headerStartY + 26);
+                pdf.text(headerSubtitle(), margin + wWidth, headerStartY + 26);
 
                 currentY = headerStartY + 34;
 
@@ -1516,7 +1694,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // ── Document title (extra breathing room below header) ─────────────
             currentY += 8;
-            addText("LAA Uplift Enhancement Data Summary", {
+            // Kept deliberately free of the matter name: the matter is stated
+            // immediately below in Case Details, and repeating it in the title
+            // would be the third time on one page after the header.
+            addText("Uplift Justification", {
                 bold: true, size: 16, color: black, spaceAfter: 6
             });
 
@@ -1582,10 +1763,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 addText("No Stage 1 threshold factors selected.", {
                     italic: true, size: bodySize, color: midGrey, spaceAfter: 6
                 });
+
+                // The deemed line is printed IN ADDITION to the sentinel, not
+                // instead of it. The sentinel's job is to prove the section was
+                // read and was genuinely empty; the deemed line then says why that
+                // is legitimate. Replacing one with the other would have cost the
+                // narrator its only means of telling an empty section from a
+                // section it failed to parse.
+                //
+                // It deliberately does NOT repeat the fee earner's name or the
+                // panel. Those are already in the Case Details and Panel
+                // Membership sections, and the narrator cross-checks this line
+                // against them: three separate statements that must agree before
+                // it will write a deemed claim. Restating them here would give a
+                // damaged document a way to agree with itself.
+                //
+                // Exact wording is an extraction contract, matched verbatim by
+                // extract.py. Measured at 363.2pt against a 495.28pt column by
+                // _narrator/tests/measure_pdf_labels.js — it does not wrap.
+                if (isThresholdDeemedOnly()) {
+                    addText("Threshold test: deemed satisfied by panel membership (Spec Para 7.23(a)).", {
+                        italic: true, size: bodySize, color: midGrey, spaceAfter: 6
+                    });
+                }
             }
 
             // ── STAGE 2: LEVEL OF ENHANCEMENT (only if Stage 1 met) ───────────
-            if (isAnyStage1ThresholdTrulyMet()) {
+            if (isThresholdSatisfied()) {
                 addSectionHeader("Stage 2: Level of Enhancement Factors");
                 const s2Selected = Object.values(formData.stage2).some(function(item) { return item.checked; });
                 if (s2Selected) {
@@ -1682,7 +1886,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // ── Save ───────────────────────────────────────────────────────────
-            pdf.save("LAA_Uplift_Data_Summary.pdf");
+            // Named for the matter. Every download was "LAA_Uplift_Data_Summary.pdf"
+            // until 6 August 2026, so a solicitor running three cases in a morning
+            // got that name plus "(1)" and "(2)" in their Downloads folder, with
+            // nothing but the timestamp to say which was which. Simon's request.
+            //
+            // The narrator derives its output folder from this file's stem, so the
+            // matter name carries through to "<stem>-narrative/" as well — which
+            // still matches the *-narrative/ rule in .gitignore.
+            pdf.save(matterFilename("Uplift_Justification", "pdf"));
 
         } catch (e) {
             alert("Error generating PDF: " + e.message + "\n" + (e.stack ? e.stack : '(No stack trace)'));
