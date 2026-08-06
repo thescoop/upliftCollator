@@ -57,11 +57,14 @@ SECTION_HEADINGS: dict[str, str] = {
     "disclaimer": "DISCLAIMER",
 }
 
-# Sections whose *last* occurrence is the real one. In an unedited Collator
-# docx there can only be one occurrence; this exists for documents someone has
-# edited in Word, where the genuine section is printed second from the end and
-# anything above it resembling one was introduced by the edit.
-_LAST_OCCURRENCE_SECTIONS = frozenset({"evidence_on_file"})
+# The canonical order the generator writes sections in. Stage 2 is absent
+# only where the threshold was neither met nor deemed (which the form's
+# download gate should prevent, but absence is not damage); every heading
+# that IS present must appear in this order, exactly once.
+_CANONICAL_ORDER = [
+    "case_details", "panel_membership", "stage1", "stage2",
+    "proposed_uplift", "evidence_on_file", "disclaimer",
+]
 
 # The two case-detail separators. addDetail prints "Label:  Value" with two
 # spaces; matching tolerates one-or-more so a Word autocorrect that collapses
@@ -82,9 +85,18 @@ _THRESHOLD_DEEMED_TEXT = (
 
 # The evidence pair — same two independent statements as the PDF contract,
 # and they must agree before the confirmation counts (see
-# extract.extract_evidence_confirmation for why one is not enough).
+# extract.extract_evidence_confirmation for why one is not enough). The
+# sentence is matched WHOLE, whitespace-collapsed: a prefix match would have
+# accepted "…is held on the case file" with anything appended after it —
+# including a negation — and an agreeing pair whose second statement can be
+# made to disagree invisibly is no pair at all. (The PDF path matches a
+# prefix because wrapping could break the sentence anywhere; nothing wraps
+# here, so the docx contract affords the stronger test.)
 _EVIDENCE_STATUS_RE = re.compile(r"^Evidence on file:\s*(Not confirmed|Confirmed)\s*$")
-_EVIDENCE_CONFIRMED_PREFIX = "The fee earner confirms that evidence supporting"
+_EVIDENCE_CONFIRMED_SENTENCE = (
+    "The fee earner confirms that evidence supporting the matters set out "
+    "above is held on the case file."
+)
 
 _UPLIFT_RE = re.compile(r"Proposed Uplift Percentage:\s*([\d.]+)\s*%")
 
@@ -107,15 +119,52 @@ def _collapse(text: str) -> str:
 
 
 def _section_indexes(paragraphs: list[str]) -> dict[str, int]:
-    """Index of each section's heading paragraph, honouring last-occurrence."""
+    """Index of each section's heading paragraph (first occurrence).
+
+    Occurrence-picking is safe here only because :func:`structural_damage`
+    refuses any document in which a heading occurs twice — callers that
+    extract must check it first. In an unedited Collator docx a duplicate is
+    impossible; in an edited one, choosing between occurrences is exactly how
+    a pasted fake section could outrank a real one, so the answer to a
+    duplicate is a stop, not a preference.
+    """
     found: dict[str, int] = {}
     for i, para in enumerate(paragraphs):
         text = para.strip()
         for name, heading in SECTION_HEADINGS.items():
-            if text == heading:
-                if name in _LAST_OCCURRENCE_SECTIONS or name not in found:
-                    found[name] = i
+            if text == heading and name not in found:
+                found[name] = i
     return found
+
+
+def structural_damage(paragraphs: list[str]) -> list[str]:
+    """Why this document's section structure cannot be trusted, or [].
+
+    The generator writes each heading exactly once, in a fixed order. A
+    heading appearing twice, or headings out of that order, can only mean the
+    document was edited after download — and an edited structure is one in
+    which choosing an occurrence could file a pasted fake section as the real
+    one (a fake ``PROPOSED UPLIFT`` above the genuine section would otherwise
+    supply the percentage). Damage stops the run; it never picks.
+    """
+    counts: dict[str, int] = {name: 0 for name in SECTION_HEADINGS}
+    for para in paragraphs:
+        text = para.strip()
+        for name, heading in SECTION_HEADINGS.items():
+            if text == heading:
+                counts[name] += 1
+    problems = [
+        f"the {SECTION_HEADINGS[name]!r} heading appears {n} times"
+        for name, n in counts.items() if n > 1
+    ]
+    indexes = _section_indexes(paragraphs)
+    present = [name for name in _CANONICAL_ORDER if name in indexes]
+    positions = [indexes[name] for name in present]
+    if positions != sorted(positions):
+        problems.append(
+            "the section headings are not in the order the app writes them"
+        )
+    return problems
 
 
 def section_paragraphs(paragraphs: list[str], name: str) -> list[str]:
@@ -138,6 +187,12 @@ def extract_case_details(paragraphs: list[str]) -> dict:
     a single paragraph, a matter name reading "In the High Court: Re X and Y"
     can never masquerade as the Court field. The first paragraph carrying each
     field's label wins; the value is everything after the colon.
+
+    Internal whitespace is preserved — the PDF path collapsed it because
+    wrapping forced a rejoin; nothing forces one here, and a value must come
+    back as it was written. Only newlines (impossible from the form's inputs,
+    so damage if present) are folded to spaces, and the delimiter's own
+    spaces are trimmed.
     """
     block = section_paragraphs(paragraphs, "case_details")
     fields: dict[str, str] = {}
@@ -145,7 +200,7 @@ def extract_case_details(paragraphs: list[str]) -> dict:
         text = para.strip()
         for key, prefix in _DETAIL_FIELDS:
             if key not in fields and text.startswith(prefix):
-                fields[key] = _collapse(text[len(prefix):])
+                fields[key] = text[len(prefix):].replace("\n", " ").strip()
     for key, _prefix in _DETAIL_FIELDS:
         fields.setdefault(key, "")
     return fields
@@ -301,12 +356,34 @@ def extract_evidence_confirmation(paragraphs: list[str]) -> bool:
     status = _EVIDENCE_STATUS_RE.match(block[0].strip())
     if not status or status.group(1) != "Confirmed":
         return False
-    return block[1].strip().startswith(_EVIDENCE_CONFIRMED_PREFIX)
+    return _collapse(block[1]) == _EVIDENCE_CONFIRMED_SENTENCE
+
+
+def _empty_formdata() -> dict:
+    return {
+        "caseDetails": {key: "" for key, _p in _DETAIL_FIELDS},
+        "panelMembership": {},
+        "stage1": {},
+        "stage2": {},
+        "finalUpliftPercent": "",
+        "evidenceOnFileConfirmed": False,
+        "thresholdDeemed": False,
+    }
 
 
 def extract_formdata_docx(path: str | Path) -> dict:
-    """Read a Collator-generated .docx and return its formData equivalent."""
+    """Read a Collator-generated .docx and return its formData equivalent.
+
+    A document whose section structure is damaged — a heading duplicated or
+    reordered, which only an edit after download can produce — yields an
+    all-empty result rather than a best guess: the caller's empty-extraction
+    stop then fires and :func:`explain_empty_extraction_docx` names the
+    duplication. Extracting *around* damaged structure is how a pasted fake
+    section could outrank a real one, so nothing is read at all.
+    """
     paragraphs = read_docx_paragraphs(path)
+    if structural_damage(paragraphs):
+        return _empty_formdata()
     label_keys = label_to_key_lookup()
     unmatched: list[dict] = []
     data = {
@@ -326,11 +403,20 @@ def extract_formdata_docx(path: str | Path) -> dict:
 # ── Diagnostics ────────────────────────────────────────────────────────────
 #
 # The docx equivalent of extract.diagnose: structure only, never a field
-# value or an explanation, so the output is safe to share even when the
-# document holds GDPR-sensitive client data. The creator/lastModifiedBy names
-# and the timestamps play the role the PDF's Producer/CreationDate metadata
-# played: they say who last wrote the file and when, which is what tells "the
-# app made this" from "something rebuilt it in transit".
+# value, an explanation, a filename, or a person's name — so the output is
+# safe to share even when the document holds GDPR-sensitive client data.
+#
+# The redactions are deliberate and each replaces something the PDF
+# diagnostics never had to face. `dc:creator` is the app's own stamp
+# ("Uplift Collator v1.13") in an unedited file, but in a foreign or
+# Word-authored document it is a PERSON — the same reason diagnose_pdf
+# deliberately never reads Title/Author/Subject/Keywords. So the creator
+# string is echoed only when it is recognisably the app's own; otherwise the
+# reader gets `made_by_the_app: false` and no name. `lastModifiedBy` is
+# almost always a person (Word writes the Office account name on save), so
+# only the boolean fact that somebody re-saved the file survives. The
+# filename is omitted for the same reason — it carries the matter name, and
+# the person running --debug can see what file they ran it on.
 
 # What the Collator writes into dc:creator — "Uplift Collator v1.13" etc.
 _APP_CREATOR_RE = re.compile(r"Uplift Collator", re.IGNORECASE)
@@ -343,24 +429,25 @@ def _iso(moment: datetime | None) -> str:
 def diagnose_docx(path: str | Path) -> dict:
     """Structural diagnostics for a .docx extraction failure."""
     path = Path(path)
-    result: dict = {"docx": path.name, "readable": False}
 
     if not zipfile.is_zipfile(path):
-        result["failure"] = "not_a_zip"
-        return result
+        return {"readable": False, "failure": "not_a_zip"}
     try:
         doc = Document(str(path))
     except (PackageNotFoundError, KeyError, ValueError) as exc:
         # A zip that is not a Word package — wrong file, or a docx whose
         # parts were stripped by whatever rewrote it.
-        result["failure"] = f"not_a_word_package: {type(exc).__name__}"
-        return result
+        return {
+            "readable": False,
+            "failure": f"not_a_word_package: {type(exc).__name__}",
+        }
 
     paragraphs = [p.text for p in doc.paragraphs]
     cp = doc.core_properties
     creator = cp.author or ""
     last_modified_by = cp.last_modified_by or ""
     created, modified = cp.created, cp.modified
+    made_by_the_app = bool(_APP_CREATOR_RE.search(creator))
 
     indexes = _section_indexes(paragraphs)
     sections: dict[str, dict] = {}
@@ -380,19 +467,28 @@ def diagnose_docx(path: str | Path) -> dict:
         }
 
     return {
-        "docx": path.name,
         "readable": True,
         "paragraphs": len(paragraphs),
+        # The Collator writes no tables, and extraction walks doc.paragraphs,
+        # which never enters a table cell — so content edited into a table
+        # would vanish silently. A non-zero count here is the one signal of
+        # that shape a triager gets.
+        "tables": len(doc.tables),
         "raw_chars": sum(len(p) for p in paragraphs),
-        "creator": creator,
-        "last_modified_by": last_modified_by,
+        "creator": creator if made_by_the_app else "",
+        "made_by_the_app": made_by_the_app,
+        # True when somebody (or something) re-saved the file after the app
+        # wrote it. The app itself sets lastModifiedBy to its own name.
+        "resaved_by_another": bool(
+            last_modified_by and last_modified_by != creator
+        ),
         "created": _iso(created),
         "modified": _iso(modified),
         "rewritten_after_seconds": (
             int((modified - created).total_seconds())
             if created and modified else None
         ),
-        "made_by_the_app": bool(_APP_CREATOR_RE.search(creator)),
+        "structural_damage": structural_damage(paragraphs),
         "sections": sections,
     }
 
@@ -416,21 +512,36 @@ def explain_empty_extraction_docx(path: str | Path) -> str:
             "Downloads folder, before it was filed, uploaded or forwarded."
         )
 
+    if d.get("structural_damage"):
+        problems = "\n".join(f"  - {p}" for p in d["structural_damage"])
+        return (
+            "This document's section structure cannot be trusted, so nothing "
+            "was read from it:\n\n"
+            f"{problems}\n\n"
+            "The Collator writes each section heading exactly once, in a fixed "
+            "order,\nso this shape can only come from the document being edited "
+            "after it was\ndownloaded. Reading around that would risk taking a "
+            "pasted copy of a\nsection for the real one.\n\n"
+            "Fix: re-download the summary from the app and send it on without "
+            "editing it."
+        )
+
     matched = {n for n, s in d["sections"].items() if s.get("matched")}
     ticks = sum(
         d["sections"][n].get("bullet_lines", 0)
         for n in ("stage1", "stage2")
         if n in matched
     )
-    made_by = d.get("creator") or ""
 
     if not matched:
         note = ""
-        if made_by and not d.get("made_by_the_app"):
+        if not d.get("made_by_the_app"):
+            # The creator's name is deliberately not echoed: in a foreign
+            # document it is usually a person, and this text gets pasted into
+            # messages. Saying it is not the app's own stamp is enough.
             note = (
-                f"\nThe file says it was created by: {made_by}\n"
-                "The Collator names itself as the creator, so this document\n"
-                "was made or rebuilt by something else.\n"
+                "\nThe document does not name the Uplift Collator as its "
+                "creator, so it\nwas made or rebuilt by something else.\n"
             )
         return (
             "This does not look like an Uplift Collator document.\n"

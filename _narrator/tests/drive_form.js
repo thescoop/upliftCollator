@@ -259,6 +259,15 @@ async function openApp(browser) {
         await page.waitForTimeout(180);
         await page.click('#nextButton');   // final
         await page.waitForTimeout(220);
+
+        // Exponent syntax is a number to parseFloat and gibberish to the
+        // extraction contract ("5e1%" matches no percentage). The gate must
+        // demand a plain decimal. Found by cross-model review, 7 August 2026.
+        await page.fill('#finalProposedUpliftPercent', '5e1');
+        await page.waitForTimeout(250);
+        check('exponent-syntax percentage is refused',
+            await page.locator('#downloadSummaryButton').isDisabled());
+
         await page.fill('#finalProposedUpliftPercent', '30');
         await page.waitForTimeout(250);
 

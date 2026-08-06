@@ -764,7 +764,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveFinalUpliftFromDom() {
-        if (finalProposedUpliftPercentEl) formData.finalUpliftPercent = finalProposedUpliftPercentEl.value;
+        // Trimmed so the stored value is exactly what the download gate
+        // validated — the document prints this string verbatim.
+        if (finalProposedUpliftPercentEl) formData.finalUpliftPercent = finalProposedUpliftPercentEl.value.trim();
         if (evidenceOnFileConfirmedEl) formData.evidenceOnFileConfirmed = evidenceOnFileConfirmedEl.checked;
     }
 
@@ -1339,8 +1341,16 @@ document.addEventListener('DOMContentLoaded', () => {
             !matterTypeEl.value || !courtLevelEl.value) {
             allValid = false;
         }
+        // A plain decimal, nothing else. parseFloat alone accepted "5e1" —
+        // which a browser number input permits, parseFloat reads as 50, and
+        // the document then carries VERBATIM as "5e1%", a string the
+        // narrator's `[\d.]+` extraction cannot read. The figure the
+        // solicitor is prepared to justify must appear in the document
+        // exactly as a number, so the gate demands the canonical form rather
+        // than trusting parseFloat's generosity. (Found by cross-model
+        // review, 7 August 2026, driven through the real writer.)
         if (finalProposedUpliftPercentEl &&
-            (finalProposedUpliftPercentEl.value.trim() === "" || isNaN(parseFloat(finalProposedUpliftPercentEl.value.trim())) || parseFloat(finalProposedUpliftPercentEl.value.trim()) <0 )) {
+            !/^\d{1,3}(\.\d{1,2})?$/.test(finalProposedUpliftPercentEl.value.trim())) {
             allValid = false;
         }
 

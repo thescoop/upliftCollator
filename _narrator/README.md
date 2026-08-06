@@ -89,7 +89,8 @@ has not produced a PDF since v1.13 (7 August 2026), so any **new** file is a
 `.docx`. The equivalent forensics there live in `docProps/core.xml` — the
 Collator writes itself in as the creator ("Uplift Collator v1.13"), and Word
 records whoever re-saved the document in `lastModifiedBy`, which the PDF format
-had no counterpart for. See *Troubleshooting* → `--debug`.
+had no counterpart for — `--debug` surfaces that as a boolean, never the name.
+See *Troubleshooting* → `--debug`.
 
 Seen in practice on 1 August 2026 — a correct v1.10 PDF, `raw_chars: 1`,
 `images: 0`, `vector_objects: 6099`, producer **`Aspose.Pdf for .NET 11.7.0`**.
@@ -114,13 +115,13 @@ and `documentation volume/ number`, with the space before the slash lost.
 
 A ticked item whose label matches nothing in `content-data.js` **stops the
 run** — that rule is not PDF-specific, it guards both formats — and the report
-names the character that differs:
+names the criterion it most resembles and the character that differs:
 
 ```
 narrate: 2 ticked items could not be matched to a criterion in content-data.js.
 
-  stage2 — read:    'Exceptional weight {docs/issues) (as per Stage 1)'
-           nearest: 'Exceptional weight (docs/issues) (as per Stage 1)'
+  stage2 — a bulleted line of 49 characters, closest to this criterion:
+           'Exceptional weight (docs/issues) (as per Stage 1)'
            first difference at character 20: read '{', expected '('
 ```
 
@@ -131,10 +132,14 @@ it. Before this existed the item was skipped with a line on stderr, so a factor
 the solicitor claimed simply disappeared — and a narrative missing an argument
 reads exactly like one that never made it.
 
-The report is safe to paste anywhere: a read label is shown only where it is
-demonstrably a damaged copy of a known one, and the explanation is never
-included. A bulleted line too unlike any criterion is reported by length alone,
-because it may be case text rather than a label at all.
+The report is safe to paste anywhere: the text read from the document is never
+repeated in it — only the known label it resembles (our own fixed string), the
+length of what was read, and the one differing character. An earlier version
+echoed the read text whenever it closely resembled a known label, reasoning
+that a near-match must be a fixed string with noise in it; a 7 August 2026
+review falsified that — damage that merges a label with the line *after* it
+still scores as a near-match while carrying case text. The full read text goes
+only into `narrative-input.json`, which stays on this machine.
 
 Everything recovered is written to `narrative-input.json` *before* the stop, so
 the way forward is to correct each `label` in that file and re-run without
@@ -447,7 +452,7 @@ conda activate uplift-narrate
 python -m unittest discover -s _narrator/tests -v
 ```
 
-378 tests, verified under both WSL and Windows Python on 7 August 2026. The suite
+391 tests, verified under both WSL and Windows Python on 7 August 2026. The suite
 never touches the network — it passes with LM Studio closed. The citation cases
 are generated from `content-data.js` rather than chosen by hand: an earlier suite
 passed 20 tests while the checker was silently fail-open on `CAG Section 12.5 &
@@ -520,12 +525,20 @@ Neither version prints client text, so the output is GDPR-safe to share when
 triaging. Both report per-section match flags and bullet/explanation counts, and
 a `"matched": false` entry pinpoints the section that was not found.
 
-For a **`.docx`** it also reports the document's own identity: `creator` (the
-Collator writes "Uplift Collator v1.13"), `last_modified_by` (whoever re-saved it
-in Word), `created` and `modified`, and `rewritten_after_seconds` between the
-two. `made_by_the_app: false` beside real text means something rebuilt the file
-after download. If the document will not open as a Word package at all, the
-diagnostic says which way it failed — `not_a_zip` or `not_a_word_package`.
+For a **`.docx`** it also reports provenance without ever naming a person: the
+`creator` string is echoed only when it is the app's own stamp ("Uplift
+Collator v1.13"); `resaved_by_another` is a boolean — Word writes the Office
+account name (a person) into `lastModifiedBy` on save, and a person's name has
+no place in output that is meant to be pasteable anywhere, so only the fact of
+the re-save survives. `created`, `modified` and `rewritten_after_seconds` date
+the rewrite; `structural_damage` lists duplicated or reordered section
+headings, which only an edit can produce and which stop extraction outright;
+`tables` should be 0 (the Collator writes none, and paragraph extraction never
+looks inside one). `made_by_the_app: false` beside real text means something
+rebuilt the file after download. If the document will not open as a Word
+package at all, the diagnostic says which way it failed — `not_a_zip` or
+`not_a_word_package`. The filename is deliberately absent from the output for
+the same reason as the names: it carries the matter.
 
 For a legacy **PDF** it reports page/char counts, image and vector-object counts,
 and the `producer`/`creator` metadata described earlier; `header_matches: 0` or

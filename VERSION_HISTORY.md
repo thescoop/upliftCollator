@@ -45,11 +45,12 @@ a section heading, which the PDF format could never guarantee.
   `node _narrator/tests/build_docx_fixture.js`, which regenerates the three docx
   fixtures with the real generator and labels read live from `content-data.js`.
 
-**Verification:** 378 tests pass under WSL and Windows Python (was 345); the browser
+**Verification:** 391 tests pass under WSL and Windows Python (was 345); the browser
 drive (`drive_form.js`) passes 28/28 including a full docx round trip through
 `extract.py`; and the generated file was opened in desktop Microsoft Word via COM with
 no repair prompt, re-saved by Word, and the re-saved copy extracted **identically** —
-with `lastModifiedBy` correctly recording who rewrote it. Load-bearing guards
+with the re-save recorded in `lastModifiedBy` (surfaced by the diagnostics as a
+boolean — the name is redacted). Load-bearing guards
 (cross-section key refusal, deemed-line bounding to Stage 1, XML control-character
 cleaning) were each verified by reverting them and watching their tests fail.
 

@@ -301,10 +301,16 @@ def extract_case_details(text: str) -> dict:
 # before a slash. Rarely it is a line of the solicitor's own prose that happened
 # to start with a bullet.
 #
-# The difference matters for confidentiality as much as for diagnosis. A
-# damaged label is a fixed string from content-data.js with noise in it and
-# carries nothing about the case, so it can be shown in full. An unrelated line
-# may be case text, so only its length is reported. Similarity decides which.
+# The similarity floor decides which diagnosis to offer, but NOT whether the
+# read text may be echoed — it may not, ever. An earlier version reasoned
+# that a damaged label "is a fixed string from content-data.js with noise in
+# it and carries nothing about the case" and printed it in full above this
+# floor; a 7 August 2026 review falsified the premise: a rebuild that merges
+# a label with the line after it produces LABEL + CLIENT TEXT, and a short
+# suffix on a long label still scores far above 0.60. So the report names
+# the *known* label it resembles (safe: it is our own fixed string), the
+# length of what was read, and the position and single character of the
+# first difference — enough to correct a typo by, nothing to leak by.
 LABEL_MATCH_FLOOR = 0.60
 
 
@@ -379,8 +385,11 @@ def describe_unrecognised_criteria(items: list[dict]) -> str:
         nearest = item.get("nearest", "")
         lines.append("")
         if nearest:
-            lines.append(f"  {section} — read:    {label!r}")
-            lines.append(f"  {' ' * len(section)}   nearest: {nearest!r}")
+            lines.append(
+                f"  {section} — a bulleted line of {len(label)} characters, "
+                "closest to this criterion:"
+            )
+            lines.append(f"  {' ' * len(section)}   {nearest!r}")
             lines.append(f"  {' ' * len(section)}   {_first_difference(label, nearest)}")
         else:
             lines.append(
@@ -393,10 +402,11 @@ def describe_unrecognised_criteria(items: list[dict]) -> str:
             )
     lines.append("")
     lines.append(
-        "Nothing was guessed. A label misread this way came off the same text "
-        "layer as\nthe explanation beneath it, so correcting the label alone "
-        "would leave prose that\nis just as wrong but no longer visibly so — "
-        "read both against the page before\naccepting either."
+        "The text read from the document is not repeated here — it can carry "
+        "case\nmaterial when damage merges a label with the line after it. The "
+        "full text is\nin narrative-input.json, which stays on this machine: "
+        "correct each 'label'\nthere against content-data.js, reading it "
+        "against the document itself before\naccepting either."
     )
     return "\n".join(lines)
 
@@ -430,7 +440,11 @@ def extract_panel(
             # other factor combined, so a tick lost here is not the lesser
             # problem. Same treatment as a criterion.
             if unmatched is None:
-                print(f"narrate: unknown panel label {label!r}", file=sys.stderr)
+                # Length only — the line can carry case text (see LABEL_MATCH_FLOOR).
+                print(
+                    f"narrate: unknown panel label ({len(label)} characters)",
+                    file=sys.stderr,
+                )
             else:
                 unmatched.append(_unrecognised("panelMembership", label, known))
             continue
@@ -554,8 +568,10 @@ def extract_criteria(
             key = None
         if not key:
             if unmatched is None:
+                # Length only — the line can carry case text (see LABEL_MATCH_FLOOR).
                 print(
-                    f"narrate: unknown criterion label in {section_name}: {label!r}",
+                    f"narrate: unknown criterion label in {section_name} "
+                    f"({len(label)} characters)",
                     file=sys.stderr,
                 )
             else:
@@ -1235,6 +1251,7 @@ def load_formdata_json(path: str | Path) -> dict:
     # Hand-editing this file is a *supported* recovery workflow here (it is how a
     # solicitor fixes an unmatched label), so this is an ordinary typo path, not a
     # hostile-input hypothetical.
+    label_keys = label_to_key_lookup()
     for section in ("panelMembership", "stage1", "stage2"):
         for key, entry in (data.get(section) or {}).items():
             where = f"{path.name}: {section}[{key!r}]"
@@ -1245,6 +1262,37 @@ def load_formdata_json(path: str | Path) -> dict:
                 )
             if not isinstance(entry.get("label"), str) or not entry["label"].strip():
                 raise ValueError(f"{where} has no usable 'label'.")
+            # The three checks below hold this recovery path to the same
+            # standard as reading the document. Until 7 August 2026 an
+            # *ordinary* entry (one not under "unrecognised") was trusted on
+            # shape alone — so a hand-edited file could park any label under
+            # any key in any section, and a criterion label filed under
+            # panelMembership would have asserted the guaranteed 15% (CAG
+            # 12.20) on the strength of nothing. Exactly the misread the
+            # document readers refuse, accepted from the recovery file.
+            if entry.get("checked") is not True:
+                raise ValueError(
+                    f"{where} has \"checked\": {entry.get('checked')!r}. Every "
+                    "reader here treats a present key as ticked, so an entry "
+                    "that should not count must be deleted, not set false."
+                )
+            resolved = label_keys.get(entry["label"].strip())
+            if resolved != key:
+                raise ValueError(
+                    f"{where}: its label does not resolve to that key"
+                    + (f" (it is the label of {resolved!r})" if resolved else
+                       " (it matches no criterion in content-data.js)")
+                    + ". Correct the label or the key — a mismatched pair "
+                    "would file the claim under a criterion the solicitor "
+                    "never ticked."
+                )
+            if not key.startswith(_SECTION_KEY_PREFIXES[section]):
+                raise ValueError(
+                    f"{where}: a {key.split('_', 1)[0]}_* key does not belong "
+                    f"under {section!r}. A key filed under the wrong section "
+                    "is the misread the document readers stop on — see the "
+                    "section guard in extract_criteria."
+                )
 
     if "thresholdDeemed" in data and not isinstance(data["thresholdDeemed"], bool):
         # Truthiness would let the string "false" assert a contractual entitlement.
@@ -1253,7 +1301,6 @@ def load_formdata_json(path: str | Path) -> dict:
             f"{data['thresholdDeemed']!r}."
         )
 
-    label_keys = label_to_key_lookup()
     known = list(label_keys)
     still_unmatched: list[dict] = []
     for item in data.get("unrecognised") or []:
@@ -1377,7 +1424,9 @@ def diagnose_pdf(pdf_path: str | Path) -> dict:
         }
 
     return {
-        "pdf": pdf_path.name,
+        # The filename is deliberately absent: it carries the matter name, and
+        # this output's whole promise is that it can be pasted anywhere. The
+        # person running --debug can see which file they ran it on.
         "pages": n_pages,
         "per_page_chars": per_page_chars,
         "raw_chars": len(raw),

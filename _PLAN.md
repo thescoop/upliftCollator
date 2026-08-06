@@ -35,11 +35,13 @@ to the LAA, a small fully-audited writer beats a large trusted one. Vendored by
 the house method: downloaded from two CDNs, compared byte-for-byte, hash recorded
 in `vendor/_PROVENANCE.md`.
 
-**3. Extraction reads both formats, dispatched on extension and verified by magic
-bytes.** `%PDF` must begin a `.pdf`, `PK` a `.docx`; a mismatch is reported as
-damage, not guessed around. The PDF path — section regexes, wrap resolution, the
-longest-run case-details reader, every hardening — is frozen as the legacy path.
-The docx path is new code against a new contract.
+**3. Extraction reads both formats, dispatched on content first.** The file's
+own first bytes decide (`%PDF` → PDF path, `PK` → docx path), so a file renamed
+in transit still reads as what it is; the extension is only the fallback for
+content that is neither, so the right format's diagnostics get to say what is
+wrong with it. The PDF path — section regexes, wrap resolution, the longest-run
+case-details reader, every hardening — is frozen as the legacy path. The docx
+path is new code against a new contract.
 
 **4. The round trip stays text-matching; there is no embedded payload.** The
 reasons the payload was dropped on 4 August still hold (Word's Document Inspector
@@ -92,7 +94,7 @@ dispatch in `extract.py`, both narrator front-ends accepting either format, and
 
 Verification actually performed:
 
-- **378 tests pass** (was 345), under WSL **and Windows Python** — the Windows
+- **391 tests pass** (was 345), under WSL **and Windows Python** — the Windows
   gap that stood since 4 August is closed. `narrate.py` was also run end to end
   under the Windows `uplift-narrate` env on `deemed.docx` and produced a
   correctly-cited deemed narrative.
@@ -101,8 +103,9 @@ Verification actually performed:
   panel and explanation intact, nothing unrecognised.
 - **Real Word acceptance (COM):** the browser-produced file opened in desktop
   Word with no repair, was re-saved by Word, and the re-saved copy extracted
-  **identically** — with `lastModifiedBy` showing who rewrote it, which is the
-  new `diagnose()` forensics working as designed.
+  **identically** — and the file recorded the re-save in `lastModifiedBy`,
+  which `diagnose()` surfaces as the `resaved_by_another` boolean (the name
+  itself is redacted; see the launch review below).
 - **Guards revert-proofed:** the cross-section key refusal, the deemed-line
   bounding to Stage 1, and the generator's XML control-character cleaning were
   each broken deliberately and each failure was caught by its own test.
@@ -115,6 +118,53 @@ Verification actually performed:
 machine); Simon has not yet seen the document's appearance in Word — the
 layout is carried over from the PDF (colours, sizes, header/footer) but taste
 is his call before merge.
+
+### The launch review — Sol's eleven findings, 7 August 2026
+
+A full-codebase review by gpt-5.6-sol against a launch standard. Nine findings
+were accepted and fixed the same day, each with a regression test:
+
+1. **The docx evidence sentence was prefix-matched**, so "…is *not* held on
+   the case file" still confirmed. Now whole-sentence equality (the PDF path
+   keeps its prefix tolerance — wrapping can break that sentence anywhere).
+2. **Duplicate or reordered section headings were read around, not refused.**
+   A fake `PROPOSED UPLIFT` pasted as real paragraphs above the genuine one
+   (only an edit in Word can do this) supplied a fake percentage. Structure
+   that the generator could not have produced now stops extraction whole.
+3. **`load_formdata_json` trusted ordinary entries on shape alone** — a
+   coherent key+label pair parked under the wrong section, a mismatched pair,
+   or `"checked": false` all narrated. Every entry is now resolved against
+   `content-data.js`: label must land on its own key, key must belong to its
+   section, checked must be `true`.
+4. **`5e1` passed the uplift gate** (parseFloat reads 50), printed verbatim,
+   and extracted as nothing. The gate now demands a plain decimal.
+5. **The diagnostics leaked names.** Word writes a *person* into
+   `lastModifiedBy`; the docx diagnose echoed it, plus the matter-bearing
+   filename — in output whose whole promise is "safe to paste anywhere". Both
+   redacted (booleans and the app's own stamp survive); the PDF diagnose
+   loses its filename echo too.
+6. **The unrecognised-label report echoed read text above 0.60 similarity**,
+   on the recorded premise that a near-match is "a fixed label with noise in
+   it". Falsified: damage that merges a label with the next line scores high
+   *and* carries client text. The report now names only the known label, the
+   length, and the single differing character.
+7. **`.gitignore` did not cover the app's own download names**, so a real
+   summary copied in for diagnosis was one `git add .` from a public repo.
+8. **Case-detail values were whitespace-collapsed** out of PDF habit; the
+   docx reader now returns them as written.
+9. The `ALLOW_REMOTE` escape now **warns loudly on every run** it is active.
+
+Two findings were **declined, with reasons**:
+
+- *"The polished .docx is written even when the LLM verdict is NEEDS
+  REVISION."* That is the recorded design: the deterministic citation check
+  gates the deliverable (`write_docx` refuses on mismatch); the LLM verdict is
+  advisory, exit code 1, read by Simon before anything is sent. Whether a
+  flagged narrative should carry a quarantined *name* is queued for Simon
+  below — a workflow choice, not a defect.
+- *"`UPLIFT_LMSTUDIO_ALLOW_REMOTE=1` bypasses the local-only boundary."* It
+  is the deliberate, separately-named escape the house confidentiality rule
+  requires; silent was the defect, and silence is what was fixed.
 
 ---
 
@@ -564,6 +614,13 @@ end to end in Chromium with all three panels ticked, a 46-character fee-earner n
 3. Judgement call made, reversible in one line: a **ticked** item in the optional
    Responsibility section still requires its explanation. Only an untouched section is
    exempt. Change it if you would rather ticks there stood alone.
+4a. **For Simon: should a NEEDS-REVISION narrative carry a quarantined
+   filename?** Today a flagged run still writes `narrative-polished-<matter>.docx`
+   beside a `citation-check.txt` that says why it was flagged, and exits
+   non-zero. Sol's launch review argued the sendable-looking name invites
+   sending it unread; the counter-argument is that Simon reads every narrative
+   before sending anyway, and renaming deliverables by verdict complicates the
+   clear-stale-output logic. One-line change either way once decided.
 4. **The older section headers are still matched as the first bare occurrence
    anywhere in the document**, so a solicitor who pastes a working note containing a
    line reading `DISCLAIMER` or `PROPOSED UPLIFT` into an explanation truncates the

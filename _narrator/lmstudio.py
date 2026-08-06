@@ -36,6 +36,7 @@ import re
 import socket
 import struct
 import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -161,14 +162,25 @@ def resolve_host() -> str:
     override = os.environ.get("UPLIFT_LMSTUDIO_URL", "").strip().rstrip("/")
     if override:
         allow_remote = os.environ.get("UPLIFT_LMSTUDIO_ALLOW_REMOTE", "") == "1"
-        if not _is_local(override, gateway) and not allow_remote:
-            raise LMStudioError(
-                f"UPLIFT_LMSTUDIO_URL points at {override}, which is not this "
-                "machine.\n\nThe narrator sends privileged client material to "
-                "the model, so it only talks to a local server (loopback or the "
-                "WSL host gateway). Point it at a local address, or set "
-                "UPLIFT_LMSTUDIO_ALLOW_REMOTE=1 if you genuinely intend to send "
-                "client data off this machine."
+        if not _is_local(override, gateway):
+            if not allow_remote:
+                raise LMStudioError(
+                    f"UPLIFT_LMSTUDIO_URL points at {override}, which is not this "
+                    "machine.\n\nThe narrator sends privileged client material to "
+                    "the model, so it only talks to a local server (loopback or the "
+                    "WSL host gateway). Point it at a local address, or set "
+                    "UPLIFT_LMSTUDIO_ALLOW_REMOTE=1 if you genuinely intend to send "
+                    "client data off this machine."
+                )
+            # The escape is deliberate and documented, but it must never be
+            # quiet: an environment variable inherited from a forgotten shell
+            # profile is exactly how "deliberate" becomes "by accident". Every
+            # run under it says so, every time.
+            print(
+                "narrate: WARNING — UPLIFT_LMSTUDIO_ALLOW_REMOTE=1 is set. "
+                f"Privileged client material will be sent OFF this machine, to "
+                f"{override}.",
+                file=sys.stderr,
             )
         if _reachable(override):
             return override

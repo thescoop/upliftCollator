@@ -108,13 +108,31 @@ class DamagedLabelsAreRecordedTests(unittest.TestCase):
 class ReportIsSafeToShareTests(unittest.TestCase):
     """The report follows diagnose()'s rule: structure, never case text."""
 
-    def test_a_damaged_label_is_shown_with_the_offending_character(self):
+    def test_a_damaged_label_is_never_echoed_but_the_difference_is_named(self):
+        """Reversed on 7 August 2026 — this test used to REQUIRE the read text
+        to be echoed, on the premise that a near-match is a fixed label with
+        noise in it. The premise fails when damage merges a label with the
+        line after it: LABEL + CLIENT TEXT still scores far above the floor.
+        Now the known label, the length and the single differing character
+        are shown, and the read text never is."""
         text = describe_unrecognised_criteria(
             [{"section": "stage2", "label": DAMAGED_S2, "nearest": GOOD_S2}]
         )
-        self.assertIn(DAMAGED_S2, text)
+        self.assertNotIn(DAMAGED_S2, text)
         self.assertIn(GOOD_S2, text)
+        self.assertIn(str(len(DAMAGED_S2)), text)
         self.assertIn("read '{', expected '('", text)
+
+    def test_a_label_merged_with_client_text_leaks_nothing(self):
+        """The concatenation case that forced the reversal: a long real label
+        with a short client suffix scores above the floor, so under the old
+        rule the suffix printed. It must not."""
+        merged = GOOD_S2 + " for child John Smith in care proceedings"
+        text = describe_unrecognised_criteria(
+            [{"section": "stage2", "label": merged, "nearest": GOOD_S2}]
+        )
+        self.assertNotIn("John Smith", text)
+        self.assertIn(GOOD_S2, text)
 
     def test_the_lost_space_is_named_as_a_space(self):
         text = describe_unrecognised_criteria(
@@ -154,11 +172,12 @@ class ReportIsSafeToShareTests(unittest.TestCase):
         self.assertLess(unmatched[0]["similarity"], LABEL_MATCH_FLOOR)
         self.assertEqual(unmatched[0]["nearest"], "")
 
-    def test_report_says_nothing_was_guessed(self):
+    def test_report_explains_why_the_text_is_not_repeated(self):
         text = describe_unrecognised_criteria(
             [{"section": "stage2", "label": DAMAGED_S2, "nearest": GOOD_S2}]
         )
-        self.assertIn("Nothing was guessed", text)
+        self.assertIn("not repeated here", text)
+        self.assertIn("narrative-input.json", text)
 
 
 class ResumeFromCorrectedJsonTests(unittest.TestCase):

@@ -15,3 +15,14 @@ CCMS_BN*.docx
 enhancementText.docx
 _FORMAT-OPTIONS.docx
 .drive-output/
+
+# The Collator's own downloads, in every name it has ever used. A real one
+# copied into the repo to diagnose is a privileged client document, and this
+# repo is public — `git add .` must never be able to stage it. The committed
+# test fixtures live under _narrator/tests/fixtures/ and are re-included
+# explicitly below.
+Uplift_Justification*.docx
+Uplift_Justification*.pdf
+LAA_Uplift_Data_Summary*.pdf
+!_narrator/tests/fixtures/*.docx
+!_narrator/tests/fixtures/*.pdf

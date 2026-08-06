@@ -97,16 +97,20 @@ picking the work up needs.
 >   adversarial one: a pasted fake DISCLAIMER heading, a fake EVIDENCE ON FILE
 >   block claiming confirmation, a real Stage 1 label on its own pasted line,
 >   bullet characters and a control character, all of which must stay inert.
-> - **Verified:** 378 tests pass under **both** WSL and Windows Python;
+> - **Verified:** 391 tests pass under **both** WSL and Windows Python;
 >   `drive_form.js` 28/28 including a full docx round trip (real click, real
 >   download, read back with python-docx); and a real-Word COM acceptance test —
 >   Word opened the file without offering to repair it, extraction was identical
 >   after a Word re-save, and the `docProps` creator "Uplift Collator v1.13"
->   survived while `lastModifiedBy` recorded who re-saved it.
+>   survived while the file recorded the re-save in `lastModifiedBy` — which
+>   the diagnostics surface as a boolean, never as the name (see below).
 > - **The docx forensics replace the PDF `producer` check.** `diagnose_docx`
->   reports `creator`, `last_modified_by`, `created`, `modified`, the gap between
->   the last two, and per-section match flags — structure only, no client text,
->   same GDPR rule as the PDF diagnostic.
+>   reports the creator string only when it is the app's own stamp, the boolean
+>   `resaved_by_another` (Word writes a PERSON's name into lastModifiedBy, so the
+>   name never appears), `created`/`modified`, the gap between them, structural
+>   damage, and per-section match flags — structure only, no client text, no
+>   filename, same GDPR rule as the PDF diagnostic, tightened by the 7 August
+>   launch review.
 
 > **6 August 2026 — the deemed-threshold route** (recorded here 7 August; the
 > session that built it updated `_PLAN.md` but not this file). Spec Para 7.23(a)
@@ -227,7 +231,7 @@ App version **1.13** (7 August 2026) in `content-data.js` — 1.11 on 4 August a
 moved because the Collator itself changed, and 1.13 because the output *format*
 changed, which is part of the same contract.
 
-**378 tests**, all passing (was 281 after the 4 August redesign), none touching
+**391 tests**, all passing (was 281 after the 4 August redesign), none touching
 the network. Verified under **both WSL and Windows Python on 7 August 2026** —
 the long-standing gap where Windows had not been re-run since the redesign is
 closed. Command:

@@ -40,10 +40,14 @@ FIXTURE = Path(__file__).resolve().parent / "fixtures" / "sample_formdata.json"
 
 DEEMED_LINE = "Threshold test: deemed satisfied by panel membership (Spec Para 7.23(a))."
 
+# The real current label — load_formdata_json now resolves every entry's
+# label against content-data.js and requires it to land on its own key, so a
+# shortened or paraphrased label here fails the load, exactly as it would for
+# a user's hand-edited file.
 PANEL = {
     "panel_membership_resolution": {
         "checked": True,
-        "label": "Resolution Accredited Specialist Panel",
+        "label": "Fee earner is on Resolution Accredited Specialist Panel",
     }
 }
 
@@ -296,6 +300,51 @@ class FromJsonFailClosedTests(unittest.TestCase):
         loaded = load_formdata_json(self._write(_formdata()))
         self.assertTrue(loaded["thresholdDeemed"])
         self.assertIsNone(deemed_threshold_support(loaded))
+
+    def test_a_checked_false_entry_is_rejected_not_ignored(self) -> None:
+        """Every reader treats a present key as ticked, so "checked": false
+        would narrate anyway. The load refuses it and says to delete the
+        entry instead. Found by cross-model review, 7 August 2026."""
+        panel = {
+            "panel_membership_resolution": {
+                "checked": False,
+                "label": "Fee earner is on Resolution Accredited Specialist Panel",
+            }
+        }
+        with self.assertRaises(ValueError) as caught:
+            load_formdata_json(self._write(_formdata(panelMembership=panel)))
+        self.assertIn("must be deleted", str(caught.exception))
+
+    def test_a_label_of_a_different_key_is_rejected(self) -> None:
+        """A mismatched key/label pair would file the claim under a criterion
+        the solicitor never ticked."""
+        stage2 = {
+            "s2_resp_no_counsel_advocacy": {
+                "checked": True,
+                # The label of s2_resp_no_counsel_drafting, under advocacy's key.
+                "label": "Drafting without counsel",
+                "categoryTitle": "Degree of responsibility",
+                "explanation": "Ten words of perfectly plausible explanation are given here.",
+            }
+        }
+        with self.assertRaises(ValueError) as caught:
+            load_formdata_json(self._write(_formdata(stage2=stage2)))
+        self.assertIn("does not resolve to that key", str(caught.exception))
+
+    def test_a_coherent_pair_in_the_wrong_section_is_rejected(self) -> None:
+        """The costliest shape: a genuine Stage 1 key WITH its own genuine
+        label, parked under panelMembership — internally consistent, so only
+        the section check can catch it, and accepting it would assert the
+        guaranteed 15% (CAG 12.20) on the strength of nothing."""
+        panel = {
+            "s1_circ_legal_issues": {
+                "checked": True,
+                "label": "The legal, expert or other evidential issues were exceptionally complex",
+            }
+        }
+        with self.assertRaises(ValueError) as caught:
+            load_formdata_json(self._write(_formdata(panelMembership=panel)))
+        self.assertIn("does not belong", str(caught.exception))
 
 
 if __name__ == "__main__":

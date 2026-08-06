@@ -17,6 +17,7 @@ explanation that carries it.
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 import tempfile
@@ -249,6 +250,24 @@ class TestEditedDocuments(unittest.TestCase):
         )
         self.assertFalse(extract.extract_formdata(edited)["evidenceOnFileConfirmed"])
 
+    def test_a_negated_evidence_sentence_reads_as_not_confirmed(self):
+        """The sentence is matched WHOLE. A prefix match accepted anything
+        appended after "…supporting" — including a negation, which made the
+        supposedly agreeing pair affirm opposite propositions. Found by
+        cross-model review, 7 August 2026."""
+        canonical = ("The fee earner confirms that evidence supporting the "
+                     "matters set out above is held on the case file.")
+        for damaged in (
+            "The fee earner confirms that evidence supporting the matters "
+            "set out above is not held on the case file.",
+            canonical + " Or so it is claimed.",
+        ):
+            with self.subTest(damaged=damaged[:60]):
+                edited = _rewrite_paragraph(SAMPLE, canonical, damaged)
+                self.assertFalse(
+                    extract.extract_formdata(edited)["evidenceOnFileConfirmed"]
+                )
+
     def test_a_damaged_status_line_reads_as_not_confirmed(self):
         edited = _rewrite_paragraph(
             SAMPLE, "Evidence on file: Confirmed", "Evidence on file: Confirmd"
@@ -266,6 +285,52 @@ class TestEditedDocuments(unittest.TestCase):
         edited = _rewrite_paragraph(SAMPLE, "Care", deemed_line)
         self.assertFalse(extract.extract_formdata(edited)["thresholdDeemed"])
 
+    def test_a_duplicated_heading_stops_extraction_entirely(self):
+        """A fake PROPOSED UPLIFT section pasted as real paragraphs above the
+        genuine one must not supply the percentage — or anything else. The
+        generator writes each heading once, so a duplicate can only mean an
+        edited document, and an edited structure is refused whole rather than
+        read around. Found by cross-model review, 7 August 2026, which
+        reproduced 95 being read instead of the genuine 75."""
+        tmp = Path(tempfile.mkdtemp()) / SAMPLE.name
+        shutil.copy(SAMPLE, tmp)
+        doc = Document(str(tmp))
+        # Paragraphs 0 and 1 are the title and the Generated line — turn them
+        # into a fake section sitting above every genuine one.
+        for index, new_text in ((0, "PROPOSED UPLIFT"),
+                                (1, "Proposed Uplift Percentage:  95%")):
+            para = doc.paragraphs[index]
+            for run in para.runs:
+                run.text = ""
+            para.runs[0].text = new_text
+        doc.save(str(tmp))
+        data = extract.extract_formdata(tmp)
+        self.assertEqual(data["finalUpliftPercent"], "")
+        self.assertEqual(data["stage1"], {})
+        self.assertEqual(data["stage2"], {})
+        self.assertFalse(data["evidenceOnFileConfirmed"])
+        text = extract.explain_empty_extraction(tmp)
+        self.assertIn("appears 2 times", text)
+        self.assertIn("re-download", text.lower())
+
+    def test_reordered_headings_stop_extraction_entirely(self):
+        """Headings each present once but out of the generator's order can
+        also only come from an edit; refused the same way."""
+        tmp = Path(tempfile.mkdtemp()) / SAMPLE.name
+        shutil.copy(SAMPLE, tmp)
+        doc = Document(str(tmp))
+        first = next(p for p in doc.paragraphs if p.text == "CASE DETAILS")
+        last = next(p for p in doc.paragraphs if p.text == "EVIDENCE ON FILE")
+        for para, new_text in ((first, "EVIDENCE ON FILE"), (last, "CASE DETAILS")):
+            for run in para.runs:
+                run.text = ""
+            para.runs[0].text = new_text
+        doc.save(str(tmp))
+        data = extract.extract_formdata(tmp)
+        self.assertEqual(data["stage1"], {})
+        self.assertEqual(data["stage2"], {})
+        self.assertIn("not in the order", extract.explain_empty_extraction(tmp))
+
     def test_an_edited_label_stops_the_run_with_a_named_nearest(self):
         real = _current_label("s1_cse_marshalling_evidence")
         edited = _rewrite_paragraph(SAMPLE, "•  " + real,
@@ -280,10 +345,12 @@ class TestEditedDocuments(unittest.TestCase):
 # Every key diagnose_docx may return. Its output is printed and pasted while
 # triaging real, privileged case documents, so it must be structural or
 # software names only — never a field value, an explanation, or a client name.
+# No filename (it carries the matter name) and no lastModifiedBy (Word writes
+# a person's name there) — see the redaction note above diagnose_docx.
 ALLOWED_DIAGNOSE_KEYS = {
-    "docx", "readable", "failure", "paragraphs", "raw_chars", "creator",
-    "last_modified_by", "created", "modified", "rewritten_after_seconds",
-    "made_by_the_app", "sections",
+    "readable", "failure", "paragraphs", "tables", "raw_chars", "creator",
+    "resaved_by_another", "created", "modified", "rewritten_after_seconds",
+    "made_by_the_app", "structural_damage", "sections",
 }
 ALLOWED_SECTION_KEYS = {
     "matched", "paragraph_index", "block_paragraphs", "bullet_lines",
@@ -309,6 +376,42 @@ class TestDiagnostics(unittest.TestCase):
         d = extract.diagnose(SAMPLE)
         self.assertTrue(all(s.get("matched") for s in d["sections"].values()),
                         d["sections"])
+
+    def test_no_person_name_ever_appears_in_the_diagnostics(self):
+        """Word writes the Office account name into lastModifiedBy on save.
+        A person's name in "safe to paste anywhere" output is a GDPR leak, so
+        only the boolean fact of a re-save survives — and the filename, which
+        carries the matter, is not echoed at all. Found by cross-model
+        review, 7 August 2026."""
+        tmp = Path(tempfile.mkdtemp()) / "Uplift_Justification-Smith 12345.docx"
+        shutil.copy(SAMPLE, tmp)
+        doc = Document(str(tmp))
+        doc.core_properties.last_modified_by = "Priya Solicitor"
+        doc.save(str(tmp))
+        rendered = json.dumps(extract.diagnose(tmp))
+        self.assertNotIn("Priya", rendered)
+        self.assertNotIn("Smith 12345", rendered)
+        self.assertTrue(extract.diagnose(tmp)["resaved_by_another"])
+
+    def test_a_foreign_creator_name_is_not_echoed(self):
+        tmp = Path(tempfile.mkdtemp()) / "foreign-creator.docx"
+        doc = Document()
+        doc.core_properties.author = "Alex Paralegal"
+        doc.add_paragraph("A letter about something else.")
+        doc.save(str(tmp))
+        d = extract.diagnose(tmp)
+        self.assertFalse(d["made_by_the_app"])
+        self.assertNotIn("Alex", json.dumps(d))
+        self.assertNotIn("Alex", extract.explain_empty_extraction(tmp))
+
+    def test_case_detail_internal_whitespace_survives(self):
+        """The PDF path collapsed whitespace because wrapping forced a rejoin;
+        nothing forces one here, so a value must come back as written."""
+        edited = _rewrite_paragraph(
+            SAMPLE, "Fee Earner:  Jane Doe", "Fee Earner:  Jane\tQ.  Doe"
+        )
+        details = extract.extract_formdata(edited)["caseDetails"]
+        self.assertEqual(details["feeEarnerName"], "Jane\tQ.  Doe")
 
     def test_garbage_is_reported_as_unreadable(self):
         tmp = Path(tempfile.mkdtemp()) / "junk.docx"
