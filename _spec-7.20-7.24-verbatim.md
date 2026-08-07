@@ -1,7 +1,13 @@
-# 2024 Standard Civil Contract Specification, Category Specific Rules: Family — Paragraphs 7.20–7.24
+# 2024 Standard Civil Contract Specification — verbatim paragraphs
+
+Covers two Specification documents: **Category Specific Rules: Family, Paragraphs
+7.20–7.24** (first section, extracted 6 August 2026) and the **General Rules,
+Paragraphs 6.12–6.17** (second section, extracted 7 August 2026). The filename
+predates the second section and is kept because the repository refers to it.
 
 **This file is the citation source of truth for everything the Uplift Collator says
-about panel membership, the deemed threshold test and the guaranteed 15% minimum.**
+about panel membership, the deemed threshold test, the guaranteed 15% minimum, the
+threshold test itself (6.13) and the level-of-enhancement factors (6.15).**
 It is the Specification twin of `_cag-section-12-verbatim.md`, which covers the Costs
 Assessment Guidance. Between them they are the only established wording; anything else
 is drafting.
@@ -176,3 +182,122 @@ about the *level* of enhancement beyond the 15% floor in 7.23(b), and it does no
 any CAG 12.9 factor to be made out. A claim above 15% still has to be earned at Stage 2
 on the facts. Nothing in 7.23 permits a narrative to assert that the work was
 exceptional, complex, novel or weighty.
+
+---
+
+# General Rules — Paragraphs 6.12–6.17
+
+**Added 7 August 2026** because the redesigned .docx wanted to print "(Spec para
+6.15)" against the Stage 2 selections, and no verbatim source for anything in
+Section 6 existed in this repository — the same gap this file's own rule treats as a
+defect. These paragraphs also underwrite the app's existing narrative citations of
+Spec 6.13 and Spec 6.15.
+
+## Provenance
+
+This is a DIFFERENT document from the Family rules above: the general Specification.
+Extracted twice, independently, on 7 August 2026, by the same method as 7.20–7.24:
+
+1. `gpt-5.6-sol` fetched the PDF, transcribed 6.12–6.17, then re-fetched the same
+   asset and string-matched its own transcription — exact match on all six.
+2. The Claude session downloaded the PDF separately (MD5
+   `e35d07595f16d5e0c7802ebef61ff120`) and extracted the same page with `pypdf`,
+   then compared word by word against that transcription.
+
+The two agree exactly on all six paragraphs. The only differences were two
+intra-word spaces introduced by `pypdf`'s text layer — `enhancemen t` (6.12) and
+`exceedin g` (6.16) — the same artefact class as the CAG PDF's `fee -earner`. They
+are extraction artefacts, not source wording; character-for-character the texts are
+identical once whitespace is removed. `pypdf` also appended the running `May 2025`
+page header to 6.17; it is not part of the paragraph.
+
+The document, titled on its cover:
+
+> 2024 Standard Civil Contract
+> Specification:
+> General Rules
+
+Cover date **May 2025**. Paragraphs 6.12–6.17 are all on **PDF page 68 of 81**, in
+**Section 6 Payment for Licensed Work**, under the heading `Hourly Rates
+Enhancements`.
+
+- Source PDF: https://assets.publishing.service.gov.uk/media/682c7ba9a4a41a5b3eb00c95/2_2024_Standard_Civil_Contract_General_Specification.pdf
+- Linked from the same LAA collection page as the Family rules: https://www.gov.uk/government/publications/standard-civil-contract-2024
+
+> [note: In 6.15 there is no punctuation after `prepared`, and `and` stands on its
+> own printed line before limb (c). That is how the source prints it. Do not
+> "correct" either on reuse.]
+
+## The paragraphs
+
+### 6.12
+
+> The following rules apply only to remuneration by way of Prescribed Rates under the Remuneration Regulations (but excluding for this purpose any determination as to whether a case escapes from any Standard Fee or Graduated Fee). No other form of enhancement or uplift is payable except as set out below.
+
+### 6.13
+
+> The threshold test: on assessment of Licensed Work, we may allow fees at more than the Prescribed Rate in respect of any item of work where it appears, taking into account all the relevant circumstances, that:
+>
+> (a) the work was done with exceptional competence, skill or expertise;
+>
+> (b) the work was done with exceptional speed; or
+>
+> (c) the case involved exceptional circumstances or complexity.
+
+### 6.14
+
+> Where we or the court consider that any item of work should be allowed at more than the Prescribed Rate, we may apply to that item of work a percentage enhancement in accordance with the provisions of Paragraphs 6.15 to 6.17 below.
+
+### 6.15
+
+> In determining the percentage by which fees should be enhanced above the Prescribed Rate we shall have regard to:
+>
+> (a) the degree of responsibility accepted by the legal advisor;
+>
+> (b) the care, speed and economy with which the case was prepared
+>
+> and
+>
+> (c) the novelty, weight and complexity of the case.
+
+### 6.16
+
+> The percentage above the Prescribed Rate by which fees for work may be enhanced shall not exceed 50%. The exception to this is that in proceedings in the High Court, Court of Appeal, Upper Tribunal or Supreme Court, we may allow an enhancement not exceeding 100% where it is considered that, in comparison with work in other proceedings in those courts which would merit 50% enhancement, the item of work relates to exceptionally complex matters which have been handled with exceptional competence or speed.
+
+### 6.17
+
+> We or the court may have regard to the generality of proceedings to which the relevant Prescribed Rates apply in determining what is exceptional within the meaning of this provision.
+
+## What these paragraphs settle
+
+**6.13 is the threshold test, by the paragraph's own label** ("The threshold test:
+..."). The Stage 1 route line's citation "(Spec para 6.13)" is correct, whether the
+threshold is established by selections (6.13(a)–(c)) or deemed (7.23(a), which
+itself names 6.13).
+
+**6.15 is the level-of-enhancement paragraph.** Its three limbs — (a) degree of
+responsibility, (b) care, speed and economy, (c) novelty, weight and complexity —
+are the groups the CAG 12.9 factors sit inside ("within the limbs of Paragraph
+6.15"). The Stage 2 route line therefore cites **Spec para 6.15**; CAG 12.9 supplies
+the individual factors beneath it. This also confirms the app's existing
+`stage2_intro_narrative` citation ("Spec Para 6.15 / CAG Section 12.5 & 12.9").
+
+**The CAG 12.8 looseness is now fully resolvable.** CAG 12.8 says "the three limbs
+of 6.15" in a sentence about the threshold. The General Rules show the threshold
+limbs are 6.13(a)–(c) and the 6.15 limbs are the level factors — different limbs,
+different paragraphs. CAG 12.8's phrase is a slip for 6.13's limbs; the note in
+`_cag-section-12-verbatim.md` (line ~70) and the comment in `content-data.js`
+already treat it that way, and this text proves them right.
+
+**Ceilings: 6.16 is the general rule; Family work follows 7.22.** 6.16 allows up to
+100% in the High Court, Court of Appeal, **Upper Tribunal** or Supreme Court. The
+Family rule 7.22 (above) omits the Upper Tribunal and is the operative ceiling for
+Family Contract Work, because 7.20 applies Paragraphs 6.12–6.17 "subject to
+Paragraphs 7.23 to 7.24" and 7.22 states the Family-specific ceiling. The
+Collator's court list and CAG 12.2 ceilings already follow the Family rule; do not
+"upgrade" them from 6.16.
+
+**"Stage 1" and "Stage 2" are the project's analytical labels**, not the
+Specification's. The Specification never uses them. A route line reading
+"Established by the Stage 2 selections below (Spec para 6.15)" is sound: the label
+is ours, the citation is to the paragraph the selections instantiate.
