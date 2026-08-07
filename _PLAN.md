@@ -9,7 +9,9 @@ live.** Only a merge to `main` publishes to solicitors.
 
 **Simon rejected the v1.13 document's appearance** (human gate 1) and, through
 four mockup rounds, the design converged on **his own edit: `my idea.docx` in
-the repo root** — untracked, synthetic data only, the design source of truth.
+the repo root** — synthetic data only, the design source of truth (kept
+untracked through the build; Simon committed it himself on 7 August evening,
+`d7b1325`).
 He signed off mockup round 5 (codes ON, grey headings, Cambria/Calibri,
 ✗ Unconfirmed). The round-by-round record lives in the project memory
 (`project_docx_redesign_round.md`). Decisions fixed: **no watermark**, footer
