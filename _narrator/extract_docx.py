@@ -397,15 +397,18 @@ def _analyse(paragraphs: list[str]) -> dict:
                 # silently dropped panel erases a guaranteed 15% entitlement.
                 if label == "Memberships" and not (
                     value == "None recorded"
-                    or (value.startswith("- ") and value[2:].strip())
+                    or (value.startswith("- ")
+                        and value[2:]
+                        and value[2:] == value[2:].strip())
                 ):
                     problems.append("the Memberships row is malformed")
             elif text.startswith("- ") and in_membership_run:
                 # A continuation, still inside the run. An unknown but
                 # non-empty panel name is NOT damage — extract_panel surfaces
                 # it as unrecognised, which tolerates future label rewording.
-                # An empty one is generator-impossible.
-                if not text[2:].strip():
+                # But an empty name, or whitespace beyond the "- " prefix, is
+                # generator-impossible: the generator prints trimmed labels.
+                if not text[2:] or text[2:] != text[2:].strip():
                     problems.append("MATTER DETAIL contains an empty membership row")
             else:
                 problems.append("MATTER DETAIL contains a paragraph that is not a machine row")

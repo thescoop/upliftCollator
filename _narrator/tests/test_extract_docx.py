@@ -781,6 +781,23 @@ class TestReviewRoundHardening(unittest.TestCase):
         paras.pop(self._row("- Law Society"))
         self.assertTrue(extract_docx.structural_damage(paras))
 
+    # ── round 4 ──
+
+    def test_a_known_panel_with_trailing_whitespace_is_damage(self):
+        """Round 4's last finding: a known name plus generator-impossible
+        whitespace slipped past the truthy strip test into unrecognised.
+        The full-value validation now means what it promises."""
+        paras = self.paragraphs[:]
+        row = self._row("Memberships\t")
+        paras[row] = paras[row] + " "
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_a_continuation_with_trailing_whitespace_is_damage(self):
+        paras = self.paragraphs[:]
+        row = self._row("- Law Society")
+        paras[row] = paras[row] + " "
+        self.assertTrue(extract_docx.structural_damage(paras))
+
     def test_an_edited_label_cannot_escape_the_limb_placement_check(self):
         """Round 3's medium finding: a row with a known code but edited label
         fell out of the wrong-limb check. Placement now follows the raw code."""
