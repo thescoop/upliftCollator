@@ -544,17 +544,21 @@
                         ind: { left: CODE_TAB_S2, hanging: CODE_TAB_S2 },
                         markRPr: MARK16
                     });
-                if (factors[i].explanation) {
-                    // One paragraph however many lines the solicitor typed
-                    // (rule 2). No "Explanation: " prefix — the rule down the
-                    // left margin says what it is.
-                    xml += paragraph(run(factors[i].explanation, S.expl), {
+                // The explanation paragraph is MANDATORY in the grammar: the
+                // parser consumes exactly one paragraph after every item row,
+                // opaquely, and that is only unambiguous if the paragraph is
+                // always there. Empty explanations pass the download gate by
+                // design (see script.js), so an empty one prints a fixed
+                // sentinel the parser maps back to "". One paragraph however
+                // many lines the solicitor typed (rule 2). No "Explanation: "
+                // prefix — the rule down the left margin says what it is.
+                xml += paragraph(
+                    run(factors[i].explanation || "No explanation was provided.", S.expl), {
                         keepLines: true,
                         borders: { left: { sz: 6, space: 8, color: RULE } },
                         spacing: { after: 180, line: 276 },
                         ind: { left: 283 }
                     });
-                }
             }
         }
         xml += divider();

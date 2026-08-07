@@ -92,6 +92,15 @@ class TestEmptinessTest(unittest.TestCase):
             {"stage1": {}, "stage2": {"k": {}}}
         ))
 
+    def test_current_docx_coded_rows_are_counted_as_criteria(self):
+        """The Word design has coded rows, not bullets, but diagnostics must
+        still distinguish a populated summary from an empty questionnaire."""
+        fixture = Path(__file__).resolve().parent / "fixtures" / "sample.docx"
+        diagnostic = extract.diagnose(fixture)
+        self.assertEqual(diagnostic["sections"]["stage1"]["bullet_lines"], 3)
+        self.assertEqual(diagnostic["sections"]["stage2"]["bullet_lines"], 2)
+        self.assertFalse(extract.extraction_is_empty(extract.extract_formdata(fixture)))
+
 
 class TestExplanation(unittest.TestCase):
     """Every branch must name a cause and a fix, and leak no client text."""

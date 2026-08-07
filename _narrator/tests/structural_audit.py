@@ -69,6 +69,23 @@ def main() -> None:
         if block.get("page") == 3
         for checkbox in block.get("checkboxes", [])
     ]
+
+    # Codes are now printed into every Word summary and carried back on each
+    # extracted formData entry. They are therefore identifiers, not decoration:
+    # every item needs one, formats are section-specific, and no two live items
+    # may claim the same printed code.
+    bad_stage1_codes = [
+        checkbox["key"] for checkbox in stage1
+        if not re.fullmatch(r"[ABC]\d{2}", checkbox.get("code", ""))
+    ]
+    bad_stage2_codes = [
+        checkbox["key"] for checkbox in stage2
+        if not re.fullmatch(r"[A-Z]+(?: [A-Z]+)* \d{2}", checkbox.get("code", ""))
+    ]
+    assert not bad_stage1_codes, f"missing/malformed Stage 1 codes: {bad_stage1_codes}"
+    assert not bad_stage2_codes, f"missing/malformed Stage 2 codes: {bad_stage2_codes}"
+    codes = [checkbox["code"] for checkbox in stage1 + stage2]
+    assert len(codes) == len(set(codes)), "duplicate live Word item codes"
     carried = {
         key
         for checkbox in stage2
@@ -161,6 +178,10 @@ def main() -> None:
     print(
         f"Stage 1: {len(stage1)} checkboxes; explanation=false, what_counts, "
         "stage2_factor and Stage 2 carrier all present"
+    )
+    print(
+        f"Word item codes: {len(stage1)} Stage 1 and {len(stage2)} Stage 2 "
+        "codes present, well-formed and unique"
     )
     print(
         f"Retired-template binding: {len(live_keys | header_keys)} live keys and "

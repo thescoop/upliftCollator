@@ -80,6 +80,15 @@ class TestFactorCountSpansBothStages(unittest.TestCase):
         self.assertEqual(checks.count_factors(data), 1)
         self.assertIn("the following exceptional factor,", build_skeleton(data))
 
+    def test_printed_code_metadata_does_not_change_the_factor_count(self):
+        """Current Word formData carries item codes; agreement still counts
+        selected entries, not the number of fields on each entry."""
+        data = formdata(n_stage1=1, n_stage2=1)
+        next(iter(data["stage1"].values()))["code"] = "A01"
+        next(iter(data["stage2"].values()))["code"] = "CARE 05"
+        self.assertEqual(checks.count_factors(data), 2)
+        self.assertIn("the following exceptional factors", build_skeleton(data))
+
 
 class TestPanelPluralisation(unittest.TestCase):
     """What these two used to assert was the singular/plural split between

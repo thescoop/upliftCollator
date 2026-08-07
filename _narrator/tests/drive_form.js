@@ -200,8 +200,20 @@ async function openApp(browser) {
                     Object.keys(data.panelMembership || {}).length === 1,
                     Object.keys(data.panelMembership || {}).join(','));
                 check('round-trip: Stage 2 factor read back with its explanation',
-                    Object.values(data.stage2 || {}).some(e =>
-                        e.checked && (e.explanation || '').split(/\s+/).length >= 10));
+                    data.stage2 && data.stage2.s2_resp_no_counsel_advocacy
+                    && data.stage2.s2_resp_no_counsel_advocacy.checked === true
+                    && data.stage2.s2_resp_no_counsel_advocacy.code === 'RESP 03'
+                    && data.stage2.s2_resp_no_counsel_advocacy.label === 'Advocacy without counsel'
+                    && data.stage2.s2_resp_no_counsel_advocacy.categoryTitle === 'Degree of responsibility'
+                    && data.stage2.s2_resp_no_counsel_advocacy.explanation === (
+                        'The fee earner conducted the advocacy at the contested interim hearing, '
+                        + 'which would ordinarily have been briefed to counsel in a case of this kind.'
+                    ), JSON.stringify(data.stage2 || {}).slice(0, 180));
+                check('round-trip: scalar and evidence fields read back',
+                    data.caseDetails && data.caseDetails.feeEarnerName === 'A. Solicitor'
+                    && data.caseDetails.caseMatterName === 'Synthetic Test 0001'
+                    && data.finalUpliftPercent === '35'
+                    && data.evidenceOnFileConfirmed === false);
                 check('round-trip: nothing unrecognised',
                     !(data.unrecognised && data.unrecognised.length),
                     JSON.stringify(data.unrecognised || []).slice(0, 120));

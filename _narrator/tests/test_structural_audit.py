@@ -56,6 +56,11 @@ class StructuralAuditTests(unittest.TestCase):
         # 41 legacy). The legacy and alias counts are unchanged, and should be:
         # nothing that already shipped was renamed.
         self.assertIn("Stage 1: 18 checkboxes", report)
+        self.assertIn(
+            "Word item codes: 18 Stage 1 and 23 Stage 2 codes present, "
+            "well-formed and unique",
+            report,
+        )
         self.assertIn("Retired-template binding: 54 live keys and headers", report)
         self.assertIn("Template coverage: 44 live keys and 41 legacy labels", report)
         self.assertIn("Label uniqueness: 85 live/legacy labels", report)

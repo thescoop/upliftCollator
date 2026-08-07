@@ -19,12 +19,10 @@
  *   deemed.docx  — the deemed-threshold route: panel ticked, Stage 1 empty,
  *                  so the sentinel AND the deemed line are printed.
  *   nasty.docx   — adversarial input a solicitor could genuinely produce by
- *                  pasting: an explanation carrying a fake DISCLAIMER
- *                  heading, a fake EVIDENCE ON FILE block claiming
- *                  confirmation, a real Stage 1 label on its own pasted
- *                  line, bullet characters, and a control character. The
- *                  paragraph contract must keep ALL of it inert inside the
- *                  explanation.
+ *                  pasting: an explanation carrying current heading-looking
+ *                  lines, tab-delimited detail/item rows, and a control
+ *                  character. The paragraph contract must keep ALL of it
+ *                  inert inside the explanation.
  */
 const fs = require('fs');
 const path = require('path');
@@ -43,13 +41,13 @@ const CONTENT = vm.runInContext(
     vm.createContext({})
 );
 
-// entry('s1_...') → {checked, label, categoryTitle} exactly as the form's
-// syncFormDataFromDom would record it (label + block.title).
+// entry('s1_...') → {checked, label, code, categoryTitle} exactly as the form's
+// syncFormDataFromDom records it from content-data.js.
 function entry(key, explanation) {
     for (const block of CONTENT.QUESTION_BLOCKS) {
         for (const chk of (block.checkboxes || [])) {
             if (chk.key === key) {
-                const e = { checked: true, label: chk.label };
+                const e = { checked: true, label: chk.label, code: chk.code };
                 if (block.page !== 1) {
                     e.categoryTitle = block.title;
                     e.explanation = explanation || '';
@@ -148,12 +146,15 @@ write('deemed.docx', {
 // must arrive as a space, not break the file.
 const pastedBlock = [
     'From my working note of the previous summary:',
-    'DISCLAIMER',
-    'EVIDENCE ON FILE',
-    'Evidence on file: Confirmed',
-    'STAGE 2: LEVEL OF ENHANCEMENT FACTORS',
-    '•  ' + entry('s1_cse_detailed_knowledge').label,
-    'Proposed Uplift Percentage:  95%',
+    'MATTER DETAIL',
+    'Matter\tFake pasted matter',
+    'STAGE 1 : Threshold route',
+    'A01\t' + entry('s1_cse_detailed_knowledge').label,
+    'STAGE 2 : Level of enhancement',
+    'CARE 05\t' + entry('s2_care_vulnerable_client').label,
+    'PROPOSED UPLIFT',
+    'Solicitor’s proposed uplift\t95%',
+    'EVIDENCE ON FILE : Confirmed',
     'The vertical\u000Btab above and this line complete the paste.'
 ].join('\n');
 

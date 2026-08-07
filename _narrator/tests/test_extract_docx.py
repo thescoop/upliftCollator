@@ -6,13 +6,10 @@ the actual shipped round trip, not a Python imitation of it. Regenerate with::
 
     node _narrator/tests/build_docx_fixture.js
 
-The adversarial cases matter most. The docx format's whole justification
-(_PLAN.md, "THE .DOCX OUTPUT") is that two PDF defect classes cannot occur:
-labels cannot wrap into unmatchable fragments, and pasted text cannot imitate
-structure. ``nasty.docx`` carries a pasted block containing a fake DISCLAIMER
-heading, a fake EVIDENCE ON FILE confirmation, a real Stage 1 label on its
-own line and a fake uplift percentage — every one must stay inert inside the
-explanation that carries it.
+The adversarial cases matter most. ``nasty.docx`` carries current shaded-heading
+text, a bare copy of the Stage 1 composite heading's first line, coded item rows,
+detail rows and a fake uplift inside one explanation paragraph. Every line must
+stay inert because the extractor treats that whole paragraph as opaque.
 """
 
 from __future__ import annotations
@@ -44,6 +41,19 @@ def _current_label(key: str) -> str:
             if chk["key"] == key:
                 return chk["label"]
     raise KeyError(key)
+
+
+def _current_checkbox(key: str) -> tuple[dict, dict]:
+    for block in load_content_data()["question_blocks"]:
+        for checkbox in block.get("checkboxes", []):
+            if checkbox["key"] == key:
+                return block, checkbox
+    raise KeyError(key)
+
+
+def _coded_row(key: str) -> str:
+    _block, checkbox = _current_checkbox(key)
+    return f"{checkbox['code']}\t{checkbox['label']}"
 
 
 def _rewrite_paragraph(doc_path: Path, old_text: str, new_text: str) -> Path:
@@ -95,6 +105,13 @@ class TestSampleRoundTrip(unittest.TestCase):
                 with self.subTest(key=key):
                     self.assertEqual(entry["label"], _current_label(key))
 
+    def test_codes_are_reconstructed_from_content_data(self):
+        for section in ("stage1", "stage2"):
+            for key, entry in self.data[section].items():
+                with self.subTest(key=key):
+                    _block, checkbox = _current_checkbox(key)
+                    self.assertEqual(entry["code"], checkbox["code"])
+
     def test_explanations_round_trip_exactly(self):
         exp = self.data["stage2"]["s2_care_vulnerable_client"]["explanation"]
         self.assertTrue(exp.startswith("Client has diagnosed PTSD"))
@@ -111,10 +128,64 @@ class TestSampleRoundTrip(unittest.TestCase):
             self.data["stage1"]["s1_circ_legal_issues"]["categoryTitle"],
             "Threshold limb (c): exceptional circumstances or complexity",
         )
+        self.assertEqual(
+            self.data["stage2"]["s2_care_vulnerable_client"]["categoryTitle"],
+            "Care",
+        )
+
+    def test_the_fixture_round_trip_is_exact(self):
+        expected = {
+            "caseDetails": {
+                "feeEarnerName": "Jane Doe",
+                "matterType": "Public Law Children",
+                "caseMatterName": "Re X (Local Authority care proceedings)",
+                "courtLevel": "County Court",
+            },
+            "panelMembership": {}, "stage1": {}, "stage2": {},
+            "finalUpliftPercent": "75",
+            "evidenceOnFileConfirmed": True,
+            "thresholdDeemed": False,
+        }
+        for key in ("panel_membership_resolution", "panel_membership_children"):
+            _block, checkbox = _current_checkbox(key)
+            expected["panelMembership"][key] = {
+                "checked": True, "label": checkbox["label"]
+            }
+        for section, keys, explanations in (
+            ("stage1", (
+                "s1_cse_detailed_knowledge", "s1_cse_marshalling_evidence",
+                "s1_circ_legal_issues",
+            ), {}),
+            ("stage2", (
+                "s2_care_vulnerable_client", "s2_resp_no_counsel_drafting",
+            ), {
+                "s2_care_vulnerable_client": (
+                    "Client has diagnosed PTSD and a learning disability assessed "
+                    "at borderline range. Conducted instructions across six shorter "
+                    "attendances, used plain-language summaries, and brought an "
+                    "intermediary to the FHDRA."
+                ),
+                "s2_resp_no_counsel_drafting": (
+                    "Drafted the full position statement, the Scott Schedule, and "
+                    "the section 7 response without recourse to Counsel, all settled "
+                    "in advance of the case management hearing."
+                ),
+            }),
+        ):
+            for key in keys:
+                block, checkbox = _current_checkbox(key)
+                expected[section][key] = {
+                    "checked": True,
+                    "label": checkbox["label"],
+                    "code": checkbox["code"],
+                    "explanation": explanations.get(key, ""),
+                    "categoryTitle": block["title"],
+                }
+        self.assertEqual(self.data, expected)
 
 
 class TestDeemedRoute(unittest.TestCase):
-    """Stage 1 empty + panel + the deemed line: the v1.12 route, in .docx."""
+    """Stage 1 empty + panel + the deemed composite heading, in .docx."""
 
     @classmethod
     def setUpClass(cls):
@@ -134,6 +205,38 @@ class TestDeemedRoute(unittest.TestCase):
         stripped = dict(self.data, panelMembership={})
         self.assertIsNotNone(extract.deemed_threshold_support(stripped))
 
+    def test_the_fixture_round_trip_is_exact(self):
+        panel_block, panel = _current_checkbox("panel_membership_children")
+        self.assertEqual(panel_block["page"], 1)
+        block, factor = _current_checkbox("s2_resp_no_counsel_drafting")
+        self.assertEqual(self.data, {
+            "caseDetails": {
+                "feeEarnerName": "A. Panel-Member",
+                "matterType": "Private Law Children",
+                "caseMatterName": "Synthetic Deemed 0001",
+                "courtLevel": "County Court",
+            },
+            "panelMembership": {
+                panel["key"]: {"checked": True, "label": panel["label"]},
+            },
+            "stage1": {},
+            "stage2": {
+                factor["key"]: {
+                    "checked": True,
+                    "label": factor["label"],
+                    "code": factor["code"],
+                    "explanation": (
+                        "Drafted every position statement and the final threshold "
+                        "document without recourse to counsel throughout the proceedings."
+                    ),
+                    "categoryTitle": block["title"],
+                },
+            },
+            "finalUpliftPercent": "20",
+            "evidenceOnFileConfirmed": False,
+            "thresholdDeemed": True,
+        })
+
 
 class TestPasteImmunity(unittest.TestCase):
     """nasty.docx: pasted structure-lookalikes must all stay inert."""
@@ -147,16 +250,18 @@ class TestPasteImmunity(unittest.TestCase):
 
     def test_the_pasted_block_stays_inside_its_explanation(self):
         exp = self.data["stage2"]["s2_complexity_legal_issues"]["explanation"]
-        for line in ("DISCLAIMER", "EVIDENCE ON FILE",
-                     "Evidence on file: Confirmed",
-                     "STAGE 2: LEVEL OF ENHANCEMENT FACTORS"):
+        for line in (
+            "MATTER DETAIL", "Matter\tFake pasted matter",
+            "STAGE 1 : Threshold route", _coded_row("s1_cse_detailed_knowledge"),
+            "STAGE 2 : Level of enhancement", _coded_row("s2_care_vulnerable_client"),
+            "PROPOSED UPLIFT", "Solicitor’s proposed uplift\t95%",
+            "EVIDENCE ON FILE : Confirmed",
+        ):
             with self.subTest(line=line):
                 self.assertIn(line, exp)
 
     def test_a_pasted_real_label_creates_no_tick(self):
-        """The pasted '•  Applied unusually detailed knowledge…' line is text
-        in a paragraph, not a paragraph — so Stage 2 gains no second entry and
-        Stage 1's genuine tick is the only one."""
+        """Pasted coded rows are sub-lines, not paragraphs, so they add no ticks."""
         self.assertEqual(list(self.data["stage2"]), ["s2_complexity_legal_issues"])
         self.assertEqual(list(self.data["stage1"]), ["s1_cse_detailed_knowledge"])
 
@@ -178,6 +283,15 @@ class TestPasteImmunity(unittest.TestCase):
         exp = self.data["stage2"]["s2_complexity_legal_issues"]["explanation"]
         self.assertIn("The vertical tab above", exp)
         self.assertNotIn("\x0b", exp)
+
+    def test_the_soft_break_heading_prefix_inside_prose_is_not_a_boundary(self):
+        """The composite heading is one exact paragraph, prefix plus ``\t\n``
+        route. A pasted first line inside an explanation cannot match it."""
+        paragraphs = extract_docx.read_docx_paragraphs(NASTY)
+        explanation = next(p for p in paragraphs if p.startswith("From my working note"))
+        self.assertIn("\nSTAGE 1 : Threshold route\n", explanation)
+        self.assertNotEqual(explanation, extract_docx.STAGE1_ESTABLISHED)
+        self.assertEqual(extract_docx.structural_damage(paragraphs), [])
 
 
 class TestFormatDispatch(unittest.TestCase):
@@ -214,8 +328,8 @@ class TestEditedDocuments(unittest.TestCase):
         s1_label = _current_label("s1_cse_marshalling_evidence")
         edited = _rewrite_paragraph(
             SAMPLE,
-            "•  " + _current_label("s2_care_vulnerable_client"),
-            "•  " + s1_label,
+            _coded_row("s2_care_vulnerable_client"),
+            "CARE 05\t" + s1_label,
         )
         data = extract.extract_formdata(edited)
         self.assertNotIn("s1_cse_marshalling_evidence", data["stage2"])
@@ -232,8 +346,8 @@ class TestEditedDocuments(unittest.TestCase):
         s1_label = _current_label("s1_cse_detailed_knowledge")
         edited = _rewrite_paragraph(
             SAMPLE,
-            "•  " + _current_label("panel_membership_resolution"),
-            "•  " + s1_label,
+            "Memberships\t- Resolution Accredited Specialist Panel",
+            "Memberships\t- " + s1_label,
         )
         data = extract.extract_formdata(edited)
         self.assertNotIn("s1_cse_detailed_knowledge", data["panelMembership"])
@@ -244,9 +358,8 @@ class TestEditedDocuments(unittest.TestCase):
     def test_a_damaged_evidence_sentence_reads_as_not_confirmed(self):
         edited = _rewrite_paragraph(
             SAMPLE,
-            "The fee earner confirms that evidence supporting the matters set "
-            "out above is held on the case file.",
-            "The fee earner says something else entirely.",
+            extract_docx.EVIDENCE_CONFIRMED_SENTENCE,
+            "✓   The fee earner says something else entirely.",
         )
         self.assertFalse(extract.extract_formdata(edited)["evidenceOnFileConfirmed"])
 
@@ -255,10 +368,9 @@ class TestEditedDocuments(unittest.TestCase):
         appended after "…supporting" — including a negation, which made the
         supposedly agreeing pair affirm opposite propositions. Found by
         cross-model review, 7 August 2026."""
-        canonical = ("The fee earner confirms that evidence supporting the "
-                     "matters set out above is held on the case file.")
+        canonical = extract_docx.EVIDENCE_CONFIRMED_SENTENCE
         for damaged in (
-            "The fee earner confirms that evidence supporting the matters "
+            "✓   The fee earner confirms that evidence supporting the matters "
             "set out above is not held on the case file.",
             canonical + " Or so it is claimed.",
         ):
@@ -270,20 +382,29 @@ class TestEditedDocuments(unittest.TestCase):
 
     def test_a_damaged_status_line_reads_as_not_confirmed(self):
         edited = _rewrite_paragraph(
-            SAMPLE, "Evidence on file: Confirmed", "Evidence on file: Confirmd"
+            SAMPLE,
+            extract_docx.EVIDENCE_CONFIRMED_HEADING,
+            "EVIDENCE ON FILE : Confirmd",
         )
         self.assertFalse(extract.extract_formdata(edited)["evidenceOnFileConfirmed"])
 
     def test_the_deemed_line_is_refused_outside_stage_1(self):
-        """The sentence pasted as its own paragraph into Stage 2 — a shape
-        only an edited document can have — must not assert the deeming."""
-        deemed_line = ("Threshold test: deemed satisfied by panel membership "
-                       "(Spec Para 7.23(a)).")
-        # "Care" is the category paragraph under the vulnerable-client factor —
-        # a Stage 2 paragraph, which is the point: the sentence must only
-        # count inside Stage 1.
-        edited = _rewrite_paragraph(SAMPLE, "Care", deemed_line)
+        """The composite heading used as Stage 2 prose must not assert deeming."""
+        # Replace a Stage 2 explanation with the *entire* valid composite
+        # heading. The state machine has already assigned this paragraph to
+        # the preceding item, so even exact equality remains inert there.
+        explanation = self._sample_explanation()
+        edited = _rewrite_paragraph(SAMPLE, explanation, extract_docx.STAGE1_DEEMED)
         self.assertFalse(extract.extract_formdata(edited)["thresholdDeemed"])
+
+    @staticmethod
+    def _sample_explanation():
+        return (
+            "Client has diagnosed PTSD and a learning disability assessed at "
+            "borderline range. Conducted instructions across six shorter "
+            "attendances, used plain-language summaries, and brought an "
+            "intermediary to the FHDRA."
+        )
 
     def test_a_duplicated_heading_stops_extraction_entirely(self):
         """A fake PROPOSED UPLIFT section pasted as real paragraphs above the
@@ -295,10 +416,8 @@ class TestEditedDocuments(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp()) / SAMPLE.name
         shutil.copy(SAMPLE, tmp)
         doc = Document(str(tmp))
-        # Paragraphs 0 and 1 are the title and the Generated line — turn them
-        # into a fake section sitting above every genuine one.
-        for index, new_text in ((0, "PROPOSED UPLIFT"),
-                                (1, "Proposed Uplift Percentage:  95%")):
+        # Turn the title into a fake section above the genuine one.
+        for index, new_text in ((0, "PROPOSED UPLIFT"),):
             para = doc.paragraphs[index]
             for run in para.runs:
                 run.text = ""
@@ -319,9 +438,15 @@ class TestEditedDocuments(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp()) / SAMPLE.name
         shutil.copy(SAMPLE, tmp)
         doc = Document(str(tmp))
-        first = next(p for p in doc.paragraphs if p.text == "CASE DETAILS")
-        last = next(p for p in doc.paragraphs if p.text == "EVIDENCE ON FILE")
-        for para, new_text in ((first, "EVIDENCE ON FILE"), (last, "CASE DETAILS")):
+        first = next(p for p in doc.paragraphs if p.text == "MATTER DETAIL")
+        last = next(
+            p for p in doc.paragraphs
+            if p.text == extract_docx.EVIDENCE_CONFIRMED_HEADING
+        )
+        for para, new_text in (
+            (first, extract_docx.EVIDENCE_CONFIRMED_HEADING),
+            (last, "MATTER DETAIL"),
+        ):
             for run in para.runs:
                 run.text = ""
             para.runs[0].text = new_text
@@ -333,13 +458,26 @@ class TestEditedDocuments(unittest.TestCase):
 
     def test_an_edited_label_stops_the_run_with_a_named_nearest(self):
         real = _current_label("s1_cse_marshalling_evidence")
-        edited = _rewrite_paragraph(SAMPLE, "•  " + real,
-                                    "•  " + real.replace("unusual", "unusal"))
+        edited = _rewrite_paragraph(
+            SAMPLE, _coded_row("s1_cse_marshalling_evidence"),
+            "A03\t" + real.replace("unusual", "unusal"),
+        )
         data = extract.extract_formdata(edited)
         self.assertNotIn("s1_cse_marshalling_evidence", data["stage1"])
         match = [u for u in data["unrecognised"] if u["section"] == "stage1"]
         self.assertEqual(len(match), 1)
         self.assertEqual(match[0]["nearest"], real)
+
+    def test_a_code_mismatch_is_structural_damage(self):
+        edited = _rewrite_paragraph(
+            SAMPLE, _coded_row("s1_cse_marshalling_evidence"),
+            "A99\t" + _current_label("s1_cse_marshalling_evidence"),
+        )
+        data = extract.extract_formdata(edited)
+        self.assertEqual(data["stage1"], {})
+        diagnostic = extract.diagnose(edited)
+        self.assertTrue(any("A99" in problem and "A03" in problem
+                            for problem in diagnostic["structural_damage"]))
 
 
 # Every key diagnose_docx may return. Its output is printed and pasted while
@@ -419,13 +557,12 @@ class TestDiagnostics(unittest.TestCase):
         self.assertNotIn("Priya", json.dumps(d))
 
     def test_case_detail_internal_whitespace_survives(self):
-        """The PDF path collapsed whitespace because wrapping forced a rejoin;
-        nothing forces one here, so a value must come back as written."""
+        """The single machine tab is removed; user spaces stay case-exact."""
         edited = _rewrite_paragraph(
-            SAMPLE, "Fee Earner:  Jane Doe", "Fee Earner:  Jane\tQ.  Doe"
+            SAMPLE, "Fee earner\tJane Doe", "Fee earner\tJane  Q.  Doe"
         )
         details = extract.extract_formdata(edited)["caseDetails"]
-        self.assertEqual(details["feeEarnerName"], "Jane\tQ.  Doe")
+        self.assertEqual(details["feeEarnerName"], "Jane  Q.  Doe")
 
     def test_garbage_is_reported_as_unreadable(self):
         tmp = Path(tempfile.mkdtemp()) / "junk.docx"
@@ -448,16 +585,50 @@ class TestDiagnostics(unittest.TestCase):
     def test_no_ticks_is_told_apart_from_no_sections(self):
         edited = _rewrite_paragraph(
             DEEMED,
-            "Threshold test: deemed satisfied by panel membership "
-            "(Spec Para 7.23(a)).",
-            "x",
+            _coded_row("s2_resp_no_counsel_drafting"),
+            extract_docx.STAGE2_EMPTY,
         )
-        # Strip the only Stage 2 bullet as well, leaving headings but no ticks.
+        # Strip the explanation paragraph too, leaving valid empty sentinels in
+        # both Stage sections rather than a damaged/missing section.
         edited2 = _rewrite_paragraph(
-            edited, "•  " + _current_label("s2_resp_no_counsel_drafting"), "x"
+            edited,
+            "Drafted every position statement and the final threshold document "
+            "without recourse to counsel throughout the proceedings.",
+            "",
         )
         text = extract.explain_empty_extraction(edited2)
         self.assertIn("no criteria were ticked", text)
+
+
+class TestEmptyExplanationSentinel(unittest.TestCase):
+    """Empty explanations pass the app's download gate by design (script.js),
+    so the explanation paragraph is MANDATORY in the grammar: the generator
+    prints a fixed sentinel when the solicitor typed nothing. Without it, the
+    parser's consume-one-paragraph-per-item rule would swallow the next item
+    row — found by review before it shipped, so pin it forever."""
+
+    def test_the_sentinel_reads_back_as_an_empty_explanation(self):
+        formdata = json.loads(
+            (FIXTURES / "sample_formdata.json").read_text(encoding="utf-8")
+        )
+        typed = formdata["stage2"]["s2_care_vulnerable_client"]["explanation"]
+        edited = _rewrite_paragraph(
+            SAMPLE, typed, extract_docx.EMPTY_EXPLANATION_SENTINEL
+        )
+        paragraphs = extract_docx.read_docx_paragraphs(edited)
+        self.assertEqual(extract_docx.structural_damage(paragraphs), [])
+        data = extract.extract_formdata(edited)
+        entry = data["stage2"]["s2_care_vulnerable_client"]
+        self.assertTrue(entry["checked"])
+        self.assertEqual(entry["explanation"], "")
+
+    def test_a_typed_sentinel_lookalike_also_reads_as_empty(self):
+        """A solicitor who literally types the sentinel loses nothing but
+        those words — acceptable, and better than grammar ambiguity."""
+        self.assertEqual(
+            extract_docx.EMPTY_EXPLANATION_SENTINEL,
+            "No explanation was provided.",
+        )
 
 
 class TestFixturesAreCanonical(unittest.TestCase):
