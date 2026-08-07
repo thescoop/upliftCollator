@@ -839,6 +839,88 @@ class TestReviewRoundHardening(unittest.TestCase):
             extract_docx.explain_empty_extraction_docx(tmp),
         )
 
+    # ── round 6 ──
+
+    def test_a_mangled_deflate_stream_never_raises(self):
+        """Round 6's first defect: BadZipFile, zlib.error,
+        NotImplementedError and RuntimeError escaped the round-5 guard, so
+        narrate.py died with a raw traceback on a bit-flipped package."""
+        raw = bytearray(SAMPLE.read_bytes())
+        at = raw.find(b"word/document.xml") + 100
+        for i in range(at, at + 60):
+            raw[i] ^= 0xFF
+        tmp = Path(tempfile.mkdtemp()) / "bitflip.docx"
+        tmp.write_bytes(bytes(raw))
+        self.assertEqual(
+            extract_docx.extract_formdata_docx(tmp),
+            extract_docx._empty_formdata(),
+        )
+        self.assertFalse(extract_docx.diagnose_docx(tmp)["readable"])
+        self.assertIn(
+            "could not be read",
+            extract_docx.explain_empty_extraction_docx(tmp),
+        )
+
+    def test_blanked_metadata_does_not_kill_the_diagnostic(self):
+        """Round 6's second defect: an empty <dcterms:created/> — what
+        metadata-scrubbing tooling leaves behind — crashed diagnose_docx
+        while the document itself extracted perfectly. Metadata reads must
+        degrade, not decide readability."""
+        import re as _re
+        import zipfile as zf
+
+        tmp = Path(tempfile.mkdtemp()) / "scrubbed.docx"
+        with zf.ZipFile(SAMPLE) as src, zf.ZipFile(tmp, "w") as dst:
+            for item in src.infolist():
+                data = src.read(item.filename)
+                if item.filename == "docProps/core.xml":
+                    data = _re.sub(
+                        rb"<dcterms:created[^>]*>[^<]*</dcterms:created>",
+                        b'<dcterms:created xsi:type="dcterms:W3CDTF"/>',
+                        data,
+                    )
+                dst.writestr(item, data)
+        diagnostic = extract_docx.diagnose_docx(tmp)
+        self.assertTrue(diagnostic["readable"])
+        self.assertEqual(diagnostic["created"], "")
+        data = extract_docx.extract_formdata_docx(tmp)
+        self.assertTrue(data["stage1"], "the scrubbed document still extracts")
+
+    def test_the_documented_retirement_migration_does_not_crash_extraction(self):
+        """Round 6's third defect: retiring a checkbox per the documented
+        sequence (retired flag, code moved to the registry) made
+        _content_contract() raise KeyError on every document. A retired
+        code must resolve as unknown — fail closed, not crash."""
+        import copy
+
+        real = extract_docx.load_content_data
+
+        def retired_content():
+            # Deep-copied: templates.load_content_data caches, and mutating
+            # the shared structure would poison every later test.
+            content = copy.deepcopy(real())
+            for block in content["question_blocks"]:
+                for checkbox in block.get("checkboxes", []):
+                    if checkbox["key"] == "s2_care_other":
+                        checkbox["retired"] = True
+                        checkbox.pop("code", None)
+            return content
+
+        extract_docx.load_content_data = retired_content
+        extract_docx._content_contract.cache_clear()
+        try:
+            # every current document still parses cleanly
+            self.assertEqual(extract_docx.structural_damage(self.paragraphs), [])
+            # a document naming the retired code fails closed, not KeyError
+            paras = self.paragraphs[:]
+            care = self._row("CARE 05\t")
+            paras.insert(care, "CARE 06\tSomething about other care")
+            paras.insert(care + 1, "An explanation for the retired factor.")
+            self.assertTrue(extract_docx.structural_damage(paras))
+        finally:
+            extract_docx.load_content_data = real
+            extract_docx._content_contract.cache_clear()
+
     def test_unicode_digits_are_not_a_percentage(self):
         """Python's \\d matches Arabic-Indic digits; the app's gate does not.
         The extractor now requires ASCII digits."""

@@ -57,17 +57,21 @@ def main() -> None:
         "moved, update PANEL_KEYS here and check templates.py agrees."
     )
 
+    # Retired checkboxes carry no code by design (tests/test_item_codes.js
+    # asserts it), so the every-item-needs-a-code rule applies to live ones.
     stage1 = [
         checkbox
         for block in blocks
         if block.get("page") == 2
         for checkbox in block.get("checkboxes", [])
+        if not checkbox.get("retired")
     ]
     stage2 = [
         checkbox
         for block in blocks
         if block.get("page") == 3
         for checkbox in block.get("checkboxes", [])
+        if not checkbox.get("retired")
     ]
 
     # Codes are now printed into every Word summary and carried back on each

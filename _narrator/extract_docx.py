@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import zipfile
+import zlib
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -71,6 +72,16 @@ EVIDENCE_CONFIRMED_SENTENCE = (
 EVIDENCE_UNCONFIRMED_SENTENCE = (
     "✗   The fee earner has not confirmed that supporting evidence is held on "
     "the case file. The narrative will not assert that it is."
+)
+
+# Everything a damaged, truncated, re-compressed or encrypted package can
+# throw between zipfile, zlib and python-docx: BadZipFile (bad CRC),
+# zlib.error (mangled deflate stream), NotImplementedError (compression
+# methods stdlib zipfile cannot read, e.g. AES from DLP tooling),
+# RuntimeError (zip-level encryption), OSError (not a file at all).
+UNREADABLE_PACKAGE = (
+    PackageNotFoundError, KeyError, ValueError, XMLSyntaxError,
+    zipfile.BadZipFile, zlib.error, NotImplementedError, RuntimeError, OSError,
 )
 
 _UPLIFT_LABEL = "Solicitor’s proposed uplift"
@@ -139,6 +150,13 @@ def _content_contract() -> dict:
         if not section:
             continue
         for checkbox in block.get("checkboxes", []):
+            # A retired checkbox has no code (its code lives in
+            # RESERVED_ITEM_CODES) and prints in no current document. Skip it:
+            # an old document naming a retired code then resolves as unknown,
+            # which _resolve_item_row already reads as damage — fail closed,
+            # not KeyError.
+            if checkbox.get("retired") or "code" not in checkbox:
+                continue
             info = {
                 "key": checkbox["key"],
                 "code": checkbox["code"],
@@ -723,9 +741,10 @@ def _empty_formdata() -> dict:
 def extract_formdata_docx(path: str | Path) -> dict:
     try:
         paragraphs = read_docx_paragraphs(path)
-    except (PackageNotFoundError, KeyError, ValueError, XMLSyntaxError):
-        # A corrupt package (truncated transfer, mangled mail gateway) fails
-        # closed exactly like structural damage; diagnose_docx explains it.
+    except UNREADABLE_PACKAGE:
+        # A corrupt package (truncated transfer, mangled mail gateway,
+        # re-compressed or encrypted by intermediate tooling) fails closed
+        # exactly like structural damage; diagnose_docx explains it.
         return _empty_formdata()
     if structural_damage(paragraphs):
         return _empty_formdata()
@@ -759,19 +778,27 @@ def diagnose_docx(path: str | Path) -> dict:
         return {"readable": False, "failure": "not_a_zip"}
     try:
         doc = Document(str(path))
-    except (PackageNotFoundError, KeyError, ValueError, XMLSyntaxError) as exc:
+        paragraphs = [paragraph.text for paragraph in doc.paragraphs]
+    except UNREADABLE_PACKAGE as exc:
         return {
             "readable": False,
             "failure": f"not_a_word_package: {type(exc).__name__}",
         }
 
-    paragraphs = [paragraph.text for paragraph in doc.paragraphs]
     analysis = _analyse(paragraphs)
     indexes = analysis["indexes"]
-    cp = doc.core_properties
-    creator = cp.author or ""
-    last_modified_by = cp.last_modified_by or ""
-    created, modified = cp.created, cp.modified
+    # Finding 2 of the round-6 review: metadata reads must not decide
+    # readability. A document whose properties were blanked by scrubbing
+    # tooling (an empty <dcterms:created/> makes python-docx raise TypeError)
+    # is still a readable document — degrade the metadata, keep the analysis.
+    try:
+        cp = doc.core_properties
+        creator = cp.author or ""
+        last_modified_by = cp.last_modified_by or ""
+        created, modified = cp.created, cp.modified
+    except Exception:
+        creator = last_modified_by = ""
+        created = modified = None
     made_by_the_app = bool(_APP_CREATOR_RE.fullmatch(creator.strip()))
 
     sections = {}

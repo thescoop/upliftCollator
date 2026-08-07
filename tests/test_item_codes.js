@@ -307,7 +307,11 @@ check('every frozen mapping is either live and identical, or retired into the re
         }
     }
     assert.strictEqual(Object.keys(FROZEN_CODES).length, 41,
-        'the freeze covers all 41 codes as of 7 August 2026');
+        'FROZEN_CODES has the wrong number of entries. If you ADDED a factor, ' +
+        'add its mapping to FROZEN_CODES with a dated comment and bump this ' +
+        'count. If an entry VANISHED, someone deleted a checkbox and its ' +
+        'frozen mapping together — restore the mapping and move its code to ' +
+        'RESERVED_ITEM_CODES instead. (41 codes as of 7 August 2026.)');
     // The reverse direction: a code enters the freeze at birth. A live
     // mapping absent from FROZEN_CODES could later vanish without leaving
     // its code in the registry, permitting reuse against documents issued
