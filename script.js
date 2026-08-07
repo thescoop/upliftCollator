@@ -53,8 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPageIndex = 0;
     const MIN_EXPLANATION_WORDS = 10;
 
-    // Courts in which CAG 12.2 puts the enhancement ceiling at 100% rather than
-    // 50%. These strings must match the option values in index.html exactly;
+    // Courts in which the enhancement ceiling is 100% rather than 50%.
+    // These strings must match the option values in index.html exactly;
     // they are also what gets printed in the summary document, so keep them readable.
     const HUNDRED_PERCENT_CEILING_COURTS = [
         // Spec 7.22 (verbatim-sourced): for Family work the 100% ceiling
@@ -263,19 +263,20 @@ document.addEventListener('DOMContentLoaded', () => {
         upliftCeilingStatementEl.className = 'uplift-ceiling-statement';
         if (ceiling === 100) {
             upliftCeilingStatementEl.textContent =
-                `This case was in the ${court}, so the maximum enhancement is 100% (CAG 12.2) — ` +
+                `This case was in the ${court}, so the maximum enhancement is 100% (Spec 7.22) — ` +
                 "not the 50% that applies below the High Court. CAG 12.10: \"A maximum enhancement " +
                 "could be payable on the basis of one factor alone where it is particularly strong.\"";
         } else {
             upliftCeilingStatementEl.textContent =
-                `This case was in the ${court}, so the maximum enhancement is 50% (CAG 12.2). ` +
+                `This case was in the ${court}, so the maximum enhancement is 50% (Spec 7.22). ` +
                 "CAG 12.10: \"A maximum enhancement could be payable on the basis of one factor " +
                 "alone where it is particularly strong.\"";
         }
     }
 
-    // The number typed is the solicitor's own, but a figure above the statutory
-    // ceiling cannot be awarded at all (CAG 12.2 is a cap, not a soft target),
+    // The number typed is the solicitor's own, but a figure above the
+    // contractual ceiling cannot be awarded at all (Spec 7.22 is a cap, not a
+    // soft target),
     // so it is worth saying so. This warns; it never rewrites the value, and it
     // never blocks the download. Telling someone their figure is impossible is
     // not the same as telling them what their figure should be.
@@ -286,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const entered = parseFloat(finalProposedUpliftPercentEl.value);
         if (ceiling !== null && !isNaN(entered) && entered > ceiling) {
             warningEl.textContent =
-                `${entered}% is above the ${ceiling}% ceiling set by CAG 12.2 for this court. ` +
+                `${entered}% is above the ${ceiling}% ceiling set by Spec 7.22 for this court. ` +
                 "The LAA cannot award more than the ceiling, whatever the merits.";
             warningEl.style.display = 'block';
         } else {

@@ -87,10 +87,20 @@ function derive(blocks) {
 }
 
 let checks = 0;
+const failures = [];
 function check(name, fn) {
-    fn();
+    // Record-and-continue: an aborted run once hid the stranded-carrier
+    // diagnostic behind an earlier code-drift failure, so the developer met
+    // the guards one at a time in the wrong order (round-9 review finding).
+    try {
+        fn();
+        console.log('  ok  ' + name);
+    } catch (err) {
+        console.log('  FAIL ' + name);
+        console.log(String(err.message || err).split('\n').map(l => '       ' + l).join('\n'));
+        failures.push(name);
+    }
     checks += 1;
-    console.log('  ok  ' + name);
 }
 
 const derived = derive(CONTENT.QUESTION_BLOCKS);
@@ -352,4 +362,9 @@ check('every live requires_stage2 Stage 1 box has at least one live carrier', ()
         'live Stage 1 boxes whose every Stage 2 carrier is retired: ' + stranded.join(', '));
 });
 
+if (failures.length) {
+    console.log('\n' + (checks - failures.length) + '/' + checks +
+        ' item-code checks passed; FAILED: ' + failures.join(', '));
+    process.exit(1);
+}
 console.log('\n' + checks + '/' + checks + ' item-code checks passed.');

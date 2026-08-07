@@ -157,8 +157,11 @@ impossible.
   there is little to claim. A forced closing paragraph would be thin, defensive, and
   would end the narrative on its weakest point.
 - The form now asks **which court**. The ceiling is 50%, but 100% in the High Court,
-  Upper Tribunal, Court of Appeal or Supreme Court (CAG 12.2). The tool never asked, so
-  it silently halved the ceiling for anyone above the County Court.
+  Court of Appeal or Supreme Court (Spec 7.22 — the Family contract rule). The tool
+  never asked, so it silently halved the ceiling for anyone above the County Court.
+  *(Corrected 7 August 2026: this entry originally listed the Upper Tribunal at 100%,
+  following CAG 12.2's general list. The Family rule omits it, family proceedings are
+  not heard there, and the option was removed from the form before release.)*
 - **The narrative may now state that supporting evidence is on the case file only where
   the solicitor has said so.** The finished narrative can close "Evidence supporting
   these assertions can be found within the case file" — an assertion to the LAA about

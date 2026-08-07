@@ -573,6 +573,12 @@
             run((cleanScalar(formData.finalUpliftPercent) || "Not Set") + "%", S.upliftTxt),
             { tabs: [{ pos: UPLIFT_TAB, right: true }], spacing: { after: 140 }, markRPr: MARK17 });
         if (meta.ceilingPercent !== null && meta.ceilingPercent !== undefined) {
+            // The row label keeps "(CAG 12.2)" DELIBERATELY: it is pinned by
+            // the extraction contract (_CEILING_LABEL in extract_docx.py and
+            // three fixtures), and for every court the app offers, CAG 12.2
+            // and Spec 7.22 state the same figure — so the citation is
+            // accurate. Recasting it to Spec 7.22 is an extraction-contract
+            // change; do it deliberately or not at all.
             xml += paragraph(
                 run("Applicable ceiling for this court (CAG 12.2)", S.upliftTxt) +
                 tabRun(S.upliftTxt) + run(meta.ceilingPercent + "%", S.upliftTxt),

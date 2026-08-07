@@ -977,7 +977,7 @@ Once the Stage 1 threshold test is satisfied — by ticking at least one Stage 1
     *(CAG Section 12.9(c))*
 
 ---
-## Maximum Enhancement Percentages (CAG Section 12.2):
+## Maximum Enhancement Percentages (Spec 7.22 / CAG Section 12.2):
 *   **Up to 50%** for most cases (e.g., Family Court, County Court).
 *   **Up to 100%** for cases in the High Court, Court of Appeal, or Supreme Court (Spec 7.22 — the Family rule; CAG 12.2's general list also names the Upper Tribunal, which does not hear family proceedings).
 
