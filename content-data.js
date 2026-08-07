@@ -256,6 +256,28 @@ const STAGE1_THRESHOLD_BANNER = "Tick only where this was unusual or out of the 
 // all sixteen strings. CAG 12.7, verbatim.
 const WHAT_COUNTS_CAVEAT = "CAG 12.7: \"In neither case can an exhaustive list of features of a case be identified that will demonstrate the presence of these factors, and each claim must be considered on its own merits\". These examples are the guidance's own. They are not a complete list, and your case does not have to match one of them.";
 
+// THE `code` PROPERTY IS A FROZEN LITERAL, NOT A DERIVED NUMBER.
+//
+// Every Stage 1 and Stage 2 checkbox carries a short stable identifier — A01,
+// C07, "CARE 05", "RESP 02" — printed beside its label in the .docx summary so
+// a fee earner and a costs draftsman can refer to a specific item by name over
+// the phone. Page-1 panel memberships have no code: they are printed as a dash
+// list inside MATTER DETAIL, not as coded items.
+//
+// The values were originally DERIVED from block order — limb letter (or factor
+// prefix) plus the 1-based index of the checkbox within its block, counting
+// only non-retired boxes. They are now written out as literals, and that is the
+// point: a code identifies an item for as long as the item exists. Reordering
+// the checkboxes, retiring one, or inserting a new one in the middle MUST NOT
+// renumber the codes around it — a document printed last year would then name
+// a different item than the same code names today.
+//
+// So: a new checkbox takes the next unused number in its block (not the next
+// index), and a retired checkbox's number is never reused. `tests/test_item_codes.js`
+// recomputes the original derivation and compares it with these literals; it is
+// expected to fail the moment an insertion or a retirement would have shifted
+// anything. That failure is the prompt to make a deliberate decision and update
+// the test's frozen expectations — never to renumber the document.
 const QUESTION_BLOCKS = [
     // PAGE 1 Content Block (Panel Membership)
     //
@@ -330,6 +352,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Applied unusually detailed knowledge relevant to this case",
                 key: "s1_cse_detailed_knowledge",
+                code: "A01",
                 explanation: false,
                 stage2_factor: "care",
                 what_counts: "CAG 12.8(a) gives this example: \"the fee-earner demonstrates unusually detailed knowledge relevant to the case\"."
@@ -337,6 +360,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Pursued an unusual or difficult legal argument",
                 key: "s1_cse_difficult_argument",
+                code: "A02",
                 explanation: false,
                 stage2_factor: "novelty",
                 what_counts: "CAG 12.8(a) gives this example: \"skilfully pursues an unusual or difficult legal argument\". At Stage 2, the solicitor's explanation must address whether this involved a novel point of law or legal context."
@@ -344,6 +368,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Identified and marshalled evidence with unusual skill",
                 key: "s1_cse_marshalling_evidence",
+                code: "A03",
                 explanation: false,
                 stage2_factor: "care",
                 what_counts: "CAG 12.8(a) includes \"unusual skill in identifying and marshalling evidence in pursuing or defending a case\"."
@@ -351,6 +376,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Adopted a particularly effective tactic",
                 key: "s1_cse_effective_tactic",
+                code: "A04",
                 explanation: false,
                 stage2_factor: "care",
                 what_counts: "CAG 12.8(a) gives this example: \"identifying a particularly effective tactic on behalf of the client\"."
@@ -358,6 +384,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Obtained a better result than might usually have been expected",
                 key: "s1_cse_better_result_current",
+                code: "A05",
                 explanation: false,
                 stage2_factor: "care",
                 what_counts: "CAG 12.8(a) says the provider \"may have conducted the case so well that the client has received a better result than might usually have been expected\"."
@@ -365,6 +392,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Required less time than expected of a notional reasonable fee-earner",
                 key: "s1_cse_less_time",
+                code: "A06",
                 explanation: false,
                 stage2_factor: "efficiency",
                 what_counts: "CAG 12.8(a): enhancement \"may be indicated under this heading where the provider has carried out the case or particular work in a way that has required less time than would have been expected of a notional reasonable fee-earner\"."
@@ -372,6 +400,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Took instructions from and effectively represented a child, a seriously mentally unwell client, or another very vulnerable client",
                 key: "s1_cse_vulnerable_client",
+                code: "A07",
                 explanation: false,
                 stage2_factor: "care",
                 what_counts: "CAG 12.8(a): \"Another example of unusual skill may be taking instructions and providing effective representation for a client who is a child, is seriously mentally ill or is otherwise very vulnerable.\""
@@ -381,6 +410,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "The work showed exceptional competence, skill or expertise in some other way",
                 key: "s1_cse_other",
+                code: "A08",
                 explanation: false,
                 // Says nothing on its own, so script.js refuses to produce a summary
                 // unless some Stage 2 factor carrying this key is ticked and
@@ -404,6 +434,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Proactively obtained a resolution of the client's problem with unusual speed",
                 key: "s1_speed_proactive_pursuit",
+                code: "B01",
                 explanation: false,
                 stage2_factor: "speed",
                 what_counts: "CAG 12.8(b): enhancement may arise \"where the fee-earner has proactively pursued a case, for example in obtaining with unusual speed rehousing, community care support, receipt of welfare benefits, an injunction, release from mental health detention or other resolution of the client’s problem\"."
@@ -411,6 +442,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Carried out substantial work at short notice to meet an urgent deadline or hearing",
                 key: "s1_speed_urgent_deadlines",
+                code: "B02",
                 explanation: false,
                 stage2_factor: "speed",
                 what_counts: "CAG 12.8(b): it \"may also be justified if the fee-earner carries out substantial work at short notice because of urgent deadlines\"."
@@ -418,6 +450,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "The work was done with exceptional speed in some other way",
                 key: "s1_speed_other",
+                code: "B03",
                 explanation: false,
                 // Says nothing on its own, so script.js refuses to produce a summary
                 // unless some Stage 2 factor carrying this key is ticked and
@@ -471,6 +504,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "The legal, expert or other evidential issues were exceptionally complex",
                 key: "s1_circ_legal_issues",
+                code: "C01",
                 explanation: false,
                 stage2_factor: "complexity",
                 what_counts: "CAG 12.8(c): \"Complexity may relate to legal issues, questions of expert evidence or other evidential issues, for instance seeking or challenging witness evidence in possession proceedings based on allegations of nuisance.\""
@@ -478,6 +512,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "Taking instructions from the client or other witnesses was exceptionally difficult",
                 key: "s1_circ_difficult_instructions",
+                code: "C02",
                 explanation: false,
                 stage2_factor: "complexity",
                 what_counts: "CAG 12.8(c): complexity \"may also take into account difficulty in taking instructions from the client or other witnesses\"."
@@ -485,6 +520,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "The issues affecting the client gave rise to exceptional circumstances",
                 key: "s1_circ_client_impact",
+                code: "C03",
                 explanation: false,
                 stage2_factor: "weight",
                 what_counts: "CAG 12.8(c) includes \"the nature of the issues as they affect the client, such as liberty, right to remain in the country, the roof over the client’s head, addressing domestic abuse or avoiding destitution\". At Stage 2 this feeds weight, which CAG 12.9(c)(ii) says \"may also refer to the importance of the case to the client\"."
@@ -492,6 +528,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "The case required substantial out-of-hours work",
                 key: "s1_circ_out_of_hours",
+                code: "C04",
                 explanation: false,
                 stage2_factor: "speed",
                 what_counts: "CAG 12.8(c): \"A case requiring substantial out of hours work may also be considered to fall under this limb or particular work may be considered under 6.15(b) of the Specification\". This carries forward to speed at Stage 2."
@@ -510,6 +547,7 @@ const QUESTION_BLOCKS = [
                 // explanation. structural_audit.py would have passed it: it checks
                 // that a key HAS a template, not that the template is a live one.
                 key: "s1_circ_novel_point",
+                code: "C05",
                 explanation: false,
                 // `requires_stage2` on a NAMED label, which until 6 August 2026 was
                 // used only for the three "other" labels. The reason differs. An
@@ -526,6 +564,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "The volume of documentation, material or issues gave rise to exceptional circumstances",
                 key: "s1_circ_weight",
+                code: "C06",
                 explanation: false,
                 // Flagged for the reason Simon gave on 4 August 2026 when he
                 // rejected weight as a threshold label outright: he has never seen
@@ -539,6 +578,7 @@ const QUESTION_BLOCKS = [
             {
                 label: "The case involved exceptional circumstances or complexity in some other way",
                 key: "s1_circ_other",
+                code: "C07",
                 explanation: false,
                 // Says nothing on its own, so script.js refuses to produce a summary
                 // unless some Stage 2 factor carrying this key is ticked and
@@ -578,18 +618,18 @@ const QUESTION_BLOCKS = [
         narrative_header_key: "s2_care_header_narrative",
         factor_description: "CAG 12.9(b)(i): \"aspects of the skill with which the fee-earner has carried out work within the case and in particular the care with which the fee-earner has dealt with a vulnerable client\".",
         checkboxes: [
-            { label: "Unusually detailed knowledge applied", key: "s2_care_detailed_knowledge", explanation: true, carried_from: ["s1_cse_detailed_knowledge"], stem: "That knowledge mattered here because…", example: "e.g., An exceptional understanding of [obscure case law/specific local authority policy] regarding [topic] was crucial because..." },
+            { label: "Unusually detailed knowledge applied", key: "s2_care_detailed_knowledge", code: "CARE 01", explanation: true, carried_from: ["s1_cse_detailed_knowledge"], stem: "That knowledge mattered here because…", example: "e.g., An exceptional understanding of [obscure case law/specific local authority policy] regarding [topic] was crucial because..." },
             // Label deliberately NOT "Unusual skill in marshalling evidence" — that
             // exact string is a pre-v1.11 Stage 1 label in LEGACY_LABEL_ALIASES, and
             // label_to_key_lookup() raises on one label mapping to two keys.
-            { label: "Evidence marshalled with unusual skill", key: "s2_care_marshalling_evidence", explanation: true, carried_from: ["s1_cse_marshalling_evidence"], stem: "The evidence required this skill because…", example: "e.g., The case required collating and analysing over [number] pages of [type of evidence, e.g., medical records/financial statements] to distil key facts about..." },
-            { label: "Particularly effective tactic", key: "s2_care_effective_tactic", explanation: true, carried_from: ["s1_cse_effective_tactic"], stem: "The tactic adopted was… and it was particularly effective because…", example: "e.g., Instead of [standard approach], we strategically opted for [specific tactic, e.g., an early without prejudice offer / a specific type of application], which led to..." },
-            { label: "Better result than might usually have been expected", key: "s2_care_better_result", explanation: true, carried_from: ["s1_cse_better_result_current"], stem: "The result obtained was… and the way the case was conducted contributed by…", example: "e.g., The client obtained [specific result], rather than [result that would usually have been expected], because the case was conducted by..." },
-            { label: "Particular care with a vulnerable client", key: "s2_care_vulnerable_client", explanation: true, carried_from: ["s1_cse_vulnerable_client"], stem: "The client's circumstances required… and so the work involved…", example: "e.g., Dealing with a client who [specific vulnerability, e.g., had severe anxiety / was a non-English speaker requiring an interpreter for every meeting] necessitated [specific adaptations, e.g., shorter, more frequent meetings / using visual aids] to ensure effective instructions..." },
+            { label: "Evidence marshalled with unusual skill", key: "s2_care_marshalling_evidence", code: "CARE 02", explanation: true, carried_from: ["s1_cse_marshalling_evidence"], stem: "The evidence required this skill because…", example: "e.g., The case required collating and analysing over [number] pages of [type of evidence, e.g., medical records/financial statements] to distil key facts about..." },
+            { label: "Particularly effective tactic", key: "s2_care_effective_tactic", code: "CARE 03", explanation: true, carried_from: ["s1_cse_effective_tactic"], stem: "The tactic adopted was… and it was particularly effective because…", example: "e.g., Instead of [standard approach], we strategically opted for [specific tactic, e.g., an early without prejudice offer / a specific type of application], which led to..." },
+            { label: "Better result than might usually have been expected", key: "s2_care_better_result", code: "CARE 04", explanation: true, carried_from: ["s1_cse_better_result_current"], stem: "The result obtained was… and the way the case was conducted contributed by…", example: "e.g., The client obtained [specific result], rather than [result that would usually have been expected], because the case was conducted by..." },
+            { label: "Particular care with a vulnerable client", key: "s2_care_vulnerable_client", code: "CARE 05", explanation: true, carried_from: ["s1_cse_vulnerable_client"], stem: "The client's circumstances required… and so the work involved…", example: "e.g., Dealing with a client who [specific vulnerability, e.g., had severe anxiety / was a non-English speaker requiring an interpreter for every meeting] necessitated [specific adaptations, e.g., shorter, more frequent meetings / using visual aids] to ensure effective instructions..." },
             // Carries the limb (a) "other". The stem does the work the fixed
             // labels do elsewhere: without it this box invites "the case was
             // very difficult", which asserts nothing an assessor can weigh.
-            { label: "Exceptional competence, skill or expertise shown in some other way", key: "s2_care_other", explanation: true, carried_from: ["s1_cse_other"], stem: "What the fee earner did was… and what made it exceptional rather than merely competent was…", example: "e.g., Set out the specific thing done, and why it went beyond what a reasonable fee earner would ordinarily have done on a legally aided case — not why the case was hard, but what the fee earner brought to it." },
+            { label: "Exceptional competence, skill or expertise shown in some other way", key: "s2_care_other", code: "CARE 06", explanation: true, carried_from: ["s1_cse_other"], stem: "What the fee earner did was… and what made it exceptional rather than merely competent was…", example: "e.g., Set out the specific thing done, and why it went beyond what a reasonable fee earner would ordinarily have done on a legally aided case — not why the case was hard, but what the fee earner brought to it." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -603,10 +643,10 @@ const QUESTION_BLOCKS = [
         narrative_header_key: "s2_speed_header_narrative",
         factor_description: "CAG 12.9(b)(ii): \"will involve similar considerations as in paragraph 12.8(b) above in relation to exceptional speed\".",
         checkboxes: [
-            { label: "Case proactively pursued to a rapid resolution", key: "s2_speed_proactive_pursuit", explanation: true, carried_from: ["s1_speed_proactive_pursuit"], stem: "The urgency arose because… and as a result…", example: "e.g., Given the imminent risk of [e.g., eviction/child removal], we proactively [action, e.g., issued an emergency application] within [timeframe, e.g., 24 hours of instruction], resulting in..." },
-            { label: "Substantial work at short notice for an urgent deadline", key: "s2_speed_urgent_deadlines", explanation: true, carried_from: ["s1_speed_urgent_deadlines"], stem: "The deadline was… and meeting it required…", example: "e.g., Urgent instructions were received on [date] requiring [specific work, e.g., preparation for a short-notice hearing] by [deadline date/time] due to [reason for urgency], necessitating immediate and focused work..." },
-            { label: "Substantial out-of-hours work", key: "s2_speed_out_of_hours", explanation: true, carried_from: ["s1_circ_out_of_hours"], stem: "The out-of-hours work was necessary because…", example: "e.g., Substantial work was unavoidably performed outside normal hours on [e.g., weekend of date / evenings of dates] to [reason, e.g., prepare for an emergency hearing / meet an unexpected court deadline]..." },
-            { label: "Exceptional speed achieved in some other way", key: "s2_speed_other", explanation: true, carried_from: ["s1_speed_other"], stem: "The speed was exceptional because… and it was achieved by…", example: "e.g., Set out what was done, how quickly, and what the ordinary timescale would have been — the comparison is with legally aided proceedings generally, not with other family cases." },
+            { label: "Case proactively pursued to a rapid resolution", key: "s2_speed_proactive_pursuit", code: "SPEED 01", explanation: true, carried_from: ["s1_speed_proactive_pursuit"], stem: "The urgency arose because… and as a result…", example: "e.g., Given the imminent risk of [e.g., eviction/child removal], we proactively [action, e.g., issued an emergency application] within [timeframe, e.g., 24 hours of instruction], resulting in..." },
+            { label: "Substantial work at short notice for an urgent deadline", key: "s2_speed_urgent_deadlines", code: "SPEED 02", explanation: true, carried_from: ["s1_speed_urgent_deadlines"], stem: "The deadline was… and meeting it required…", example: "e.g., Urgent instructions were received on [date] requiring [specific work, e.g., preparation for a short-notice hearing] by [deadline date/time] due to [reason for urgency], necessitating immediate and focused work..." },
+            { label: "Substantial out-of-hours work", key: "s2_speed_out_of_hours", code: "SPEED 03", explanation: true, carried_from: ["s1_circ_out_of_hours"], stem: "The out-of-hours work was necessary because…", example: "e.g., Substantial work was unavoidably performed outside normal hours on [e.g., weekend of date / evenings of dates] to [reason, e.g., prepare for an emergency hearing / meet an unexpected court deadline]..." },
+            { label: "Exceptional speed achieved in some other way", key: "s2_speed_other", code: "SPEED 04", explanation: true, carried_from: ["s1_speed_other"], stem: "The speed was exceptional because… and it was achieved by…", example: "e.g., Set out what was done, how quickly, and what the ordinary timescale would have been — the comparison is with legally aided proceedings generally, not with other family cases." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -620,7 +660,7 @@ const QUESTION_BLOCKS = [
         narrative_header_key: "s2_efficiency_header_narrative",
         factor_description: "CAG 12.9(b)(iii): \"a reward for the provider for claiming less time or less in disbursements than might otherwise have been expected, whether because of the way in which particular items of work have been carried out or because of the way in which the case has been planned more generally\".",
         checkboxes: [
-            { label: "Less time or fewer disbursements claimed than might otherwise have been expected", key: "s2_efficiency_less_time", explanation: true, carried_from: ["s1_cse_less_time"], stem: "The time saved came from… and amounted to roughly…", example: "e.g., By [e.g., front-loading negotiations / proposing a streamlined directions timetable that was adopted by the court], the case was resolved more efficiently, likely saving [X hours / specific costs] compared to a more protracted approach, because..." },
+            { label: "Less time or fewer disbursements claimed than might otherwise have been expected", key: "s2_efficiency_less_time", code: "EFF 01", explanation: true, carried_from: ["s1_cse_less_time"], stem: "The time saved came from… and amounted to roughly…", example: "e.g., By [e.g., front-loading negotiations / proposing a streamlined directions timetable that was adopted by the court], the case was resolved more efficiently, likely saving [X hours / specific costs] compared to a more protracted approach, because..." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -634,7 +674,7 @@ const QUESTION_BLOCKS = [
         narrative_header_key: "s2_novelty_header_narrative",
         factor_description: "CAG 12.9(c)(i): \"it should be clear from the provider’s claim whether the case involves a novel point of law or legal context\".",
         checkboxes: [
-            { label: "Unusual or difficult legal argument", key: "s2_novelty_difficult_argument", explanation: true, carried_from: ["s1_cse_difficult_argument"], stem: "The argument was… and any novelty in the point of law or legal context arose because…", example: "e.g., The argument concerned [specific issue]; the point of law or legal context was novel because..." },
+            { label: "Unusual or difficult legal argument", key: "s2_novelty_difficult_argument", code: "NOV 01", explanation: true, carried_from: ["s1_cse_difficult_argument"], stem: "The argument was… and any novelty in the point of law or legal context arose because…", example: "e.g., The argument concerned [specific issue]; the point of law or legal context was novel because..." },
             // Deliberately NOT "Novel point of law or legal context". The legacy
             // alias block below maps "A novel point of law or legal context" to
             // s2_novelty_difficult_argument, and the two would then differ by one
@@ -645,7 +685,7 @@ const QUESTION_BLOCKS = [
             // load and kills the narrator for every document, not just novelty
             // ones. "Novelty in the" shares no opening with "A novel point", so
             // there is nothing to tidy them together.
-            { label: "Novelty in the point of law or legal context", key: "s2_novelty_novel_point", explanation: true, carried_from: ["s1_circ_novel_point"], stem: "The novel point of law or legal context was… and it was novel because…", example: "e.g., The point concerned [specific issue]; it was novel because [there was no reported authority on it / the provision had not previously been applied to facts of this kind], and dealing with it required..." },
+            { label: "Novelty in the point of law or legal context", key: "s2_novelty_novel_point", code: "NOV 02", explanation: true, carried_from: ["s1_circ_novel_point"], stem: "The novel point of law or legal context was… and it was novel because…", example: "e.g., The point concerned [specific issue]; it was novel because [there was no reported authority on it / the provision had not previously been applied to facts of this kind], and dealing with it required..." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -677,8 +717,8 @@ const QUESTION_BLOCKS = [
         // threshold limb about carrying a case without counsel.
         factor_description: "CAG 12.9(c)(ii): weight \"may refer to the volume of documentation, other material, or the number of issues arising\". It \"may also refer to the importance of the case to the client\".",
         checkboxes: [
-            { label: "Importance of the case to the client", key: "s2_weight_client_importance", explanation: true, carried_from: ["s1_circ_client_impact"], stem: "What was at stake for the client was… and that meant…", example: "e.g., The proceedings affected the client's [e.g., fundamental right to family life / risk of homelessness], requiring..." },
-            { label: "Volume of documentation, material or issues", key: "s2_weight_volume", explanation: true, carried_from: ["s1_circ_weight"], stem: "The volume was… and dealing with it required…", example: "e.g., The disclosure, exceeding [e.g., 10 lever arch files / 2000 pages], related to [type of documents] and required time to review and schedule for..." },
+            { label: "Importance of the case to the client", key: "s2_weight_client_importance", code: "WEIGHT 01", explanation: true, carried_from: ["s1_circ_client_impact"], stem: "What was at stake for the client was… and that meant…", example: "e.g., The proceedings affected the client's [e.g., fundamental right to family life / risk of homelessness], requiring..." },
+            { label: "Volume of documentation, material or issues", key: "s2_weight_volume", code: "WEIGHT 02", explanation: true, carried_from: ["s1_circ_weight"], stem: "The volume was… and dealing with it required…", example: "e.g., The disclosure, exceeding [e.g., 10 lever arch files / 2000 pages], related to [type of documents] and required time to review and schedule for..." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -692,9 +732,9 @@ const QUESTION_BLOCKS = [
         narrative_header_key: "s2_complexity_header_narrative",
         factor_description: "CAG 12.9(c)(iii) refers back to 12.8(c): complexity \"may relate to legal issues, questions of expert evidence or other evidential issues\", and \"may also take into account difficulty in taking instructions from the client or other witnesses\".",
         checkboxes: [
-            { label: "Complexity relating to legal, expert or evidential issues", key: "s2_complexity_legal_issues", explanation: true, carried_from: ["s1_circ_legal_issues"], stem: "The complexity lay in… and dealing with it required…", example: "e.g., The case involved interplay between [legal area 1] and [legal area 2], specifically concerning [the difficult point of law], which required research into..." },
-            { label: "Difficulty in taking instructions", key: "s2_complexity_difficult_instructions", explanation: true, carried_from: ["s1_circ_difficult_instructions"], stem: "Taking instructions was difficult because… and so…", example: "e.g., The client's [e.g., trauma / learning disability / distrust of authority] affected obtaining a coherent history and instructions, requiring multiple attendances and..." },
-            { label: "Exceptional circumstances or complexity of some other kind", key: "s2_complexity_other", explanation: true, carried_from: ["s1_circ_other"], stem: "The circumstances were… and dealing with them required…", example: "e.g., Set out what the circumstances were and what they demanded of the fee earner. \"Exceptional\" has its normal meaning of unusual or out of the ordinary (CAG 12.8), so say what made this case unlike the run of legally aided work. If the circumstances bear on weight, speed, care or responsibility rather than on complexity, tick that factor too and explain it there — this box files the claim under CAG 12.9(c)(iii)." },
+            { label: "Complexity relating to legal, expert or evidential issues", key: "s2_complexity_legal_issues", code: "COMP 01", explanation: true, carried_from: ["s1_circ_legal_issues"], stem: "The complexity lay in… and dealing with it required…", example: "e.g., The case involved interplay between [legal area 1] and [legal area 2], specifically concerning [the difficult point of law], which required research into..." },
+            { label: "Difficulty in taking instructions", key: "s2_complexity_difficult_instructions", code: "COMP 02", explanation: true, carried_from: ["s1_circ_difficult_instructions"], stem: "Taking instructions was difficult because… and so…", example: "e.g., The client's [e.g., trauma / learning disability / distrust of authority] affected obtaining a coherent history and instructions, requiring multiple attendances and..." },
+            { label: "Exceptional circumstances or complexity of some other kind", key: "s2_complexity_other", code: "COMP 03", explanation: true, carried_from: ["s1_circ_other"], stem: "The circumstances were… and dealing with them required…", example: "e.g., Set out what the circumstances were and what they demanded of the fee earner. \"Exceptional\" has its normal meaning of unusual or out of the ordinary (CAG 12.8), so say what made this case unlike the run of legally aided work. If the circumstances bear on weight, speed, care or responsibility rather than on complexity, tick that factor too and explain it there — this box files the claim under CAG 12.9(c)(iii)." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true
@@ -727,10 +767,10 @@ const QUESTION_BLOCKS = [
         // harder, not impossible — the previous version of the form read as binary.
         counsel_note: "Instructing counsel does not rule this out. CAG 12.16: \"That does not mean that a provider can never claim an enhancement where they have instructed counsel\" — though it \"may be more difficult for the provider to justify\". The fourth item below is not about counsel at all, so it can apply even where counsel ran the advocacy. If none of these fit, leave the whole section blank: the narrative closes perfectly well without it.",
         checkboxes: [
-            { label: "Analysis and planning without counsel", key: "s2_resp_no_counsel_analysis", explanation: true, origin: "independent", stem: "Across the case I carried… without counsel, which mattered because…", example: "e.g., The fee earner undertook case analysis and strategic planning, including [e.g., identifying key legal arguments / devising the evidential strategy], without recourse to counsel..." },
-            { label: "Drafting without counsel", key: "s2_resp_no_counsel_drafting", explanation: true, origin: "independent", stem: "I drafted… myself, which might otherwise have involved counsel because…", example: "e.g., Drafting of [e.g., a detailed Threshold Agreement / a nuanced position statement addressing multiple allegations] was handled entirely by the fee earner..." },
-            { label: "Advocacy without counsel", key: "s2_resp_no_counsel_advocacy", explanation: true, origin: "independent", stem: "I conducted the advocacy at… which might typically have been briefed because…", example: "e.g., The fee earner conducted advocacy at the [e.g., contested interim hearing / directions hearing involving complex legal argument] which might typically have been briefed to Counsel because..." },
-            { label: "Addressed evidential issues that might otherwise have needed an expert", key: "s2_resp_addressed_expert_issues", explanation: true, origin: "independent", stem: "I addressed… myself, which avoided…", example: "e.g., By meticulously [e.g., cross-referencing medical records with witness statements / researching technical financial data], the fee earner was able to address [specific expert/evidential issue] directly, thereby avoiding the need and cost of instructing a separate expert in..." },
+            { label: "Analysis and planning without counsel", key: "s2_resp_no_counsel_analysis", code: "RESP 01", explanation: true, origin: "independent", stem: "Across the case I carried… without counsel, which mattered because…", example: "e.g., The fee earner undertook case analysis and strategic planning, including [e.g., identifying key legal arguments / devising the evidential strategy], without recourse to counsel..." },
+            { label: "Drafting without counsel", key: "s2_resp_no_counsel_drafting", code: "RESP 02", explanation: true, origin: "independent", stem: "I drafted… myself, which might otherwise have involved counsel because…", example: "e.g., Drafting of [e.g., a detailed Threshold Agreement / a nuanced position statement addressing multiple allegations] was handled entirely by the fee earner..." },
+            { label: "Advocacy without counsel", key: "s2_resp_no_counsel_advocacy", code: "RESP 03", explanation: true, origin: "independent", stem: "I conducted the advocacy at… which might typically have been briefed because…", example: "e.g., The fee earner conducted advocacy at the [e.g., contested interim hearing / directions hearing involving complex legal argument] which might typically have been briefed to Counsel because..." },
+            { label: "Addressed evidential issues that might otherwise have needed an expert", key: "s2_resp_addressed_expert_issues", code: "RESP 04", explanation: true, origin: "independent", stem: "I addressed… myself, which avoided…", example: "e.g., By meticulously [e.g., cross-referencing medical records with witness statements / researching technical financial data], the fee earner was able to address [specific expert/evidential issue] directly, thereby avoiding the need and cost of instructing a separate expert in..." },
             // The ONLY "other" added at Stage 2, on 6 August 2026. Four were
             // proposed — one per factor lacking one — and three were cut on the
             // ground that CAG 12.7 makes the *features* of a case non-exhaustive,
@@ -750,7 +790,7 @@ const QUESTION_BLOCKS = [
             // way none of the four items describes has nowhere else to say it.
             // Simon's decision, 6 August 2026, choosing the narrowest of three
             // options put to him.
-            { label: "Responsibility accepted in some other way", key: "s2_resp_other", explanation: true, origin: "independent", stem: "I carried… and the responsibility mattered because…", example: "e.g., Identify the work or decision the fee earner was responsible for, say how that responsibility came to rest with them rather than with counsel or a colleague, and explain what turned on it. CAG 12.16 frames this as \"an unusual share of the load\" — so say what made the share unusual. Ordinary conduct of a case is not this factor." },
+            { label: "Responsibility accepted in some other way", key: "s2_resp_other", code: "RESP 05", explanation: true, origin: "independent", stem: "I carried… and the responsibility mattered because…", example: "e.g., Identify the work or decision the fee earner was responsible for, say how that responsibility came to rest with them rather than with counsel or a colleague, and explain what turned on it. CAG 12.16 frames this as \"an unusual share of the load\" — so say what made the share unusual. Ordinary conduct of a case is not this factor." },
         ],
         columns_for_sub_options: 1,
         depends_on_threshold_met: true

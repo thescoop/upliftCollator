@@ -738,6 +738,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     formData.stage1[chkData.key] = {
                         checked: true,
                         label: chkData.label,
+                        // The frozen item code (A01, C07). Carried on the entry
+                        // rather than looked up later, because docx-summary.js
+                        // prints it and knows nothing about QUESTION_BLOCKS.
+                        code: chkData.code,
                         explanation: "",
                         categoryTitle: block.title
                     };
@@ -755,6 +759,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     formData.stage2[chkData.key] = {
                         checked: true,
                         label: chkData.label,
+                        // The frozen item code ("CARE 05", "RESP 02"), as above.
+                        code: chkData.code,
                         explanation: explInput ? explInput.value.trim() : "",
                         categoryTitle: block.title
                     };
