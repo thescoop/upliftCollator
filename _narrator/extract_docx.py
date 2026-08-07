@@ -22,6 +22,7 @@ from pathlib import Path
 
 from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
+from lxml.etree import XMLSyntaxError
 
 from templates import load_content_data
 
@@ -720,7 +721,12 @@ def _empty_formdata() -> dict:
 
 
 def extract_formdata_docx(path: str | Path) -> dict:
-    paragraphs = read_docx_paragraphs(path)
+    try:
+        paragraphs = read_docx_paragraphs(path)
+    except (PackageNotFoundError, KeyError, ValueError, XMLSyntaxError):
+        # A corrupt package (truncated transfer, mangled mail gateway) fails
+        # closed exactly like structural damage; diagnose_docx explains it.
+        return _empty_formdata()
     if structural_damage(paragraphs):
         return _empty_formdata()
     unmatched: list[dict] = []
@@ -753,7 +759,7 @@ def diagnose_docx(path: str | Path) -> dict:
         return {"readable": False, "failure": "not_a_zip"}
     try:
         doc = Document(str(path))
-    except (PackageNotFoundError, KeyError, ValueError) as exc:
+    except (PackageNotFoundError, KeyError, ValueError, XMLSyntaxError) as exc:
         return {
             "readable": False,
             "failure": f"not_a_word_package: {type(exc).__name__}",

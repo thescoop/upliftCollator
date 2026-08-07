@@ -813,6 +813,32 @@ class TestReviewRoundHardening(unittest.TestCase):
         paras.insert(self._row("Limb (a)"), "A01\tSomething entirely rewritten")
         self.assertTrue(extract_docx.structural_damage(paras))
 
+    # ── round 5 ──
+
+    def test_a_corrupt_package_fails_closed_with_a_diagnostic(self):
+        """A valid zip whose document.xml is mangled (truncated transfer,
+        mail gateway) must return empty formdata and an unreadable
+        diagnostic, never raise."""
+        import zipfile as zf
+
+        tmp = Path(tempfile.mkdtemp()) / "corrupt.docx"
+        with zf.ZipFile(SAMPLE) as src, zf.ZipFile(tmp, "w") as dst:
+            for item in src.infolist():
+                data = src.read(item.filename)
+                if item.filename == "word/document.xml":
+                    data = b"<not-well-formed"
+                dst.writestr(item, data)
+        self.assertEqual(
+            extract_docx.extract_formdata_docx(tmp),
+            extract_docx._empty_formdata(),
+        )
+        diagnostic = extract_docx.diagnose_docx(tmp)
+        self.assertFalse(diagnostic["readable"])
+        self.assertIn(
+            "could not be read",
+            extract_docx.explain_empty_extraction_docx(tmp),
+        )
+
     def test_unicode_digits_are_not_a_percentage(self):
         """Python's \\d matches Arabic-Indic digits; the app's gate does not.
         The extractor now requires ASCII digits."""

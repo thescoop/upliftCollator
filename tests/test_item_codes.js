@@ -308,6 +308,14 @@ check('every frozen mapping is either live and identical, or retired into the re
     }
     assert.strictEqual(Object.keys(FROZEN_CODES).length, 41,
         'the freeze covers all 41 codes as of 7 August 2026');
+    // The reverse direction: a code enters the freeze at birth. A live
+    // mapping absent from FROZEN_CODES could later vanish without leaving
+    // its code in the registry, permitting reuse against documents issued
+    // during its lifetime.
+    for (const [key, code] of Object.entries(live)) {
+        assert.ok(key in FROZEN_CODES,
+            key + ' (' + code + ') is live but not frozen — add it to FROZEN_CODES with a dated comment');
+    }
 });
 
 console.log('\n' + checks + '/' + checks + ' item-code checks passed.');
