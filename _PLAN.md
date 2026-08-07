@@ -1,9 +1,42 @@
 # Agreed programme — settled 4 August 2026
 
-## BUILD STATUS — updated 6 August 2026, end of session
+## BUILD STATUS — updated 7 August 2026, end of session
 
 Work is on branch **`redesign/stage1-labels`**. **Nothing is on `main`, so nothing is
 live.** Only a merge to `main` publishes to solicitors.
+
+## 7 AUGUST 2026 — THE VISUAL REDESIGN: IMPLEMENTED, NINE-ROUND-REVIEWED
+
+**Simon rejected the v1.13 document's appearance** (human gate 1) and, through
+four mockup rounds, the design converged on **his own edit: `my idea.docx` in
+the repo root** — untracked, synthetic data only, the design source of truth.
+He signed off mockup round 5 (codes ON, grey headings, Cambria/Calibri,
+✗ Unconfirmed). The round-by-round record lives in the project memory
+(`project_docx_redesign_round.md`). Decisions fixed: **no watermark**, footer
+"CONFIDENTIAL — Prepared for Woodruff Billing Ltd · © 2026" plus a version
+second line, disclaimer as one bottom-pinned paragraph frame.
+
+**Implemented the same evening**: the generator landed byte-identical to the
+approved mockup (`16643f4`), Sol rewrote `extract_docx.py` for the new
+composite-heading/coded-row grammar (`fbdcce8`), then NINE adversarial review
+rounds ran (8→5→3→1→2→4→5→4→4 findings), each closed by a commit, ending
+`9b12543`. 434 tests + 200 subtests green on WSL **and** Windows; 30/30
+browser drive; 11/11 code checks; the legacy PDF path blob-identical
+throughout. The round-8 HIGH — Upper Tribunal offered at 100% against
+Spec 7.22's Family rule — Simon resolved by **removing the option**
+(branch-only, `fc0fe15`, never live). The round-5 pipeline and approved
+ground truth remain in
+`C:\Users\thescoop\AppData\Local\Temp\uplift-docx-review\round5*\`.
+
+**Next headline: the ceiling-UX form redesign** — the per-court limit must
+BLOCK (not warn) and be explained in the form itself, plus the
+evidence-begets-award expectation message. Simon's brief is in the project
+memory (`project_ceiling_ux_brief`). A narrator-side hard-stop gate was built
+during round 9 and reverted on his direction ("it's not down to the narrator
+app") — enforcement and expectation-setting belong in the Collator form; do
+not re-add a narrator gate. Also pending: Simon's review of the final Word
+look from the real generator (gate 1 final confirmation), the site
+walk-through, gate 2 (Stage 1 wording), the Vercel v1.8 copy, item 4a below.
 
 ---
 
