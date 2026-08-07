@@ -446,7 +446,14 @@ def _analyse(paragraphs: list[str]) -> dict:
         parsed_labels = []
         for text in uplift_rows:
             row = _split_machine_row(text)
-            if not row or not _PERCENT_RE.match(row[1]):
+            # "Not Set%" is generator-legal: an empty finalUpliftPercent prints
+            # it (the app's gate prevents that at download, but the generator
+            # cannot assume its caller is the app). It reads back as "".
+            valid_value = (
+                _PERCENT_RE.match(row[1]) is not None
+                or (row[0] == _UPLIFT_LABEL and row[1] == "Not Set%")
+            ) if row else False
+            if not valid_value:
                 problems.append("PROPOSED UPLIFT contains a malformed percentage row")
                 continue
             if row[0] == _CEILING_LABEL and row[1][:-1] not in _CEILING_VALUES:

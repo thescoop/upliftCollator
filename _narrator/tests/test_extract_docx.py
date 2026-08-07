@@ -692,6 +692,21 @@ class TestReviewRoundHardening(unittest.TestCase):
         paras[row] = "Applicable ceiling for this court (CAG 12.2)\t60%"
         self.assertTrue(extract_docx.structural_damage(paras))
 
+    def test_not_set_is_generator_legal_and_reads_as_unset(self):
+        """An empty finalUpliftPercent prints "Not Set%" — the strict percent
+        check must not damage a document the generator can produce."""
+        paras = self.paragraphs[:]
+        row = self._row("Solicitor’s proposed uplift\t")
+        paras[row] = "Solicitor’s proposed uplift\tNot Set%"
+        self.assertEqual(extract_docx.structural_damage(paras), [])
+        self.assertEqual(extract_docx.extract_uplift_percent(paras), "")
+
+    def test_not_set_on_the_ceiling_row_is_still_damage(self):
+        paras = self.paragraphs[:]
+        row = self._row("Applicable ceiling for this court (CAG 12.2)\t")
+        paras[row] = "Applicable ceiling for this court (CAG 12.2)\tNot Set%"
+        self.assertTrue(extract_docx.structural_damage(paras))
+
 
 class TestFixturesAreCanonical(unittest.TestCase):
     def test_fixtures_exist_and_are_zip_packages(self):
