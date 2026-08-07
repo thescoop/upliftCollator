@@ -863,7 +863,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const options = document.createElement('div');
         options.className = 'panel-options';
         blockDiv.appendChild(options);
-        block.checkboxes.forEach(chkData => createPlainCheckboxItem(chkData, options));
+        // Retired checkboxes stay in the data (their history matters to the
+        // narrator) but are never offered on the form and never print.
+        block.checkboxes.filter(chkData => !chkData.retired)
+            .forEach(chkData => createPlainCheckboxItem(chkData, options));
         targetContainer.appendChild(blockDiv);
     }
 
@@ -949,7 +952,8 @@ document.addEventListener('DOMContentLoaded', () => {
         options.className = 'sub-options-grid';
         options.id = `${block.id}-sub-options`;
         blockDiv.appendChild(options);
-        block.checkboxes.forEach(chkData => createStage1Item(chkData, options));
+        block.checkboxes.filter(chkData => !chkData.retired)
+            .forEach(chkData => createStage1Item(chkData, options));
         targetContainer.appendChild(blockDiv);
     }
 
@@ -1094,7 +1098,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const options = document.createElement('div');
         options.className = 'sub-options-grid';
         blockDiv.appendChild(options);
-        block.checkboxes.forEach(chkData => createStage2Item(chkData, options, block));
+        block.checkboxes.filter(chkData => !chkData.retired)
+            .forEach(chkData => createStage2Item(chkData, options, block));
         targetContainer.appendChild(blockDiv);
     }
 

@@ -279,8 +279,12 @@ const WHAT_COUNTS_CAVEAT = "CAG 12.7: \"In neither case can an exhaustive list o
 // anything. That failure is the prompt to make a deliberate decision and update
 // the test's frozen expectations — never to renumber the document.
 //
-// When a checkbox is retired, move its code HERE so no future checkbox can be
-// given it. Empty today; the guard test fails if any live code appears in it.
+// When a checkbox is retired: set `retired: true` on it, delete its `code`,
+// and move that code HERE so no future checkbox can be given it. The app
+// hides retired boxes from the form (script.js filters them at render), the
+// generator never prints them, and the extractor treats their old codes as
+// unknown — so an old document naming one fails closed with a diagnostic.
+// Empty today; the guard test fails if any live code appears in it.
 const RESERVED_ITEM_CODES = [];
 const QUESTION_BLOCKS = [
     // PAGE 1 Content Block (Panel Membership)

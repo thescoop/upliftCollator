@@ -14,6 +14,7 @@ The returned dictionary has the same shape as ``extract.extract_formdata``.
 
 from __future__ import annotations
 
+import lzma
 import re
 import zipfile
 import zlib
@@ -81,7 +82,8 @@ EVIDENCE_UNCONFIRMED_SENTENCE = (
 # RuntimeError (zip-level encryption), OSError (not a file at all).
 UNREADABLE_PACKAGE = (
     PackageNotFoundError, KeyError, ValueError, XMLSyntaxError,
-    zipfile.BadZipFile, zlib.error, NotImplementedError, RuntimeError, OSError,
+    zipfile.BadZipFile, zlib.error, lzma.LZMAError, NotImplementedError,
+    RuntimeError, OSError,
 )
 
 _UPLIFT_LABEL = "Solicitor’s proposed uplift"
@@ -121,7 +123,16 @@ _DETAIL_BY_PRINTED = {printed: key for key, printed in _DETAIL_FIELDS}
 
 def read_docx_paragraphs(path: str | Path) -> list[str]:
     """Return body paragraphs in document order; footer parts are excluded."""
-    return [paragraph.text for paragraph in Document(str(path)).paragraphs]
+    document = Document(str(path))
+    try:
+        return [paragraph.text for paragraph in document.paragraphs]
+    except AttributeError as exc:
+        # A well-formed package whose document part is not WordprocessingML —
+        # Word's own "Strict Open XML" save format uses a namespace
+        # python-docx cannot bind, and redaction tooling can leave a foreign
+        # XML stub. Converted (not added to UNREADABLE_PACKAGE wholesale, so
+        # AttributeError from our own bugs still surfaces loudly).
+        raise ValueError(f"not WordprocessingML: {exc}") from exc
 
 
 def _panel_display(label: str) -> str:
@@ -151,10 +162,11 @@ def _content_contract() -> dict:
             continue
         for checkbox in block.get("checkboxes", []):
             # A retired checkbox has no code (its code lives in
-            # RESERVED_ITEM_CODES) and prints in no current document. Skip it:
-            # an old document naming a retired code then resolves as unknown,
-            # which _resolve_item_row already reads as damage — fail closed,
-            # not KeyError.
+            # RESERVED_ITEM_CODES) and the app hides it from the form, so it
+            # prints in no current document. Skip it: an old document naming
+            # a retired code then resolves as unknown, which
+            # _resolve_item_row already reads as damage — fail closed, not
+            # KeyError.
             if checkbox.get("retired") or "code" not in checkbox:
                 continue
             info = {
@@ -779,6 +791,12 @@ def diagnose_docx(path: str | Path) -> dict:
     try:
         doc = Document(str(path))
         paragraphs = [paragraph.text for paragraph in doc.paragraphs]
+    except AttributeError:
+        # See read_docx_paragraphs: Strict OOXML or a foreign-XML stub.
+        return {
+            "readable": False,
+            "failure": "not_a_word_package: not_wordprocessingml",
+        }
     except UNREADABLE_PACKAGE as exc:
         return {
             "readable": False,
@@ -787,18 +805,20 @@ def diagnose_docx(path: str | Path) -> dict:
 
     analysis = _analyse(paragraphs)
     indexes = analysis["indexes"]
-    # Finding 2 of the round-6 review: metadata reads must not decide
-    # readability. A document whose properties were blanked by scrubbing
-    # tooling (an empty <dcterms:created/> makes python-docx raise TypeError)
-    # is still a readable document — degrade the metadata, keep the analysis.
+    # Metadata reads must not decide readability (a blanked
+    # <dcterms:created/> from scrubbing tooling raises TypeError deep in
+    # python-docx), and a failed read must not discard the reads that
+    # already succeeded — the creator stamp is provenance narrate --debug
+    # relies on. Defaults are hoisted so each successful read sticks.
+    creator = last_modified_by = ""
+    created = modified = None
     try:
         cp = doc.core_properties
         creator = cp.author or ""
         last_modified_by = cp.last_modified_by or ""
         created, modified = cp.created, cp.modified
     except Exception:
-        creator = last_modified_by = ""
-        created = modified = None
+        pass
     made_by_the_app = bool(_APP_CREATOR_RE.fullmatch(creator.strip()))
 
     sections = {}

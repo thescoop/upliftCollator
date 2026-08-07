@@ -883,8 +883,69 @@ class TestReviewRoundHardening(unittest.TestCase):
         diagnostic = extract_docx.diagnose_docx(tmp)
         self.assertTrue(diagnostic["readable"])
         self.assertEqual(diagnostic["created"], "")
+        # Round 7: a failed date read must not discard the creator stamp
+        # that was already read successfully — the provenance verdict was
+        # silently flipping to False for scrubbed-but-genuine documents.
+        self.assertTrue(diagnostic["made_by_the_app"])
         data = extract_docx.extract_formdata_docx(tmp)
         self.assertTrue(data["stage1"], "the scrubbed document still extracts")
+
+    # ── round 7 ──
+
+    def test_a_strict_ooxml_or_foreign_stub_fails_closed(self):
+        """Word's own "Strict Open XML" save format uses a namespace
+        python-docx cannot bind; redaction tooling can leave a foreign XML
+        stub. Both raised AttributeError through every entry path."""
+        import zipfile as zf
+
+        stub = (b'<?xml version="1.0"?>'
+                b'<doc xmlns="http://example.invalid/not-wordml"><p>x</p></doc>')
+        tmp = Path(tempfile.mkdtemp()) / "foreign.docx"
+        with zf.ZipFile(SAMPLE) as src, zf.ZipFile(tmp, "w") as dst:
+            for item in src.infolist():
+                data = src.read(item.filename)
+                if item.filename == "word/document.xml":
+                    data = stub
+                dst.writestr(item, data)
+        self.assertEqual(
+            extract_docx.extract_formdata_docx(tmp),
+            extract_docx._empty_formdata(),
+        )
+        diagnostic = extract_docx.diagnose_docx(tmp)
+        self.assertFalse(diagnostic["readable"])
+        self.assertIn("not_wordprocessingml", diagnostic["failure"])
+        self.assertIn(
+            "could not be read",
+            extract_docx.explain_empty_extraction_docx(tmp),
+        )
+
+    def test_a_damaged_lzma_member_fails_closed(self):
+        """Round 7 found the third compression family: a 7-Zip LZMA repack
+        extracts fine, but damage inside an LZMA member raised
+        lzma.LZMAError past the round-6 guard."""
+        import zipfile as zf
+
+        repacked = Path(tempfile.mkdtemp()) / "lzma.docx"
+        with zf.ZipFile(SAMPLE) as src, \
+                zf.ZipFile(repacked, "w", compression=zf.ZIP_LZMA) as dst:
+            for item in src.infolist():
+                dst.writestr(item.filename, src.read(item.filename))
+        # sanity: the clean LZMA repack is a supported shape
+        self.assertTrue(
+            extract_docx.extract_formdata_docx(repacked)["stage1"],
+            "a clean LZMA repack must still extract",
+        )
+        raw = bytearray(repacked.read_bytes())
+        at = raw.find(b"word/document.xml") + 80
+        for i in range(at, at + 40):
+            raw[i] ^= 0xFF
+        damaged = repacked.with_name("lzma-damaged.docx")
+        damaged.write_bytes(bytes(raw))
+        self.assertEqual(
+            extract_docx.extract_formdata_docx(damaged),
+            extract_docx._empty_formdata(),
+        )
+        self.assertFalse(extract_docx.diagnose_docx(damaged)["readable"])
 
     def test_the_documented_retirement_migration_does_not_crash_extraction(self):
         """Round 6's third defect: retiring a checkbox per the documented

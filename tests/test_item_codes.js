@@ -59,8 +59,9 @@ const FACTOR_PREFIX = {
     'degree of responsibility': 'RESP'
 };
 
-// key -> the code the derivation now produces, where that DELIBERATELY differs
-// from the frozen literal. Empty today: every literal still equals its derived
+// key -> the frozen literal that key KEEPS, where that deliberately differs
+// from what the derivation now produces (after an insertion or retirement
+// shifted the indices around it). Empty today: every literal still equals its derived
 // value, because nothing has been inserted or retired since the codes were
 // frozen on 7 August 2026. Each entry needs a dated one-line reason.
 const EXPECTED_DIVERGENCES = {
