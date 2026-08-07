@@ -816,7 +816,17 @@ def diagnose_docx(path: str | Path) -> dict:
         cp = doc.core_properties
         creator = cp.author or ""
         last_modified_by = cp.last_modified_by or ""
-        created, modified = cp.created, cp.modified
+    except Exception:
+        pass
+    # The dates read separately: a tuple assignment evaluates both reads
+    # before binding either, so a raise from `modified` would discard a
+    # `created` that had already read fine.
+    try:
+        created = cp.created
+    except Exception:
+        pass
+    try:
+        modified = cp.modified
     except Exception:
         pass
     made_by_the_app = bool(_APP_CREATOR_RE.fullmatch(creator.strip()))

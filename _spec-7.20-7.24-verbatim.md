@@ -290,12 +290,21 @@ different paragraphs. CAG 12.8's phrase is a slip for 6.13's limbs; the note in
 already treat it that way, and this text proves them right.
 
 **Ceilings: 6.16 is the general rule; Family work follows 7.22.** 6.16 allows up to
-100% in the High Court, Court of Appeal, **Upper Tribunal** or Supreme Court. The
-Family rule 7.22 (above) omits the Upper Tribunal and is the operative ceiling for
-Family Contract Work, because 7.20 applies Paragraphs 6.12–6.17 "subject to
-Paragraphs 7.23 to 7.24" and 7.22 states the Family-specific ceiling. The
-Collator's court list and CAG 12.2 ceilings already follow the Family rule; do not
-"upgrade" them from 6.16.
+100% in the High Court, Court of Appeal, **Upper Tribunal** or Supreme Court, and
+CAG 12.2 repeats that list — the guidance tracks the general rule. The Family rule
+7.22 (above) omits the Upper Tribunal and is the operative ceiling for Family
+Contract Work: 7.20 applies Paragraphs 6.12–6.17 to Family work as the route in,
+and 7.22 then states the Family-specific ceiling in its own words. Where guidance
+and contract diverge, the contract governs.
+
+> [note: An earlier draft of this section claimed the Collator's court list
+> already followed the Family rule. It did not — a claim about the code written
+> without reading the code, found by the round-8 adversarial review on
+> 7 August 2026. The redesigned court list (branch commit `fc0fe15`, never
+> shipped) had been built from CAG 12.2's words and offered "Upper Tribunal" at a
+> 100% ceiling, which 7.22 does not permit for Family work — and the Upper
+> Tribunal does not hear family proceedings at all. The unverified claim is the
+> same defect class this file exists to prevent, one level up.]
 
 **"Stage 1" and "Stage 2" are the project's analytical labels**, not the
 Specification's. The Specification never uses them. A route line reading

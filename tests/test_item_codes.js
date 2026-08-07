@@ -323,4 +323,33 @@ check('every frozen mapping is either live and identical, or retired into the re
     }
 });
 
+// ── 7. Retirement cannot dead-end a Stage 1 route ───────────────────────────
+// A Stage 1 box with requires_stage2 blocks navigation until a Stage 2 box
+// that carries it is ticked. If every carrier is retired, the solicitor is
+// told to tick a box that is not on the page — a hard dead-end (round-8
+// review finding). Retiring a carrier therefore requires retiring or
+// re-carrying its Stage 1 dependents in the same change.
+check('every live requires_stage2 Stage 1 box has at least one live carrier', () => {
+    const carriers = {};
+    for (const block of CONTENT.QUESTION_BLOCKS) {
+        if (block.page !== 3) continue;
+        for (const chk of (block.checkboxes || [])) {
+            if (chk.retired) continue;
+            for (const key of (chk.carried_from || [])) {
+                carriers[key] = (carriers[key] || 0) + 1;
+            }
+        }
+    }
+    const stranded = [];
+    for (const block of CONTENT.QUESTION_BLOCKS) {
+        if (block.page !== 2) continue;
+        for (const chk of (block.checkboxes || [])) {
+            if (chk.retired || !chk.requires_stage2) continue;
+            if (!carriers[chk.key]) stranded.push(chk.key);
+        }
+    }
+    assert.deepStrictEqual(stranded, [],
+        'live Stage 1 boxes whose every Stage 2 carrier is retired: ' + stranded.join(', '));
+});
+
 console.log('\n' + checks + '/' + checks + ' item-code checks passed.');

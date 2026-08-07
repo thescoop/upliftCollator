@@ -979,7 +979,7 @@ Once the Stage 1 threshold test is satisfied — by ticking at least one Stage 1
 ---
 ## Maximum Enhancement Percentages (CAG Section 12.2):
 *   **Up to 50%** for most cases (e.g., Family Court, County Court).
-*   **Up to 100%** for cases in the High Court, Upper Tribunal, Court of Appeal, or Supreme Court.
+*   **Up to 100%** for cases in the High Court, Court of Appeal, or Supreme Court (Spec 7.22 — the Family rule; CAG 12.2's general list also names the Upper Tribunal, which does not hear family proceedings).
 
 ## Family Panel Membership (CAG Section 12.20-12.23):
 *   A **guaranteed minimum enhancement of 15%** may be applicable (if fee earner name provided & panel selected) for work by fee earners on specific Law Society or Resolution panels.
@@ -1022,7 +1022,7 @@ Sections labelled **Quoted guidance** reproduce words from the LAA's Costs Asses
    **Drafting note:**
 
    *   Up to **50%** in proceedings below the High Court — this includes the Family Court and the County Court.
-   *   Up to **100%** in the **High Court, Upper Tribunal, Court of Appeal or Supreme Court**.
+   *   Up to **100%** in the **High Court, Court of Appeal or Supreme Court**. The quotation above also names the Upper Tribunal because CAG 12.2 tracks the general Specification rule (6.16); the Family rule, Spec 7.22, omits it, the contract governs family work, and family proceedings are not heard there — so this form does not offer it.
    *   Check which applies before you decide. If your case was in one of those higher courts, your ceiling is 100%, not 50%.
    *   The 50% and 100% figures are caps, not targets, and they are the **only** enhancement percentages in Section 12 apart from the 15% panel minimum. The guidance publishes no bands, no ladder and no scale of any kind.
 

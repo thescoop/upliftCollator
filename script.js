@@ -57,7 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 50%. These strings must match the option values in index.html exactly;
     // they are also what gets printed in the summary document, so keep them readable.
     const HUNDRED_PERCENT_CEILING_COURTS = [
-        "High Court", "Upper Tribunal", "Court of Appeal", "Supreme Court"
+        // Spec 7.22 (verbatim-sourced): for Family work the 100% ceiling
+        // applies in these three courts only. CAG 12.2 adds the Upper
+        // Tribunal, but that tracks the general rule (Spec 6.16); the Family
+        // contract rule governs, and family proceedings are not heard there.
+        "High Court", "Court of Appeal", "Supreme Court"
     ];
 
     // Where the draft lives between sessions. Versioned in the key so that a
@@ -252,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             upliftCeilingStatementEl.textContent =
                 "The court has not been entered, so the applicable ceiling cannot be stated. " +
                 "Go back to Case Details and select the court: the maximum is 50%, but 100% in " +
-                "the High Court, Upper Tribunal, Court of Appeal or Supreme Court (CAG 12.2).";
+                "the High Court, Court of Appeal or Supreme Court (Spec 7.22).";
             return;
         }
 
@@ -457,7 +461,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // wrong number of them.
                 const stage1Count = QUESTION_BLOCKS
                     .filter(b => b.page === 2)
-                    .reduce((n, b) => n + b.checkboxes.length, 0);
+                    // retired boxes are not rendered, so the sentence must
+                    // not count them — the stale-count bug this live count
+                    // was written to prevent, reintroduced from the other side
+                    .reduce((n, b) => n + b.checkboxes.filter(c => !c.retired).length, 0);
 
                 if (isThresholdDeemedOnly()) {
                     // Until 6 August 2026 this was a dead end: it told a panel
@@ -594,6 +601,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 let carrierLabel = "";
                 QUESTION_BLOCKS.filter(b => b.page === 3).forEach(s2Block => {
                     s2Block.checkboxes.forEach(s2Chk => {
+                        // a retired box is not on the form: it can neither
+                        // satisfy this route nor be named in the alert
+                        if (s2Chk.retired) return;
                         if (!(s2Chk.carried_from || []).includes(chk.key)) return;
                         if (!carrierLabel) carrierLabel = `"${s2Chk.label}" under "${s2Block.title}"`;
                         const s2El = formElements[s2Chk.key];

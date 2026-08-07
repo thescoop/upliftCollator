@@ -890,6 +890,30 @@ class TestReviewRoundHardening(unittest.TestCase):
         data = extract_docx.extract_formdata_docx(tmp)
         self.assertTrue(data["stage1"], "the scrubbed document still extracts")
 
+    def test_a_blanked_modified_date_keeps_the_created_date(self):
+        """Round 8: the tuple assignment evaluated both date reads before
+        binding either, so a broken modified-date discarded a created-date
+        that had read fine."""
+        import re as _re
+        import zipfile as zf
+
+        tmp = Path(tempfile.mkdtemp()) / "half-scrubbed.docx"
+        with zf.ZipFile(SAMPLE) as src, zf.ZipFile(tmp, "w") as dst:
+            for item in src.infolist():
+                data = src.read(item.filename)
+                if item.filename == "docProps/core.xml":
+                    data = _re.sub(
+                        rb"<dcterms:modified[^>]*>[^<]*</dcterms:modified>",
+                        b'<dcterms:modified xsi:type="dcterms:W3CDTF"/>',
+                        data,
+                    )
+                dst.writestr(item, data)
+        diagnostic = extract_docx.diagnose_docx(tmp)
+        self.assertTrue(diagnostic["readable"])
+        self.assertTrue(diagnostic["created"], "created survived the broken modified")
+        self.assertEqual(diagnostic["modified"], "")
+        self.assertTrue(diagnostic["made_by_the_app"])
+
     # ── round 7 ──
 
     def test_a_strict_ooxml_or_foreign_stub_fails_closed(self):
