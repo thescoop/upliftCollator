@@ -707,6 +707,66 @@ class TestReviewRoundHardening(unittest.TestCase):
         paras[row] = "Applicable ceiling for this court (CAG 12.2)\tNot Set%"
         self.assertTrue(extract_docx.structural_damage(paras))
 
+    # ── round 2: the fixes attacked, what they missed pinned ──
+
+    def test_an_unmatched_label_cannot_smuggle_a_reorder_past_the_check(self):
+        """Round 2's high finding: rows whose label was edited fell out of the
+        order check, so a swap plus a label edit cross-filed explanations with
+        no damage. The check now orders the RAW printed codes."""
+        paras = self.paragraphs[:]
+        care, resp = self._row("CARE 05\t"), self._row("RESP 02\t")
+        paras[care] = "CARE 05\tX"
+        paras[care], paras[resp] = paras[resp], paras[care]
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_a_same_limb_stage1_swap_is_damage(self):
+        paras = self.paragraphs[:]
+        a01, a03 = self._row("A01\t"), self._row("A03\t")
+        paras[a01], paras[a03] = paras[a03], paras[a01]
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_a_duplicated_stage1_row_is_damage(self):
+        """The equality half of the strictly-ascending check: a swap is
+        caught by <, a duplicate only by <= — pin both."""
+        paras = self.paragraphs[:]
+        a01 = self._row("A01\t")
+        paras.insert(a01 + 1, paras[a01])
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_an_empty_membership_continuation_is_damage(self):
+        paras = self.paragraphs[:]
+        paras[self._row("- Law Society")] = "- "
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_an_empty_first_membership_is_damage(self):
+        paras = self.paragraphs[:]
+        paras[self._row("Memberships\t")] = "Memberships\t- "
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_an_unknown_panel_name_is_unrecognised_not_damage(self):
+        """Adjudicated: a non-empty unknown panel name surfaces for human
+        review rather than failing the whole document — it tolerates future
+        label rewording and is never silent."""
+        edited = _rewrite_paragraph(
+            SAMPLE, "- Law Society Children Panel", "- The Invented Panel"
+        )
+        paragraphs = extract_docx.read_docx_paragraphs(edited)
+        self.assertEqual(extract_docx.structural_damage(paragraphs), [])
+        data = extract.extract_formdata(edited)
+        unrecognised = data.get("unrecognised") or []
+        self.assertTrue(
+            any(u["label"] == "The Invented Panel" for u in unrecognised),
+            unrecognised,
+        )
+
+    def test_unicode_digits_are_not_a_percentage(self):
+        """Python's \\d matches Arabic-Indic digits; the app's gate does not.
+        The extractor now requires ASCII digits."""
+        paras = self.paragraphs[:]
+        row = self._row("Solicitor’s proposed uplift\t")
+        paras[row] = "Solicitor’s proposed uplift\t٧٥%"
+        self.assertTrue(extract_docx.structural_damage(paras))
+
 
 class TestFixturesAreCanonical(unittest.TestCase):
     def test_fixtures_exist_and_are_zip_packages(self):

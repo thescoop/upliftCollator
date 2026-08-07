@@ -240,4 +240,74 @@ check('no live checkbox uses a reserved code, and retired boxes have no code', (
     }
 });
 
+// ── 6. The full key→code freeze ─────────────────────────────────────────────
+// Every mapping as frozen on 7 August 2026. A live key must wear exactly its
+// frozen code; a key that disappears or retires must leave its code in
+// RESERVED_ITEM_CODES. Editing THIS map is the deliberate migration act, with
+// a dated comment — there is no other legitimate way to change a mapping.
+const FROZEN_CODES = {
+    s1_cse_detailed_knowledge: 'A01',
+    s1_cse_difficult_argument: 'A02',
+    s1_cse_marshalling_evidence: 'A03',
+    s1_cse_effective_tactic: 'A04',
+    s1_cse_better_result_current: 'A05',
+    s1_cse_less_time: 'A06',
+    s1_cse_vulnerable_client: 'A07',
+    s1_cse_other: 'A08',
+    s1_speed_proactive_pursuit: 'B01',
+    s1_speed_urgent_deadlines: 'B02',
+    s1_speed_other: 'B03',
+    s1_circ_legal_issues: 'C01',
+    s1_circ_difficult_instructions: 'C02',
+    s1_circ_client_impact: 'C03',
+    s1_circ_out_of_hours: 'C04',
+    s1_circ_novel_point: 'C05',
+    s1_circ_weight: 'C06',
+    s1_circ_other: 'C07',
+    s2_care_detailed_knowledge: 'CARE 01',
+    s2_care_marshalling_evidence: 'CARE 02',
+    s2_care_effective_tactic: 'CARE 03',
+    s2_care_better_result: 'CARE 04',
+    s2_care_vulnerable_client: 'CARE 05',
+    s2_care_other: 'CARE 06',
+    s2_speed_proactive_pursuit: 'SPEED 01',
+    s2_speed_urgent_deadlines: 'SPEED 02',
+    s2_speed_out_of_hours: 'SPEED 03',
+    s2_speed_other: 'SPEED 04',
+    s2_efficiency_less_time: 'EFF 01',
+    s2_novelty_difficult_argument: 'NOV 01',
+    s2_novelty_novel_point: 'NOV 02',
+    s2_weight_client_importance: 'WEIGHT 01',
+    s2_weight_volume: 'WEIGHT 02',
+    s2_complexity_legal_issues: 'COMP 01',
+    s2_complexity_difficult_instructions: 'COMP 02',
+    s2_complexity_other: 'COMP 03',
+    s2_resp_no_counsel_analysis: 'RESP 01',
+    s2_resp_no_counsel_drafting: 'RESP 02',
+    s2_resp_no_counsel_advocacy: 'RESP 03',
+    s2_resp_addressed_expert_issues: 'RESP 04',
+    s2_resp_other: 'RESP 05'
+};
+check('every frozen mapping is either live and identical, or retired into the registry', () => {
+    const live = {};
+    for (const block of CONTENT.QUESTION_BLOCKS) {
+        for (const chk of (block.checkboxes || [])) {
+            if (!chk.retired && chk.code !== undefined) live[chk.key] = chk.code;
+        }
+    }
+    const reserved = new Set(CONTENT.RESERVED_ITEM_CODES);
+    for (const [key, code] of Object.entries(FROZEN_CODES)) {
+        if (key in live) {
+            assert.strictEqual(live[key], code,
+                key + ' must keep frozen code ' + code + ' — editing FROZEN_CODES is the only migration path');
+        } else {
+            assert.ok(reserved.has(code),
+                key + ' is gone or retired, but its code ' + code +
+                ' is not in RESERVED_ITEM_CODES — old documents would let it be reissued');
+        }
+    }
+    assert.strictEqual(Object.keys(FROZEN_CODES).length, 41,
+        'the freeze covers all 41 codes as of 7 August 2026');
+});
+
 console.log('\n' + checks + '/' + checks + ' item-code checks passed.');

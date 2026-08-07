@@ -76,7 +76,7 @@ _UPLIFT_LABEL = "Solicitor’s proposed uplift"
 _CEILING_LABEL = "Applicable ceiling for this court (CAG 12.2)"
 # Mirrors the app's own percentage gate: ASCII digits, at most one dot. The
 # generator can never print "1..2%" or "1e2%", so anything looser is damage.
-_PERCENT_RE = re.compile(r"^(?P<value>\d{1,3}(?:\.\d{1,2})?)%$")
+_PERCENT_RE = re.compile(r"^(?P<value>[0-9]{1,3}(?:\.[0-9]{1,2})?)%$")
 # The only ceilings the app prints (CAG 12.2 / Spec 7.22): 50% everywhere,
 # 100% in the higher courts.
 _CEILING_VALUES = {"50", "100"}
@@ -176,7 +176,7 @@ def _resolve_item_row(text: str, section: str) -> dict:
     """Describe a coded row without ever inspecting explanation sub-lines."""
     split = _split_machine_row(text)
     if not split:
-        return {"itemlike": False, "info": None, "label": text, "damage": None}
+        return {"itemlike": False, "info": None, "label": text, "damage": None, "code": None}
     code, label = split
     contract = _content_contract()
     by_code = contract["by_code"][section]
@@ -186,7 +186,7 @@ def _resolve_item_row(text: str, section: str) -> dict:
     itemlike = bool(code_info or label_info or _CODE_LIKE[section].match(code))
 
     if code_info and label_info and code_info["key"] == label_info["key"]:
-        return {"itemlike": True, "info": code_info, "label": label, "damage": None}
+        return {"itemlike": True, "info": code_info, "label": label, "damage": None, "code": code}
 
     if label_info:
         # Exact-label fallback identifies the key, then performs the required
@@ -199,17 +199,18 @@ def _resolve_item_row(text: str, section: str) -> dict:
                 f"the {section} item {label_info['key']!r} is printed with code "
                 f"{code!r}, but content-data.js requires {label_info['code']!r}"
             ),
+            "code": code,
         }
 
     if code_info:
         # The code identifies the intended current item, but a changed label is
         # still an unmatched solicitor selection and must not be silently fixed.
-        return {"itemlike": True, "info": None, "label": label, "damage": None}
+        return {"itemlike": True, "info": None, "label": label, "damage": None, "code": code}
 
     damage = None
     if itemlike:
         damage = f"the {section} item carries unknown code {code!r}"
-    return {"itemlike": itemlike, "info": None, "label": label, "damage": damage}
+    return {"itemlike": itemlike, "info": None, "label": label, "damage": damage, "code": code}
 
 
 def _nonempty(paragraphs: list[str]) -> list[tuple[int, str]]:
@@ -320,7 +321,7 @@ def _analyse(paragraphs: list[str]) -> dict:
         # and never prints one twice. A duplicated row would otherwise let its
         # explanation silently overwrite the original's; a reordering would
         # cross-file explanations between factors.
-        seen_codes = [row["info"]["code"] for row in stage2_rows if row["info"]]
+        seen_codes = [row["code"] for row in stage2_rows if row["code"] is not None]
         if seen_codes != sorted(set(seen_codes)):
             problems.append("the Stage 2 item codes are not in generator order")
 
@@ -389,8 +390,15 @@ def _analyse(paragraphs: list[str]) -> dict:
                 label, value = row
                 labels.append(label)
                 in_membership_run = label == "Memberships" and value.startswith("- ")
+                if in_membership_run and not value[2:].strip():
+                    problems.append("MATTER DETAIL contains an empty membership row")
             elif text.startswith("- ") and in_membership_run:
-                pass  # a continuation, still inside the run
+                # A continuation, still inside the run. An unknown but
+                # non-empty panel name is NOT damage — extract_panel surfaces
+                # it as unrecognised, which tolerates future label rewording.
+                # An empty one is generator-impossible.
+                if not text[2:].strip():
+                    problems.append("MATTER DETAIL contains an empty membership row")
             else:
                 problems.append("MATTER DETAIL contains a paragraph that is not a machine row")
                 in_membership_run = False
@@ -429,12 +437,15 @@ def _analyse(paragraphs: list[str]) -> dict:
                     problems.append(
                         f"the Stage 1 item {info['code']} is under the wrong limb heading"
                     )
-                # Strictly ascending: the generator sorts codes and never
-                # repeats one, so equality (a duplicated row) is damage too.
-                if info and info["code"] <= last_code:
+                # Strictly ascending over the RAW printed codes: the
+                # generator sorts codes and never repeats one, so equality (a
+                # duplicated row) is damage too, and an edited label cannot
+                # exempt its row from the order check.
+                raw_code = resolved["code"]
+                if raw_code is not None and raw_code <= last_code:
                     problems.append("the Stage 1 item codes are not in generator order")
-                if info:
-                    last_code = info["code"]
+                if raw_code is not None:
+                    last_code = raw_code
 
     if proposed is not None and evidence is not None:
         uplift_rows = [

@@ -11,7 +11,7 @@
  * signs can be read here in full. Decision and survey: _PLAN.md, "THE .DOCX
  * OUTPUT".
  *
- * THE LAYOUT IS SIMON'S, SIGNED OFF. Five design rounds ended with his own
+ * THE LAYOUT IS SIGNED OFF. Five design rounds ended with a hand-edited
  * edited document as the source of truth; the round-5 mockup generator
  * reproduced it byte for byte and this file is that generator with the approved
  * configuration (Cambria display face, Calibri body, Stage 2 shown as codes,
@@ -187,7 +187,7 @@
     // Formatting is applied per run. Child order inside rPr and pPr follows the
     // WordprocessingML schema — Word repairs (or rejects) files that disorder
     // them — and the attribute order matches what Word itself wrote in the source
-    // file, so a diff against his document is about content, not about us.
+    // file, so a diff against the source document is about content, not about us.
     // Sizes are half-points (8pt → 16); colours are RRGGBB.
 
     function runProps(opts) {
