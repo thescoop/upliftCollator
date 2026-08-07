@@ -759,6 +759,43 @@ class TestReviewRoundHardening(unittest.TestCase):
             unrecognised,
         )
 
+    # ── round 3 ──
+
+    def test_a_no_space_dash_membership_is_damage(self):
+        """"Memberships\\t-" silently erased both panels — and a silently
+        dropped panel erases a guaranteed 15% entitlement."""
+        paras = self.paragraphs[:]
+        paras[self._row("Memberships\t")] = "Memberships\t-"
+        paras.pop(self._row("- Law Society"))
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_an_empty_membership_value_is_damage(self):
+        paras = self.paragraphs[:]
+        paras[self._row("Memberships\t")] = "Memberships\t"
+        paras.pop(self._row("- Law Society"))
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_none_recorded_with_a_trailing_space_is_damage(self):
+        paras = self.paragraphs[:]
+        paras[self._row("Memberships\t")] = "Memberships\tNone recorded "
+        paras.pop(self._row("- Law Society"))
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_an_edited_label_cannot_escape_the_limb_placement_check(self):
+        """Round 3's medium finding: a row with a known code but edited label
+        fell out of the wrong-limb check. Placement now follows the raw code."""
+        paras = self.paragraphs[:]
+        moved = "A03\tSomething entirely rewritten"
+        paras.pop(self._row("A03\t"))
+        paras.insert(self._row("C01\t"), moved)
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_an_edited_label_row_before_the_first_limb_heading_is_damage(self):
+        paras = self.paragraphs[:]
+        paras.pop(self._row("A01\t"))
+        paras.insert(self._row("Limb (a)"), "A01\tSomething entirely rewritten")
+        self.assertTrue(extract_docx.structural_damage(paras))
+
     def test_unicode_digits_are_not_a_percentage(self):
         """Python's \\d matches Arabic-Indic digits; the app's gate does not.
         The extractor now requires ASCII digits."""

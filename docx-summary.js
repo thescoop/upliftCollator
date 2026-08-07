@@ -12,7 +12,7 @@
  * OUTPUT".
  *
  * THE LAYOUT IS SIGNED OFF. Five design rounds ended with a hand-edited
- * edited document as the source of truth; the round-5 mockup generator
+ * source document as the truth; the round-5 mockup generator
  * reproduced it byte for byte and this file is that generator with the approved
  * configuration (Cambria display face, Calibri body, Stage 2 shown as codes,
  * grey rather than teal limb titles) baked in. There is no design switch: the
@@ -57,7 +57,7 @@
  *      the heading to its route sentence inside a single paragraph, so
  *      python-docx returns "STAGE 1 : Threshold route\t\nEstablished by…".
  *      That is a designed shape, not a wrap: it is stable, and the parser
- *      splits on the "\t\n". Nothing else may split a logical line across
+ *      matches the whole composite paragraph against a fixed constant. Nothing else may split a logical line across
  *      paragraphs, and no paragraph boundary is ever encoded as a newline
  *      inside <w:t>.
  *   2. Solicitor-typed newlines (textarea explanations) become <w:br/> runs

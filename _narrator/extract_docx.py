@@ -390,8 +390,16 @@ def _analyse(paragraphs: list[str]) -> dict:
                 label, value = row
                 labels.append(label)
                 in_membership_run = label == "Memberships" and value.startswith("- ")
-                if in_membership_run and not value[2:].strip():
-                    problems.append("MATTER DETAIL contains an empty membership row")
+                # The Memberships value has exactly two generator-legal
+                # shapes: the literal "None recorded", or "- " plus a
+                # non-empty name. "-", "", a no-space dash or a trailing
+                # space would silently erase a panel membership — and a
+                # silently dropped panel erases a guaranteed 15% entitlement.
+                if label == "Memberships" and not (
+                    value == "None recorded"
+                    or (value.startswith("- ") and value[2:].strip())
+                ):
+                    problems.append("the Memberships row is malformed")
             elif text.startswith("- ") and in_membership_run:
                 # A continuation, still inside the run. An unknown but
                 # non-empty panel name is NOT damage — extract_panel surfaces
@@ -433,9 +441,17 @@ def _analyse(paragraphs: list[str]) -> dict:
                 if resolved["damage"]:
                     problems.append(resolved["damage"])
                 info = resolved["info"]
-                if info and current_limb != info["limbHeading"]:
+                # Placement is validated from the RAW printed code, so an
+                # edited label cannot exempt its row from the limb check —
+                # the code alone names the limb the generator prints it under.
+                raw_info = info
+                if raw_info is None and resolved["code"] is not None:
+                    raw_info = _content_contract()["by_code"]["stage1"].get(
+                        resolved["code"]
+                    )
+                if raw_info and current_limb != raw_info["limbHeading"]:
                     problems.append(
-                        f"the Stage 1 item {info['code']} is under the wrong limb heading"
+                        f"the Stage 1 item {raw_info['code']} is under the wrong limb heading"
                     )
                 # Strictly ascending over the RAW printed codes: the
                 # generator sorts codes and never repeats one, so equality (a
