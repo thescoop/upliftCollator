@@ -1,7 +1,20 @@
 # Uplift Collator + Narrator — Project Handoff
 
 Concise context for picking up work in a fresh session.
-**Last updated 7 August 2026.**
+**Last updated 7 August 2026 (evening).**
+
+> **State as of 7 August 2026, end of day:** the signed-off .docx visual
+> redesign is fully implemented and nine-round-adversarially-reviewed on
+> `redesign/stage1-labels` (commits `580a604..9b12543`; 434 tests + 200
+> subtests on WSL and Windows, 30/30 browser drive). The extraction contract
+> in `extract_docx.py` is the new composite-heading/coded-row grammar; the
+> legacy PDF path is blob-identical throughout. **Next session's headline is
+> the ceiling-UX form redesign** — the per-court limit must block and be
+> explained in the form (Simon's brief lives in the project memory,
+> `project_ceiling_ux_brief`); a narrator-side gate was built and reverted on
+> his direction, so do not re-add one. Also pending: Simon's final look-over
+> of real generated documents, the site walk-through, branch push, and the
+> standing pre-merge gates in `_PLAN.md`.
 
 ## What this project does
 
