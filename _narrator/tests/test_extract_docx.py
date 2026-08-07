@@ -601,11 +601,13 @@ class TestDiagnostics(unittest.TestCase):
 
 
 class TestEmptyExplanationSentinel(unittest.TestCase):
-    """Empty explanations pass the app's download gate by design (script.js),
-    so the explanation paragraph is MANDATORY in the grammar: the generator
-    prints a fixed sentinel when the solicitor typed nothing. Without it, the
-    parser's consume-one-paragraph-per-item rule would swallow the next item
-    row — found by review before it shipped, so pin it forever."""
+    """The explanation paragraph is MANDATORY in the grammar: the generator
+    prints a fixed sentinel when an entry carries no explanation. The app's
+    wizard gate blocks empty explanations, but the generator is also driven
+    directly (fixtures, tests, future callers) and cannot assume the gate ran.
+    Without the sentinel, the parser's consume-one-paragraph-per-item rule
+    would swallow the next item row — found by review before it shipped, so
+    pin it forever."""
 
     def test_the_sentinel_reads_back_as_an_empty_explanation(self):
         formdata = json.loads(
@@ -623,12 +625,72 @@ class TestEmptyExplanationSentinel(unittest.TestCase):
         self.assertEqual(entry["explanation"], "")
 
     def test_a_typed_sentinel_lookalike_also_reads_as_empty(self):
-        """A solicitor who literally types the sentinel loses nothing but
-        those words — acceptable, and better than grammar ambiguity."""
+        """A solicitor who literally types the sentinel reads back as "" —
+        an adjudicated trade-off, not an accident: the typed sentence asserts
+        exactly the absence the empty string records, and the generator
+        produces byte-identical documents for both (proved in
+        tests/test_empty_explanation.js). The first test in this class IS the
+        lookalike round trip — the parser cannot and should not distinguish
+        the two origins. This one pins the spelling both sides agreed."""
         self.assertEqual(
             extract_docx.EMPTY_EXPLANATION_SENTINEL,
             "No explanation was provided.",
         )
+
+
+class TestReviewRoundHardening(unittest.TestCase):
+    """Adversarial-review regressions, 7 August 2026: paragraph shapes the
+    generator cannot produce must read as structural damage, never extract
+    quietly. Each of these extracted cleanly (and wrongly) before the fix."""
+
+    def setUp(self):
+        self.paragraphs = extract_docx.read_docx_paragraphs(SAMPLE)
+
+    def _row(self, prefix: str) -> int:
+        for index, text in enumerate(self.paragraphs):
+            if text.startswith(prefix):
+                return index
+        raise AssertionError(f"no paragraph starts with {prefix!r}")
+
+    def test_a_membership_dash_row_after_proceedings_is_damage(self):
+        paras = self.paragraphs[:]
+        stray = paras.pop(self._row("- "))
+        paras.insert(paras.index(next(
+            t for t in paras if t.startswith("Proceedings\t"))) + 1, stray)
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_none_recorded_with_a_continuation_is_damage(self):
+        paras = self.paragraphs[:]
+        paras[self._row("Memberships\t")] = "Memberships\tNone recorded"
+        # the "- Law Society Children Panel" continuation row is still present
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_a_duplicated_stage2_row_is_damage(self):
+        paras = self.paragraphs[:]
+        care = self._row("CARE 05\t")
+        explanation = next(
+            i for i in range(care + 1, len(paras)) if paras[i] != "")
+        paras.insert(explanation + 1, "A different, quietly winning explanation.")
+        paras.insert(explanation + 1, paras[care])
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_swapped_stage2_rows_cross_file_explanations_so_are_damage(self):
+        paras = self.paragraphs[:]
+        care, resp = self._row("CARE 05\t"), self._row("RESP 02\t")
+        paras[care], paras[resp] = paras[resp], paras[care]
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_a_double_dot_percentage_is_damage(self):
+        paras = self.paragraphs[:]
+        row = self._row("Solicitor’s proposed uplift\t")
+        paras[row] = "Solicitor’s proposed uplift\t1..2%"
+        self.assertTrue(extract_docx.structural_damage(paras))
+
+    def test_an_invented_ceiling_is_damage(self):
+        paras = self.paragraphs[:]
+        row = self._row("Applicable ceiling for this court (CAG 12.2)\t")
+        paras[row] = "Applicable ceiling for this court (CAG 12.2)\t60%"
+        self.assertTrue(extract_docx.structural_damage(paras))
 
 
 class TestFixturesAreCanonical(unittest.TestCase):

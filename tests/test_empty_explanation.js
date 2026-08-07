@@ -1,10 +1,15 @@
 /**
  * The explanation paragraph is mandatory in the extraction grammar: the
  * parser consumes exactly one paragraph after every Stage 2 item row, so a
- * ticked factor with an empty explanation (which passes the download gate by
- * design — see script.js) must still print a paragraph. The generator emits
- * the fixed sentinel "No explanation was provided."; _narrator/extract_docx.py
- * maps it back to "". This test pins the generator half of that agreement.
+ * ticked factor with an empty explanation must still print a paragraph. The
+ * app's wizard gate blocks empty explanations from reaching a download, but
+ * the generator cannot assume its caller is the app (this fixture-style call
+ * is itself the proof), so it emits the fixed sentinel
+ * "No explanation was provided."; _narrator/extract_docx.py maps it back to
+ * "". This test pins the generator half of that agreement, including the
+ * deliberate collision: a solicitor who literally types the sentinel produces
+ * byte-identical output and reads back as "" — accepted, because the typed
+ * sentence asserts exactly the absence the empty string records.
  *
  *   node tests/test_empty_explanation.js
  */
@@ -85,6 +90,16 @@ check('exactly one sentinel — the typed explanation is untouched',
     docXml.indexOf(SENTINEL, sentinelAt + 1) === -1
     && docXml.includes('>Drafted everything without counsel.<'),
     'sentinel duplicated or typed explanation missing');
+
+// The deliberate collision, pinned: typing the sentinel is byte-identical to
+// typing nothing, so the round trip to "" is a documented equivalence rather
+// than an accident of string comparison.
+const typedFormData = JSON.parse(JSON.stringify(formData));
+typedFormData.stage2.s2_care_vulnerable_client.explanation = 'No explanation was provided.';
+const typedBytes = build(typedFormData, meta);
+check('a typed sentinel produces byte-identical output to an empty explanation',
+    Buffer.compare(Buffer.from(bytes), Buffer.from(typedBytes)) === 0,
+    'outputs differ — the collision is no longer total, revisit the parser mapping');
 
 // If invoked with --emit <path>, write the docx for cross-language checks.
 const emitAt = process.argv.indexOf('--emit');

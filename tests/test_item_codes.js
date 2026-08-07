@@ -17,8 +17,10 @@
  * item in documents already sitting in live matters; renumbering makes an old
  * document's "CARE 04" point at a different factor. The intended sequence is:
  *
- *   1. Give the new checkbox the next UNUSED number in its block (see
- *      RETIRED_OR_RESERVED below), leaving every existing literal alone.
+ *   1. Give the new checkbox the next UNUSED number in its block — one that is
+ *      neither live nor in RESERVED_ITEM_CODES in content-data.js — leaving
+ *      every existing literal alone, and move a retired checkbox's code into
+ *      RESERVED_ITEM_CODES so it can never be reissued.
  *   2. Record the divergence here, in EXPECTED_DIVERGENCES, with the date and
  *      the reason — so the check keeps running over everything else.
  *
@@ -40,7 +42,7 @@ const REPO = path.resolve(__dirname, '..');
 // _narrator/tests/build_docx_fixture.js.
 const CONTENT = vm.runInContext(
     fs.readFileSync(path.join(REPO, 'content-data.js'), 'utf8') +
-    '\n;({ QUESTION_BLOCKS })',
+    '\n;({ QUESTION_BLOCKS, RESERVED_ITEM_CODES })',
     vm.createContext({})
 );
 
@@ -211,6 +213,30 @@ check('the codes shown in the signed-off design samples are still those codes', 
     for (const key of Object.keys(PINNED)) {
         assert.strictEqual(byKey[key], PINNED[key],
             key + ' must stay ' + PINNED[key] + ' — it is printed in documents already issued');
+    }
+});
+
+// ── 5. Retired codes stay retired ───────────────────────────────────────────
+// RESERVED_ITEM_CODES is the registry of codes that once named a checkbox and
+// must never name another. A live checkbox wearing a reserved code would make
+// an old document's code point at a different item — the exact failure the
+// freeze exists to prevent.
+check('no live checkbox uses a reserved code, and retired boxes have no code', () => {
+    assert.ok(Array.isArray(CONTENT.RESERVED_ITEM_CODES),
+        'RESERVED_ITEM_CODES must exist in content-data.js');
+    const reserved = new Set(CONTENT.RESERVED_ITEM_CODES);
+    for (const block of CONTENT.QUESTION_BLOCKS) {
+        for (const chk of (block.checkboxes || [])) {
+            if (chk.retired) {
+                assert.strictEqual(chk.code, undefined,
+                    chk.key + ' is retired: its code belongs in RESERVED_ITEM_CODES, not on the checkbox');
+                continue;
+            }
+            if (chk.code !== undefined) {
+                assert.ok(!reserved.has(chk.code),
+                    chk.key + ' wears reserved code ' + chk.code + ' — reserved codes are never reissued');
+            }
+        }
     }
 });
 

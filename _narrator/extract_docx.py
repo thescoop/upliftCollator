@@ -52,11 +52,15 @@ STAGE1_DEEMED_EMPTY = (
     "above applies."
 )
 STAGE2_EMPTY = "No Stage 2 factors were selected."
-# Printed by the generator when the solicitor ticked a factor but typed no
-# explanation (empty explanations pass the app's download gate by design).
-# The explanation paragraph is mandatory in the grammar — the parser consumes
+# Printed by the generator when a Stage 2 entry carries an empty explanation.
+# The app's own wizard gate blocks empty explanations from ever reaching a
+# download, but the generator is also driven directly (fixture builder, tests,
+# any future caller) and cannot assume its caller enforced that gate. The
+# explanation paragraph is mandatory in the grammar — the parser consumes
 # exactly one paragraph per item row — so absence is expressed as this
-# sentinel, which maps back to "".
+# sentinel, which maps back to "". A solicitor who literally types these words
+# also reads back as "": a deliberate, tested trade-off — the typed sentence
+# asserts exactly the absence the empty string records.
 EMPTY_EXPLANATION_SENTINEL = "No explanation was provided."
 
 EVIDENCE_CONFIRMED_SENTENCE = (
@@ -70,7 +74,12 @@ EVIDENCE_UNCONFIRMED_SENTENCE = (
 
 _UPLIFT_LABEL = "Solicitor’s proposed uplift"
 _CEILING_LABEL = "Applicable ceiling for this court (CAG 12.2)"
-_PERCENT_RE = re.compile(r"^(?P<value>[\d.]+)%$")
+# Mirrors the app's own percentage gate: ASCII digits, at most one dot. The
+# generator can never print "1..2%" or "1e2%", so anything looser is damage.
+_PERCENT_RE = re.compile(r"^(?P<value>\d{1,3}(?:\.\d{1,2})?)%$")
+# The only ceilings the app prints (CAG 12.2 / Spec 7.22): 50% everywhere,
+# 100% in the higher courts.
+_CEILING_VALUES = {"50", "100"}
 _CODE_LIKE = {
     "stage1": re.compile(r"^[A-Z]\d{2}$"),
     "stage2": re.compile(r"^[A-Z]+(?: [A-Z]+)* \d{2}$"),
@@ -307,6 +316,14 @@ def _analyse(paragraphs: list[str]) -> dict:
             stage2_explanations.append(explanation_index)
             cursor += 1
 
+        # Strictly ascending, no repeats: the generator sorts Stage 2 codes
+        # and never prints one twice. A duplicated row would otherwise let its
+        # explanation silently overwrite the original's; a reordering would
+        # cross-file explanations between factors.
+        seen_codes = [row["info"]["code"] for row in stage2_rows if row["info"]]
+        if seen_codes != sorted(set(seen_codes)):
+            problems.append("the Stage 2 item codes are not in generator order")
+
     proposed = indexes.get("proposed_uplift")
     if proposed is not None:
         evidence = first_after(
@@ -359,16 +376,24 @@ def _analyse(paragraphs: list[str]) -> dict:
             text for index, text in records
             if indexes["case_details"] < index < indexes["stage1"]
         ]
+        # Strict state machine: dash continuations are legal ONLY immediately
+        # after a "Memberships\t- …" row. A dash row anywhere else, or any
+        # continuation after "None recorded", is a shape the generator cannot
+        # produce and must read as damage — the alternative silently drops or
+        # invents a panel, the costliest misread this project has had.
         labels = []
-        membership_started = False
+        in_membership_run = False
         for text in block:
             row = _split_machine_row(text)
             if row:
-                label, _value = row
+                label, value = row
                 labels.append(label)
-                membership_started = label == "Memberships" or membership_started
-            elif not (membership_started and text.startswith("- ")):
+                in_membership_run = label == "Memberships" and value.startswith("- ")
+            elif text.startswith("- ") and in_membership_run:
+                pass  # a continuation, still inside the run
+            else:
                 problems.append("MATTER DETAIL contains a paragraph that is not a machine row")
+                in_membership_run = False
         expected = ["Matter", "Fee earner", "Memberships", "Proceedings", "Court"]
         if labels != expected:
             problems.append(
@@ -404,7 +429,9 @@ def _analyse(paragraphs: list[str]) -> dict:
                     problems.append(
                         f"the Stage 1 item {info['code']} is under the wrong limb heading"
                     )
-                if info and info["code"] < last_code:
+                # Strictly ascending: the generator sorts codes and never
+                # repeats one, so equality (a duplicated row) is damage too.
+                if info and info["code"] <= last_code:
                     problems.append("the Stage 1 item codes are not in generator order")
                 if info:
                     last_code = info["code"]
@@ -422,6 +449,10 @@ def _analyse(paragraphs: list[str]) -> dict:
             if not row or not _PERCENT_RE.match(row[1]):
                 problems.append("PROPOSED UPLIFT contains a malformed percentage row")
                 continue
+            if row[0] == _CEILING_LABEL and row[1][:-1] not in _CEILING_VALUES:
+                problems.append(
+                    "the ceiling row is not one of the two CAG 12.2 ceilings"
+                )
             parsed_labels.append(row[0])
         if parsed_labels != expected_labels or len(uplift_rows) not in (1, 2):
             problems.append("the uplift and optional ceiling rows are not in generator order")

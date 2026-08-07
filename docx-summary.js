@@ -17,7 +17,7 @@
  * configuration (Cambria display face, Calibri body, Stage 2 shown as codes,
  * grey rather than teal limb titles) baked in. There is no design switch: the
  * app ships one document. Anything visual changed here is a change to a
- * document Simon approved, so change it deliberately or not at all.
+ * signed-off document, so change it deliberately or not at all.
  *
  * ── THE PARAGRAPH STREAM IS AN EXTRACTION CONTRACT ─────────────────────────
  *
@@ -45,7 +45,7 @@
  *                                                      sit HERE in document
  *                                                      order, before the glyph
  *                                                      sentence, because that is
- *                                                      where Simon's file put
+ *                                                      where the source file put
  *                                                      them)
  *   "✓   <evidence sentence>" | "✗   <evidence sentence>"
  *
@@ -75,7 +75,8 @@
  *      solicitor typed, and stripping a tab out of it would silently edit their
  *      words. An explanation is emitted as ONE paragraph of its own containing
  *      nothing else, so whatever tabs and newlines it carries stay inside it —
- *      it can never equal a heading or a detail row, which is what rule 1 and
+ *      the reader treats it as opaque and never grammar-matches its content,
+ *      even when a line of it looks exactly like a heading — which rule 1 and
  *      rule 2 buy. A reader must therefore treat an explanation paragraph as
  *      opaque text: never split it on "\n" and match the pieces against this
  *      grammar, because a pasted line inside it can look exactly like one.
@@ -169,7 +170,7 @@
     }
 
     // ── Palette ────────────────────────────────────────────────────────────
-    // Simon's colours, read out of his own document.
+    // The approved palette, read out of the signed-off source document.
     var INK = "242628";        // title
     var BODY = "3F4447";       // body text and shaded-heading text
     var GREY = "666D70";       // detail values, small-caps headings, About text
@@ -185,7 +186,7 @@
     //
     // Formatting is applied per run. Child order inside rPr and pPr follows the
     // WordprocessingML schema — Word repairs (or rejects) files that disorder
-    // them — and the attribute order matches what Word itself wrote in Simon's
+    // them — and the attribute order matches what Word itself wrote in the source
     // file, so a diff against his document is about content, not about us.
     // Sizes are half-points (8pt → 16); colours are RRGGBB.
 
@@ -266,7 +267,7 @@
             xml += ind + "/>";
         }
         // The paragraph mark's own size bounds the height of the last line, so
-        // a 16-half-point mark on an 8pt row keeps the row tight. Simon's file
+        // a 16-half-point mark on an 8pt row keeps the row tight. The source file
         // carried these and the layout depends on them.
         if (p.markRPr) xml += p.markRPr;
         return xml ? "<w:pPr>" + xml + "</w:pPr>" : "";
@@ -368,7 +369,7 @@
 
     // The disclaimer, as one paragraph pinned to the foot of the first page by
     // a Word text frame. One paragraph rather than the PDF's five lines was
-    // Simon's decision in the design rounds.
+    // a decision from the design rounds.
     var ABOUT_TEXT =
         "This summary was generated from information entered by the named fee " +
         "earner for secure transmission to Woodruff Billing Ltd and preparation " +
@@ -457,7 +458,8 @@
 
         // ── STAGE 1 ──
         // The route sentence is part of the heading paragraph. Both citations
-        // are verbatim from the Family Specification, which is why they are
+        // are established by _spec-7.20-7.24-verbatim.md (7.23(a) from the Family
+        // rules; 6.13 and 6.15 from its General Rules section), which is why they are
         // paragraph numbers and not a paraphrase.
         var routeRuns;
         if (meta.thresholdDeemedOnly) {
@@ -547,9 +549,10 @@
                 // The explanation paragraph is MANDATORY in the grammar: the
                 // parser consumes exactly one paragraph after every item row,
                 // opaquely, and that is only unambiguous if the paragraph is
-                // always there. Empty explanations pass the download gate by
-                // design (see script.js), so an empty one prints a fixed
-                // sentinel the parser maps back to "". One paragraph however
+                // always there. The app's wizard gate blocks empty explanations,
+                // but this generator cannot assume its caller is the app
+                // (fixtures and tests drive it directly), so an empty one
+                // prints a fixed sentinel the parser maps back to "". One paragraph however
                 // many lines the solicitor typed (rule 2). No "Explanation: "
                 // prefix — the rule down the left margin says what it is.
                 xml += paragraph(
@@ -587,7 +590,7 @@
 
         // ── About this summary ──
         // Frame-pinned to the foot of the page, but written HERE in document
-        // order — before the evidence sentence — because that is where Simon's
+        // order — before the evidence sentence — because that is where the source
         // approved file put it, and the paragraph stream is a contract.
         xml += paragraph(run("About this summary", S.aboutHead), {
             keepNext: true, frame: ABOUT_FRAME,
